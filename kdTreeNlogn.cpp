@@ -31,10 +31,10 @@
 /*
  * The k-d tree was described by Jon Bentley in "Multidimensional Binary Search Trees
  * Used for Associative Searching", CACM 18(9): 509-517, 1975.  For k dimensions and
- * n elements of data, a balanced k-d tree is built in O(kn log n) + O((k-1)n log n)
- * time by first sorting the data in each of k dimensions, then building the k-d tree
- * in a manner that preserves the order of the k sorts while recursively partitioning
- * the data at each level of the k-d tree. No further sorting is necessary.
+ * n elements of data, a balanced k-d tree is built in O(n log n) time by finding the
+ * median of the data at each level of the tree via the "median of medians" algorithm
+ * described by Manuel Blum, et al. in "Time Bounds for Selection", Journal of Computer
+ * and System Sciences, 7: 448-461, 1973.
  *
  * Gnu g++ compilation options are: -lm -O3 (compile using g++ not gcc)
  *
