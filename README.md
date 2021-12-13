@@ -1,5 +1,6 @@
 This Github repository comprises source code that implements two algorithms
-to build a balanced k-d tree and a k-d tree-based key-to-value map.
+to build a balanced k-d tree and a k-d tree-based
+key-to-value map.
 
 Specifically, the source-code files  “kdTreeKnlogn.cpp”, “kdTreeNlogn.cpp”,
 "kdTreeMapKnlogn.cpp", "kdTreeMapNlogn.cpp", "kdTreeKmapKnlog.cpp", and
