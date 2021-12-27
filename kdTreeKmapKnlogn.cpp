@@ -1230,14 +1230,16 @@ public:
    *
    * queryLower - the query lower bound vector
    * queryUpper - the query upper bound vector
+   * enable - a vector that specifies the dimensions on which to test for insidedness
    *
    * return true if inside, false if outside
    */
 private:
-  bool insideBounds(std::vector<K> const& queryLower, std::vector<K> const& queryUpper) {
+  bool insideBounds(std::vector<K> const& queryLower, std::vector<K> const& queryUpper,
+                    std::vector<bool> const& enable) {
     bool inside = true;
     for (signed_size_t i = 0; i < queryLower.size(); ++i) {
-      if (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i]) {
+      if (enable[i] && (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i])) {
         inside = false;
         break;
       }
@@ -1256,13 +1258,15 @@ private:
    * permutation - vector that specifies permutation of the partition coordinate
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * depth - the depth in the k-d tree
+   * enable - a vector that specifies the dimensions on which to prune the region search
    *
    * return a list that contains the KdNodes that lie within the cutoff distance of the query node
    */
 private:
   std::list<KdNode<K,V,N>*> regionSearch(std::vector<K> const& queryLower, std::vector<K> const& queryUpper,
-                                    std::vector<signed_size_t> const& permutation,
-                                    signed_size_t maximumSubmitDepth, signed_size_t depth) {
+                                         std::vector<signed_size_t> const& permutation,
+                                         signed_size_t maximumSubmitDepth, signed_size_t depth,
+                                         std::vector<bool> const& enable) {
 
     // The partition cycles as x, y, z, w...
     signed_size_t p = permutation[depth];
@@ -1272,7 +1276,7 @@ private:
     // following loop is equivalent to the IN_REGION pseudo-Algol code proposed
     // by Jon Bentley in his CACM article.
     std::list<KdNode<K,V,N>*> result;
-    if (insideBounds(queryLower, queryUpper)) {
+    if (insideBounds(queryLower, queryUpper, enable)) {
       result.push_back(this);
     }
 
@@ -1282,12 +1286,12 @@ private:
     // will avoid unnecessary searching of a sub-tree (at the expense of a more
     // precise super-key comparison) but the unnecessary search/ appears not to
     // change the outcome of this recursive regionSearch function.
-#ifdef NOSK
-    bool searchLT = ltChild != nullptr && tuple[p] >= queryLower[p];
-    bool searchGT = gtChild != nullptr && tuple[p] <= queryUpper[p];
+#ifdef NO_SUPER_KEY
+    bool searchLT = ltChild != nullptr && (tuple[p] >= queryLower[p] || !enable[p]);
+    bool searchGT = gtChild != nullptr && (tuple[p] <= queryUpper[p] || !enable[p]);;
 #else
-    bool searchLT = ltChild != nullptr && superKeyCompare(tuple, queryLower.data(), p) >= 0;
-    bool searchGT = gtChild != nullptr && superKeyCompare(tuple, queryUpper.data(), p) <= 0;
+    bool searchLT = ltChild != nullptr && (superKeyCompare(tuple, queryLower.data(), p) >= 0 || !enable[p]);
+    bool searchGT = gtChild != nullptr && (superKeyCompare(tuple, queryUpper.data(), p) <= 0 || !enable[p]);
 #endif
 
     // Do both branches require searching and is a child thread available?
@@ -1303,16 +1307,16 @@ private:
         // Yes, search the < branch asynchronously with a child thread.
         searchFuture =
           std::async(std::launch::async, [&] {
-                                 return ltChild->regionSearch(queryLower, queryUpper, permutation,
-                                                              maximumSubmitDepth, depth + 1);
-                               });
+                                           return ltChild->regionSearch(queryLower, queryUpper, permutation,
+                                                                        maximumSubmitDepth, depth + 1, enable);
+                                         });
 
         // Search the > branch?
         std::list<KdNode<K,V,N>*> gtResult;
         if (searchGT) {
           
           // Yes, search the > branch  with the master thread.
-          gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1);
+          gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
         }
 
         // Get the result of searching the < branch with the child thread.
@@ -1335,7 +1339,7 @@ private:
         if (searchGT) {
           
           // Yes, search the > branch  with the master thread.
-          gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1);
+          gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
         }
 
         // Append the result of searching the > branch to the result (if any) for this KdNode.
@@ -1346,13 +1350,13 @@ private:
       
       // No, both branches do not require searching. Search the < branch with the master thread?
       if (searchLT) {
-        auto ltResult = ltChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1);
+        auto ltResult = ltChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
         result.splice(result.end(), ltResult); // Can't substitute regionSearch(...) for ltResult.
       }
 
       // Search the > branch with the master thread?
       if (searchGT) {
-        auto gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1);
+        auto gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
         result.splice(result.end(), gtResult); // Can't substitute regionSearch(...) for gtResult.
       }
 
@@ -1376,7 +1380,7 @@ private:
    */
 public:
   std::list<KdNode<K,V,N>*> searchRegion(std::vector<K>& queryLower, std::vector<K>& queryUpper,
-                                    signed_size_t maximumSubmitDepth, signed_size_t size) {
+                                         signed_size_t maximumSubmitDepth, signed_size_t size) {
     
     // Determine the maximum depth of the k-d tree, which is log2(size).
     signed_size_t maxDepth = 1;
@@ -1404,8 +1408,60 @@ public:
       }
     }
 
-    // Search the tree and return the resulting list of KdNodes.
-    return regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, 0);
+    // Search the tree over all dimensions and return the resulting list of KdNodes.
+    std::vector<bool> enable(queryLower.size(), true);
+    return regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, 0, enable);
+  }
+
+  /*
+   * The searchRegion function searches the k-d tree to find the KdNodes that
+   * lie within a hyper-rectangle defined by the query lower and upper bounds.
+   *
+   * Calling parameters:
+   *
+   * queryLower - the query lower bound vector
+   * queryUpper - the query upper bound vector
+
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * size - the number of points in the coordinates vector after removal of duplicates
+   * enable - a vector that specifies the dimensions on which to test for insidedness
+   *          and prune the region search
+   *
+   * return a list of KdNodes that lie within the query hyper-rectangle
+   */
+public:
+  std::list<KdNode<K,V,N>*> searchRegion(std::vector<K>& queryLower, std::vector<K>& queryUpper,
+                                         signed_size_t maximumSubmitDepth, signed_size_t size,
+                                         std::vector<bool> const& enable) {
+    
+    // Determine the maximum depth of the k-d tree, which is log2(size).
+    signed_size_t maxDepth = 1;
+    while (size > 0) {
+      ++maxDepth;
+      size >>= 1;
+    }
+
+    // It is unnecessary to compute the partition coordinate upon each recursive call
+    // of the regionSearch function because that coordinate depends only on the depth
+    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
+    // The partition coordinate permutes n the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
+    // for e.g. 4-dimensional data.
+    std::vector<signed_size_t> permutation(maxDepth);
+    for (signed_size_t i = 0; i < permutation.size(); ++i) {
+      permutation.at(i) = i % queryLower.size();
+    }
+
+    // Ensure that each query lower bound <= the corresponding query upper bound.
+    for (signed_size_t i = 0; i < queryLower.size(); ++i) {
+      if (queryLower[i] > queryUpper[i]) {
+        K tmp = queryLower[i];
+        queryLower[i] = queryUpper[i];
+        queryUpper[i] = tmp;
+      }
+    }
+
+    // Search the tree over the enabled dimensions and return the resulting list of KdNodes.
+    return regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, 0, enable);
   }
 
   /*
@@ -1424,7 +1480,8 @@ public:
 
     // Append the KdNode to the list if it lies inside the query bounds.
     std::list<KdNode<K,V,N>*> result;
-    if (insideBounds(queryLower, queryUpper)) {
+    std::vector<bool> enable(queryLower.size(), true);
+    if (insideBounds(queryLower, queryUpper, enable)) {
       result.push_back(this);
     }
     // Visit the < sub-tree.
@@ -1853,9 +1910,7 @@ public:
     // Find the distance by subtracting the query from the tuple and
     // calculating the sum of the squared distances. Note that conversion
     // from type K to double may result in loss of precision but avoids
-    // the possibility of integer overflow. Note also that the square
-    // root of the squared distance is computed only if the KdNode is
-    // added to the heap.
+    // the possibility of integer overflow.
     double dist2 = 0.0;
     for (int i = 0; i < query.size(); ++i) {
       // Add the squared coordinate distance only if the dimension is enabled.
