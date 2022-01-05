@@ -210,6 +210,17 @@ public:
   }
 
 public:
+  ~KdNode() {
+    // Delete each KdNode from the duplicates list.
+    auto nextPtr = this->duplicates;
+    while (nextPtr != nullptr) {
+      auto tempPtr = nextPtr;
+      nextPtr = nextPtr->duplicates;
+      delete tempPtr;
+    }
+  }
+
+public:
   K const* getTuple() {
     return this->tuple;
   }
@@ -735,7 +746,7 @@ private:
   static signed_size_t removeDuplicates(KdNode<K,V,N>** kdNodes, signed_size_t i, signed_size_t size) {
     signed_size_t end = 0;
     for (signed_size_t j = 1; j < size; ++j) {
-      K compare = superKeyCompare(kdNodes[j]->tuple, kdNodes[j - 1]->tuple, i);
+      K compare = superKeyCompare(kdNodes[j]->tuple, kdNodes[end]->tuple, i);
       if (compare < 0) {
         std::cout << "merge sort failure: superKeyCompare(kdNodes[" << j << "], kdNodes["
                   << j - 1 << "], (" << i << ") = " << compare << std::endl;
@@ -1754,6 +1765,24 @@ public:
   }
 
   /*
+   * Walk the k-d tree to delete each KdNode.
+   */
+public:
+  void deleteKdTree() {
+
+    // Delete the < sub-tree.
+    if (ltChild != nullptr) {
+      ltChild->deleteKdTree();
+    }
+    // Delete the > sub-tree.
+    if (gtChild != nullptr) {
+      gtChild->deleteKdTree();
+    }
+    // Delete the current KdNode.
+    delete this;
+  }
+
+  /*
    * The insideBounds function determines whether KdNode::tuple lies inside the
    * hyper-rectangle defined by the query lower and upper bound vectors.
    *
@@ -2768,9 +2797,17 @@ int main(int argc, char** argv)
         throw std::runtime_error(msg);
       }
     }
+    std::cout << std::endl;
   }
 
-  std::cout << std::endl;
+  // Delete the k-d tree.
+  startTime = getTime();
+  root->deleteKdTree();
+  endTime = getTime();
+  double deleteTime = (endTime.tv_sec - startTime.tv_sec) +
+    1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+  std::cout << "deleteTime = " << std::fixed << std::setprecision(6) << deleteTime << " seconds" << std::endl << std::endl;
 
   return 0;
 }

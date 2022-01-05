@@ -174,6 +174,11 @@ public:
   }
 
 public:
+  ~KdNode() {
+    delete[] tuple;
+  }
+
+public:
   T* getTuple() {
     return this->tuple;
   }
@@ -723,14 +728,19 @@ private:
   static signed_size_t removeDuplicates(T** reference, signed_size_t i, signed_size_t dim, signed_size_t size) {
     signed_size_t end = 0;
     for (signed_size_t j = 1; j < size; ++j) {
-      T compare = superKeyCompare(reference[j], reference[j - 1], i, dim);
+      T compare = superKeyCompare(reference[j], reference[end
+                                    ], i, dim);
       if (compare < 0) {
         std::cout << "merge sort failure: superKeyCompare(ref[" << j << "], ref["
                   << j - 1 << "], (" << i << ") = " << compare << std::endl;
         exit(1);
       }
       else if (compare > 0) {
+        // Keep the jth element of the reference array.
         reference[++end] = reference[j];
+      } else {
+        // Skip over the jth element of the reference array and delete the tuple.
+        delete[] reference[j];
       }
     }
     return end;
@@ -1243,6 +1253,24 @@ public:
 
     // Return the pointer to the root of the k-d tree.
     return root;
+  }
+
+  /*
+   * Walk the k-d tree to delete each KdNode.
+   */
+public:
+  void deleteKdTree() {
+
+    // Delete the < sub-tree.
+    if (ltChild != nullptr) {
+      ltChild->deleteKdTree();
+    }
+    // Delete the > sub-tree.
+    if (gtChild != nullptr) {
+      gtChild->deleteKdTree();
+    }
+    // Delete the current KdNode.
+    delete this;
   }
 
   /*
@@ -2263,9 +2291,17 @@ int main(int argc, char** argv) {
         throw std::runtime_error(msg);
       }
     }
+    std::cout << std::endl;
   }
 
-  std::cout << std::endl;
+  // Delete the k-d tree.
+  startTime = getTime();
+  root->deleteKdTree();
+  endTime = getTime();
+  double deleteTime = (endTime.tv_sec - startTime.tv_sec) +
+    1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+  std::cout << "deleteTime = " << std::fixed << std::setprecision(6) << deleteTime << " seconds" << std::endl << std::endl;
 
   return 0;
 }

@@ -204,8 +204,17 @@ public:
     this->value = value;
   }
 
+public:
   ~KdNode() {
-    delete[] tuple; // likely redundant
+    // Delete the tuple that the removeDuplicates function did not delete.
+    delete[] tuple;
+    // Delete each KdNode from the duplicates list.
+    auto nextPtr = this->duplicates;
+    while (nextPtr != nullptr) {
+      auto tempPtr = nextPtr;
+      nextPtr = nextPtr->duplicates;
+      delete tempPtr;
+    }
   }
 
 public:
@@ -1785,6 +1794,24 @@ public:
   }
 
   /*
+   * Walk the k-d tree to delete each KdNode.
+   */
+public:
+  void deleteKdTree() {
+
+    // Delete the < sub-tree.
+    if (ltChild != nullptr) {
+      ltChild->deleteKdTree();
+    }
+    // Delete the > sub-tree.
+    if (gtChild != nullptr) {
+      gtChild->deleteKdTree();
+    }
+    // Delete the current KdNode.
+    delete this;
+  }
+
+  /*
    * The insideBounds function determines whether KdNode::tuple lies inside the
    * hyper-rectangle defined by the query lower and upper bound vectors.
    *
@@ -2806,9 +2833,17 @@ int main(int argc, char** argv)
         throw std::runtime_error(msg);
       }
     }
+    std::cout << std::endl;
   }
 
-  std::cout << std::endl;
+  // Delete the k-d tree.
+  startTime = getTime();
+  root->deleteKdTree();
+  endTime = getTime();
+  double deleteTime = (endTime.tv_sec - startTime.tv_sec) +
+    1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+  std::cout << "deleteTime = " << std::fixed << std::setprecision(6) << deleteTime << " seconds" << std::endl << std::endl;
 
   return 0;
 }
