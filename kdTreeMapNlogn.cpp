@@ -206,7 +206,6 @@ public:
 
 public:
   ~KdNode() {
-    // Delete the tuple that the removeDuplicates function did not delete.
     delete[] tuple;
     // Delete each KdNode from the duplicates list.
     auto nextPtr = this->duplicates;
