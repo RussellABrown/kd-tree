@@ -186,6 +186,7 @@ public:
     while (nextPtr != nullptr) {
       auto tempPtr = nextPtr;
       nextPtr = nextPtr->duplicates;
+      tempPtr->duplicates = nullptr; // Prevent recursive deletion.
       delete tempPtr;
     }
   }

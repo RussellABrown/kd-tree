@@ -764,7 +764,8 @@ private:
         // Keep the jth element of the reference array.
         reference[++end] = reference[j];
       } else {
-        // Skip over the jth element of the reference array and delete the tuple.
+        // Skip over the jth element of the reference array and delete the tuple;
+        // a tuple not skipped will be deleted eventually by the ~KdNode destructor.
         delete[] reference[j];
       }
     }
