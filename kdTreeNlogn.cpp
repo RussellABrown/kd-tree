@@ -757,7 +757,7 @@ private:
       T compare = superKeyCompare(reference[j], reference[end], i, dim);
       if (compare < 0) {
         std::cout << "merge sort failure: superKeyCompare(ref[" << j << "], ref["
-                  << j - 1 << "], (" << i << ") = " << compare << std::endl;
+                  << end << "], " << i << ") = " << compare << std::endl;
         exit(1);
       }
       else if (compare > 0) {

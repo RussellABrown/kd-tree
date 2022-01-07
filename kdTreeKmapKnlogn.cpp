@@ -724,7 +724,7 @@ private:
       K compare = superKeyCompare(kdNodes[j]->tuple, kdNodes[end]->tuple, i);
       if (compare < 0) {
         std::cout << "merge sort failure: superKeyCompare(kdNodes[" << j << "], kdNodes["
-             << j - 1 << "], (" << i << ") = " << compare << std::endl;
+             << end << "], " << i << ") = " << compare << std::endl;
         exit(1);
       }
       else if (compare > 0) {
