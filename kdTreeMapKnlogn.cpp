@@ -36,7 +36,7 @@
  * in a manner that preserves the order of the k sorts while recursively partitioning
  * the data at each level of the k-d tree. No further sorting is necessary.
  *
- * Gnu g++ compilation options are: -lm -O3 -std=c++11 -D TEST_KD_TREE
+ * Gnu g++ compilation options are: -lm -O3 -std=c++11 -pthread -D TEST_KD_TREE
  *
  * Optional compilation options are:
  *

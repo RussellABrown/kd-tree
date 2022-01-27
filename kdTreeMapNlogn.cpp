@@ -36,7 +36,7 @@
  * described by Manuel Blum, et al. in "Time Bounds for Selection", Journal of Computer
  * and System Sciences, 7: 448-461, 1973.
  *
- * Gnu g++ compilation options are: -lm -O3 -std=c++11 -D TEST_KD_TREE
+ * Gnu g++ compilation options are: -lm -O3 -std=c++11 -pthread -D TEST_KD_TREE
  *
  * Optional compilation options are:
  *
