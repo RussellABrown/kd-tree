@@ -36,7 +36,7 @@
  * described by Manuel Blum, et al. in "Time Bounds for Selection", Journal of Computer
  * and System Sciences, 7: 448-461, 1973.
  *
- * Gnu g++ compilation options are: -lm -O3 -pthread -D TEST_KD_TREE
+ * Gnu g++ compilation options are: -lm -O3 -pthread -D TEST_KD_TREE -W
  *
  * Optional compilation options are:
  *
@@ -1721,14 +1721,13 @@ private:
    *
    * coordinates - a vector<T*> of references to each of the (x, y, z, w...) tuples
    * numDimensions - the number of dimensions
-   * numThreads - the number of threads
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    *
    * returns: a KdNode pointer to the root of the k-d tree
    */
 public:
   static KdNode<T>* createKdTree(std::vector<T*>& coordinates, signed_size_t numDimensions,
-                                 signed_size_t numThreads, signed_size_t maximumSubmitDepth) {
+                                 signed_size_t maximumSubmitDepth) {
 
     struct timespec startTime, endTime;
 
@@ -1757,7 +1756,7 @@ public:
 
     // Allocate a vector of KdNodes to avoid contention between multiple threads.
     std::vector<KdNode<T>*> kdNodes(end + 1);
-    for (signed_size_t i = 0; i < kdNodes.size(); ++i) {
+    for (size_t i = 0; i < kdNodes.size(); ++i) {
       kdNodes[i] = new KdNode();
     }
 
@@ -1777,8 +1776,8 @@ public:
     // first level of the nascent tree, consistent with having sorted the reference array
     // above using 0 as the leading key of the super key.
     std::vector<signed_size_t> permutation(maxDepth);
-    for (signed_size_t i = 0; i < permutation.size(); ++i) {
-      permutation.at(i) = i % numDimensions;
+    for (size_t i = 0; i < permutation.size(); ++i) {
+      permutation[i] = i % numDimensions;
     }
 
     // Build the k-d tree with multiple threads if possible.
@@ -1839,7 +1838,7 @@ private:
   bool insideBounds(std::vector<T> const& queryLower, std::vector<T> const& queryUpper,
                     std::vector<bool> const& enable) {
     bool inside = true;
-    for (signed_size_t i = 0; i < queryLower.size(); ++i) {
+    for (size_t i = 0; i < queryLower.size(); ++i) {
       if (enable[i] && (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i])) {
         inside = false;
         break;
@@ -1870,7 +1869,7 @@ private:
                                      std::vector<bool> const& enable) {
 
     // The partition cycles as x, y, z, w...
-    signed_size_t p = permutation[depth];
+    signed_size_t p = permutation.at(depth);
 
     // If the KdNode is within the query hyper-rectangle for each of the k dimensions,
     // add the KdNode to the list of KdNodes that lie inside the hyper-cube. The
@@ -1999,12 +1998,12 @@ public:
     // The partition coordinate permutes n the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
     // for e.g. 4-dimensional data.
     std::vector<signed_size_t> permutation(maxDepth);
-    for (signed_size_t i = 0; i < permutation.size(); ++i) {
-      permutation.at(i) = i % queryLower.size();
+    for (size_t i = 0; i < permutation.size(); ++i) {
+      permutation[i] = i % queryLower.size();
     }
 
     // Ensure that each query lower bound <= the corresponding query upper bound.
-    for (signed_size_t i = 0; i < queryLower.size(); ++i) {
+    for (size_t i = 0; i < queryLower.size(); ++i) {
       if (queryLower[i] > queryUpper[i]) {
         T tmp = queryLower[i];
         queryLower[i] = queryUpper[i];
@@ -2052,7 +2051,7 @@ public:
     // for e.g. 4-dimensional data.
     std::vector<signed_size_t> permutation(maxDepth);
     for (signed_size_t i = 0; i < permutation.size(); ++i) {
-      permutation.at(i) = i % queryLower.size();
+      permutation[i] = i % queryLower.size();
     }
 
     // Ensure that each query lower bound <= the corresponding query upper bound.
@@ -2197,8 +2196,8 @@ public:
     // for e.g. 4-dimensional data.
     signed_size_t numDimensions = query.size();
     std::vector<signed_size_t> permutation(maxDepth);
-    for (signed_size_t i = 0; i < permutation.size(); ++i) {
-      permutation.at(i) = i % numDimensions;
+    for (size_t i = 0; i < permutation.size(); ++i) {
+      permutation[i] = i % numDimensions;
     }
 
     // Create the heap and search the k-d tree for nearest neighbors.
@@ -2247,7 +2246,7 @@ public:
     signed_size_t numDimensions = query.size();
     std::vector<signed_size_t> permutation(maxDepth);
     for (signed_size_t i = 0; i < permutation.size(); ++i) {
-      permutation.at(i) = i % numDimensions;
+      permutation[i] = i % numDimensions;
     }
 
     // Create the heap and search the k-d tree for nearest neighbors.
@@ -2339,7 +2338,7 @@ public:
   static void printTuple(std::vector<T> const& tuple)
     {
       std::cout << "(" << tuple[0] << ",";
-      for (signed_size_t i = 1; i < tuple.size() - 1; ++i) std::cout << tuple[i] << ",";
+      for (size_t i = 1; i < tuple.size() - 1; ++i) std::cout << tuple[i] << ",";
       std::cout << tuple[tuple.size() - 1] << ")";
     }
 
@@ -2512,7 +2511,7 @@ public:
     // from type T to double may result in loss of precision but avoids
     // the possibility of integer overflow.
     double dist2 = 0.0;
-    for (int i = 0; i < query.size(); ++i) {
+    for (size_t i = 0; i < query.size(); ++i) {
       // Add the squared coordinate distance only if the dimension is enabled.
       if (enable[i]) {
         T comp = node->tuple[i] - query[i];
@@ -2630,7 +2629,7 @@ int main(int argc, char** argv)
   // Note that the tuples are not vectors in order to avoid copying via assignment statements.
   extraPoints = (extraPoints <= numPoints) ? extraPoints : numPoints;
   std::vector<test_t*> coordinates(numPoints + extraPoints - 1);
-  for (signed_size_t i = 0; i < coordinates.size(); ++i) {
+  for (size_t i = 0; i < coordinates.size(); ++i) {
     coordinates[i] = new test_t[numDimensions];
   }
   for (signed_size_t i = 0; i < numPoints; ++i) {
@@ -2675,7 +2674,7 @@ int main(int argc, char** argv)
             << maximumSubmitDepth << std::endl << std::endl;
 
   // Create the k-d tree.
-  KdNode<test_t>* root = KdNode<test_t>::createKdTree(coordinates, numDimensions, numThreads, maximumSubmitDepth);
+  KdNode<test_t>* root = KdNode<test_t>::createKdTree(coordinates, numDimensions, maximumSubmitDepth);
 
   // Search the k-d tree via region search for the KdNodes that lie within a hyper-cube centered near the origin.
   std::vector<test_t> query(numDimensions);
