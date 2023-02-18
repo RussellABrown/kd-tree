@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2021 Russell A. Brown
+ * Copyright (c) 2015, 2021, 2023 Russell A. Brown
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -45,9 +45,9 @@
  * -D MEDIAN_OF_MEDIANS_CUTOFF=n - A cutoff for switching from median of medians to insertion sort
  *                                 in KdNode::partition (default 15)
  * -D MEDIAN_CUTOFF=n - A cutoff for switching from to 2 threads to calculate the median
-                        in KdNode::partition (default 16384)
+ in KdNode::partition (default 16384)
  * -D INDEX_CUTOFF=n - A cutoff for switching from to 2 threads to find the index of
-                       the calculated median in KdNode::partition (default 512)
+ the calculated median in KdNode::partition (default 512)
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  * -D DUAL_THREAD_MEDIAN - Calculate the medians with two threads.
  * -D DUAL_THREAD_INDEX - Find the index of the median of medians with two threads.
@@ -57,20 +57,48 @@
  *           but this option appears to no longer be necessary.
  */
 
-#include <limits.h>
+#include <exception>
+#include <forward_list>
+#include <future>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <list>
+#include <map>
 #include <math.h>
-#include <time.h>
-#include <stdbool.h>
+#include <sstream>
+#include <stdexcept>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <vector>
-#include <list>
-#include <iostream>
-#include <iomanip>
-#include <exception>
-#include <future>
 
-/* A cutoff for switching from merge sort to insertion sort in the KdNode::mergeSort* functions */
+using std::async;
+using std::cout;
+using std::endl;
+using std::distance;
+using std::exception;
+using std::fixed;
+using std::forward_list;
+using std::future;
+using std::launch;
+using std::list;
+using std::map;
+using std::make_pair;
+using std::min;
+using std::numeric_limits;
+using std::ostringstream;
+using std::pair;
+using std::ref;
+using std::runtime_error;
+using std::scientific;
+using std::setprecision;
+using std::streamsize;
+using std::vector;
+
+/*
+ * A cutoff for switching from merge sort to insertion sort in the KdNode::mergeSort* functions
+ */
 #ifndef INSERTION_SORT_CUTOFF
 #define INSERTION_SORT_CUTOFF 15
 #endif
@@ -94,12 +122,12 @@
  * This is the type used for the test. Change the intrisic type in
  * this typedef to test the k-d tree with different intrisic types.
  */
-typedef int64_t test_t;
+typedef int64_t tuple_t;
 
 /*
  * This type is the signed equivalent of size_t and might be equivalent to intmax_t
  */
-typedef std::streamsize signed_size_t;
+typedef streamsize signed_size_t;
 
 /*
  * Create an alternate to clock_gettime(CLOCK_REALTIME, &time) for Mach. See
@@ -218,11 +246,14 @@ public:
    * kdNodes - a vector<KdNode*> that contains pre-allocated KdNodes
    * k - the index into both the reference and the kdNodes arrays
    *
-   * returns: a KdNode* to the KdNode to which the tuple has been assigned
+   * returns: a KdNode pointer to the KdNode to which the tuple has been assigned
    */
 private:
   inline
-  static KdNode<T>* getKdNode(T** reference, std::vector<KdNode<T>*> const& kdNodes, signed_size_t k) {
+  static KdNode<T>* getKdNode(T** const reference,
+                              vector<KdNode<T>*> const& kdNodes,
+                              signed_size_t const k) {
+    
     KdNode<T>* kdNode = kdNodes[k];
     kdNode->tuple = reference[k];
     return kdNode;
@@ -243,10 +274,14 @@ private:
    */
 private:
   inline
-  static T superKeyCompare(T const* a, T const* b, signed_size_t p, signed_size_t dim) {
+  static T superKeyCompare(T const* const a,
+                           T const* const b,
+                           signed_size_t const p,
+                           signed_size_t const dim) {
+    
     // Typically, this first calculation of diff will be non-zero and bypass the 'for' loop.
     T diff = a[p] - b[p];
-    for (signed_size_t i = 1; diff == 0 && i < dim; i++) {
+    for (signed_size_t i = 1; diff == 0 && i < dim; ++i) {
       signed_size_t r = i + p;
       // A fast alternative to the modulus operator for (i + p) < 2 * dim.
       r = (r < dim) ? r : r - dim;
@@ -306,9 +341,14 @@ private:
    * depth - the tree depth
    */
 private:
-  static void mergeSortReferenceAscending(T** reference, T** temporary,
-                                          signed_size_t low, signed_size_t high, signed_size_t p, signed_size_t dim,
-                                          signed_size_t maximumSubmitDepth, signed_size_t depth) {
+  static void mergeSortReferenceAscending(T** const reference,
+                                          T** const temporary,
+                                          signed_size_t const low,
+                                          signed_size_t const high,
+                                          signed_size_t const p,
+                                          signed_size_t const dim,
+                                          signed_size_t const maximumSubmitDepth,
+                                          signed_size_t const depth) {
 
     if (high - low > INSERTION_SORT_CUTOFF) {
 
@@ -340,8 +380,8 @@ private:
 
         // Yes, a child thread is available, so recursively subdivide the lower half of the reference
         // array with a child thread and return the result in the temporary array in ascending order.
-        std::future<void> sortFuture = std::async(std::launch::async, mergeSortTemporaryAscending, reference, temporary,
-                                                  low, mid, p, dim, maximumSubmitDepth, depth + 1);
+        auto sortFuture = async(launch::async, mergeSortTemporaryAscending, reference, temporary,
+                                low, mid, p, dim, maximumSubmitDepth, depth + 1);
 
         // And simultaneously, recursively subdivide the upper half of the reference array with
         // the current thread and return the result in the temporary array in descending order.
@@ -351,20 +391,20 @@ private:
         try {
           sortFuture.get();
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for sort future in mergeSortReferenceAscending\n");
         }
 
         // Compare the results in the temporary array in ascending order with a child thread
         // and merge them into the lower half of the reference array in ascending order.
-        std::future<void> mergeFuture =
-          std::async(std::launch::async, [&] {
-                                           for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                             reference[k] =
-                                               (superKeyCompare(temporary[i], temporary[j], p, dim) <= 0)
-                                               ? temporary[i++] : temporary[j--];
-                                           }
-                                         });
+        auto mergeFuture =
+          async(launch::async, [&] {
+                                 for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+                                   reference[k] =
+                                     (superKeyCompare(temporary[i], temporary[j], p, dim) <= 0)
+                                     ? temporary[i++] : temporary[j--];
+                                 }
+                               });
 
         // And simultaneously compare the results in the temporary array in descending order with the
         // current thread and merge them into the upper half of the reference array in ascending order.
@@ -377,8 +417,8 @@ private:
         try {
           mergeFuture.get();
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for merge future in mergeSortReferenceAscending\n");
         }
       }
 
@@ -388,7 +428,7 @@ private:
       // Here is Jon Benley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
       // Addison-Wesley, 1999, that sorts in ascending order and leaves the result in the reference array.
       for (signed_size_t i = low + 1; i <= high; ++i) {
-        T* tmp = reference[i];
+        T* const tmp = reference[i];
         signed_size_t j;
         for (j = i; j > low && superKeyCompare(reference[j - 1], tmp, p, dim) > 0; --j) {
           reference[j] = reference[j - 1];
@@ -399,7 +439,7 @@ private:
   }
 
   /*
-   * The mergeSortReferenceDecending function recursively subdivides the reference array then
+   * The mergeSortReferenceDescending function recursively subdivides the reference array then
    * merges the elements in descending order and leaves the result in the reference array.
    *
    * Calling parameters:
@@ -415,9 +455,14 @@ private:
    * depth - the tree depth
    */
 private:
-  static void mergeSortReferenceDescending(T** reference, T** temporary,
-                                           signed_size_t low, signed_size_t high, signed_size_t p, signed_size_t dim,
-                                           signed_size_t maximumSubmitDepth, signed_size_t depth) {
+  static void mergeSortReferenceDescending(T** const reference,
+                                           T** const temporary,
+                                           signed_size_t const low,
+                                           signed_size_t const high,
+                                           signed_size_t const p,
+                                           signed_size_t const dim,
+                                           signed_size_t const maximumSubmitDepth,
+                                           signed_size_t const depth) {
 
     if (high - low > INSERTION_SORT_CUTOFF) {
 
@@ -449,8 +494,8 @@ private:
 
         // Yes, a child thread is available, so recursively subdivide the lower half of the reference
         // array with a child thread and return the result in the temporary array in descending order.
-        std::future<void> sortFuture = std::async(std::launch::async, mergeSortTemporaryDescending, reference, temporary,
-                                                  low, mid, p, dim, maximumSubmitDepth, depth + 1);
+        auto sortFuture = async(launch::async, mergeSortTemporaryDescending, reference, temporary,
+                                low, mid, p, dim, maximumSubmitDepth, depth + 1);
 
         // And simultaneously, recursively subdivide the upper half of the reference array with
         // the current thread and return the result in the temporary array in ascending order.
@@ -460,20 +505,20 @@ private:
         try {
           sortFuture.get();
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for sort future in mergeSortReferenceDescending\n");
         }
 
         // Compare the results in the temporary array in ascending order with a child thread
         // and merge them into the lower half of the reference array in descending order.
-        std::future<void> mergeFuture =
-          std::async(std::launch::async, [&] {
-                                           for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                             reference[k] =
-                                               (superKeyCompare(temporary[i], temporary[j], p, dim) >= 0)
-                                               ? temporary[i++] : temporary[j--];
-                                           }
-                                         });
+        auto mergeFuture =
+          async(launch::async, [&] {
+                                 for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+                                   reference[k] =
+                                     (superKeyCompare(temporary[i], temporary[j], p, dim) >= 0)
+                                     ? temporary[i++] : temporary[j--];
+                                 }
+                               });
 
         // And simultaneously compare the results in the temporary array in descending order with the
         // current thread and merge them into the upper half of the reference array in descending order.
@@ -486,8 +531,8 @@ private:
         try {
           mergeFuture.get();
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for merge future in mergeSortReferenceDescending\n");
         }
       }
 
@@ -497,7 +542,7 @@ private:
       // Here is Jon Benley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
       // Addison-Wesley, 1999, that sorts in descending order and leaves the result in the reference array.
       for (signed_size_t i = low + 1; i <= high; ++i) {
-        T* tmp = reference[i];
+        T* const tmp = reference[i];
         signed_size_t j;
         for (j = i; j > low && superKeyCompare(reference[j - 1], tmp, p, dim) < 0; --j) {
           reference[j] = reference[j - 1];
@@ -524,9 +569,14 @@ private:
    * depth - the tree depth
    */
 private:
-  static void mergeSortTemporaryAscending(T** reference, T** temporary,
-                                          signed_size_t low, signed_size_t high, signed_size_t p, signed_size_t dim,
-                                          signed_size_t maximumSubmitDepth, signed_size_t depth) {
+  static void mergeSortTemporaryAscending(T** const reference,
+                                          T** const temporary,
+                                          signed_size_t const low,
+                                          signed_size_t const high,
+                                          signed_size_t const p,
+                                          signed_size_t const dim,
+                                          signed_size_t const maximumSubmitDepth,
+                                          signed_size_t const depth) {
 
     if (high - low > INSERTION_SORT_CUTOFF) {
 
@@ -558,8 +608,8 @@ private:
 
         // Yes, a child thread is available, so recursively subdivide the lower half of the reference
         // array with a child thread and return the result in the reference array in ascending order.
-        std::future<void> sortFuture = std::async(std::launch::async, mergeSortReferenceAscending, reference, temporary,
-                                                  low, mid, p, dim, maximumSubmitDepth, depth + 1);
+        auto sortFuture = async(launch::async, mergeSortReferenceAscending, reference, temporary,
+                                low, mid, p, dim, maximumSubmitDepth, depth + 1);
 
         // And simultaneously, recursively subdivide the upper half of the reference array with
         // the current thread and return the result in the reference array in descending order.
@@ -569,20 +619,20 @@ private:
         try {
           sortFuture.get();
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for sort future in mergeSortTemporaryAscending\n");
         }
 
         // Compare the results in the reference array in ascending order with a child thread
         // and merge them into the lower half of the temporary array in ascending order.
-        std::future<void> mergeFuture =
-          std::async(std::launch::async, [&] {
-                                           for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                             temporary[k] =
-                                               (superKeyCompare(reference[i], reference[j], p, dim) <= 0)
-                                               ? reference[i++] : reference[j--];
-                                           }
-                                         });
+        auto mergeFuture =
+          async(launch::async, [&] {
+                                 for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+                                   temporary[k] =
+                                     (superKeyCompare(reference[i], reference[j], p, dim) <= 0)
+                                     ? reference[i++] : reference[j--];
+                                 }
+                               });
 
         // And simultaneously compare the results in the reference array in descending order with the
         // current thread and merge them into the upper half of the temporary array in ascending order.
@@ -595,8 +645,8 @@ private:
         try {
           mergeFuture.get();
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for merge future in mergeSortTemporaryAscending\n");
         }
       }
 
@@ -623,7 +673,7 @@ private:
   }
 
   /*
-   * The mergeSortTemporaryDecending function recursively subdivides the reference array
+   * The mergeSortTemporaryDescending function recursively subdivides the reference array
    * then merges the elements in descending order and leaves the result in the reference array.
    *
    * Calling parameters:
@@ -639,9 +689,14 @@ private:
    * depth - the tree depth
    */
 private:
-  static void mergeSortTemporaryDescending(T** reference, T** temporary,
-                                           signed_size_t low, signed_size_t high, signed_size_t p, signed_size_t dim,
-                                           signed_size_t maximumSubmitDepth, signed_size_t depth) {
+  static void mergeSortTemporaryDescending(T** const reference,
+                                           T** const temporary,
+                                           signed_size_t const low,
+                                           signed_size_t const high,
+                                           signed_size_t const p,
+                                           signed_size_t const dim,
+                                           signed_size_t const maximumSubmitDepth,
+                                           signed_size_t const depth) {
 
     if (high - low > INSERTION_SORT_CUTOFF) {
 
@@ -673,8 +728,8 @@ private:
 
         // Yes, a child thread is available, so recursively subdivide the lower half of the reference
         // array with a child thread and return the result in the reference array in descending order.
-        std::future<void> sortFuture = std::async(std::launch::async, mergeSortReferenceDescending, reference, temporary,
-                                                  low, mid, p, dim, maximumSubmitDepth, depth + 1);
+        auto sortFuture = async(launch::async, mergeSortReferenceDescending, reference, temporary,
+                                low, mid, p, dim, maximumSubmitDepth, depth + 1);
 
         // And simultaneously, recursively subdivide the upper half of the reference array with
         // the current thread and return the result in the reference array in ascending order.
@@ -684,20 +739,20 @@ private:
         try {
           sortFuture.get();
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for sort future in mergeSortTemporaryDescending\n");
         }
 
         // Compare the results in the reference array in ascending order with a child thread
         // and merge them into the lower half of the temporary array in descending order.
-        std::future<void> mergeFuture =
-          std::async(std::launch::async, [&] {
-                                           for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                             temporary[k] =
-                                               (superKeyCompare(reference[i], reference[j], p, dim) >= 0)
-                                               ? reference[i++] : reference[j--];
-                                           }
-                                         });
+        auto mergeFuture =
+          async(launch::async, [&] {
+                                 for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+                                   temporary[k] =
+                                     (superKeyCompare(reference[i], reference[j], p, dim) >= 0)
+                                     ? reference[i++] : reference[j--];
+                                 }
+                               });
 
         // And simultaneously compare the results in the reference array in descending order with the
         // current thread and merge them into the upper half of the temporary array in descending order.
@@ -710,8 +765,8 @@ private:
         try {
           mergeFuture.get();
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for merge future in mergeSortTemporaryDescending\n");
         }
       }
 
@@ -747,18 +802,23 @@ private:
    * i - the leading dimension for the super key
    * dim - the number of dimensions
    *
-   * returns the end index of the reference array following removal of duplicate elements
+   * returns: the end index of the reference array following removal of duplicate elements
    */
 private:
   inline
-  static signed_size_t removeDuplicates(T** reference, signed_size_t i, signed_size_t dim, signed_size_t size) {
+  static signed_size_t removeDuplicates(T** const reference,
+                                        signed_size_t const i,
+                                        signed_size_t const dim,
+                                        signed_size_t const size) {
+    
     signed_size_t end = 0;
     for (signed_size_t j = 1; j < size; ++j) {
-      T compare = superKeyCompare(reference[j], reference[end], i, dim);
+      auto const compare = superKeyCompare(reference[j], reference[end], i, dim);
       if (compare < 0) {
-        std::cout << "merge sort failure: superKeyCompare(ref[" << j << "], ref["
-                  << end << "], " << i << ") = " << compare << std::endl;
-        exit(1);
+        ostringstream buffer;
+        buffer << "\n\nmerge sort failure: superKeyCompare(ref[" << j << "], ref["
+               << end << "], " << i << ") = " << compare << "in removeDuplicates\n";
+        throw runtime_error(buffer.str());
       }
       else if (compare > 0) {
         // Keep the jth element of the reference array.
@@ -783,8 +843,11 @@ private:
    */
 private:
   inline
-  static void swap(T** a, signed_size_t i, signed_size_t j) {
-    T* t = a[i];
+  static void swap(T** const a,
+                   signed_size_t const i,
+                   signed_size_t const j) {
+    
+    auto const t = a[i];
     a[i] = a[j];
     a[j] = t;
   }
@@ -804,10 +867,11 @@ private:
    */
 private:
   inline
-  static T* select_0_2(T* a,
-                       T* b,
-                       signed_size_t p,
-                       signed_size_t dim) {
+  static T* select_0_2(T* const a,
+                       T* const b,
+                       signed_size_t const p,
+                       signed_size_t const dim) {
+    
     if (superKeyCompare(a, b, p, dim) < 0) {
       // a < b
       return a;
@@ -820,10 +884,11 @@ private:
 
 private:
   inline
-  static T* select_1_2(T* a,
-                       T* b,
-                       signed_size_t p,
-                       signed_size_t dim) {
+  static T* select_1_2(T* const a,
+                       T* const b,
+                       signed_size_t const p,
+                       signed_size_t const dim) {
+    
     if (superKeyCompare(a, b, p, dim) < 0) {
       // a < b
       return b;
@@ -836,11 +901,12 @@ private:
 
 private:
   inline
-  static T* select_1_3_ab(T* a,
-                          T* b,
-                          T* c,
-                          signed_size_t p,
-                          signed_size_t dim) {
+  static T* select_1_3_ab(T* const a,
+                          T* const b,
+                          T* const c,
+                          signed_size_t const p,
+                          signed_size_t const dim) {
+    
     if (superKeyCompare(b, c, p, dim) < 0) {
       // a < b < c
       return b;
@@ -853,11 +919,12 @@ private:
 
 private:
   inline
-  static T* select_1_3(T* a,
-                       T* b,
-                       T* c,
-                       signed_size_t p,
-                       signed_size_t dim) {
+  static T* select_1_3(T* const a,
+                       T* const b,
+                       T* const c,
+                       signed_size_t const p,
+                       signed_size_t const dim) {
+    
     if (superKeyCompare(a, b, p, dim) < 0) {
       // a < b
       return select_1_3_ab(a, b, c, p, dim);
@@ -870,12 +937,13 @@ private:
 
 private:
   inline
-  static T* select_1_4_ab_cd(T* a,
-                             T* b,
-                             T* c,
-                             T* d,
-                             signed_size_t p,
-                             signed_size_t dim) {
+  static T* select_1_4_ab_cd(T* const a,
+                             T* const b,
+                             T* const c,
+                             T* const d,
+                             signed_size_t const p,
+                             signed_size_t const dim) {
+    
     if (superKeyCompare(c, a, p, dim) < 0) {
       // c < a < b && a ? d so c is eliminated and a ? d
       return select_0_2(a, d, p, dim);
@@ -888,12 +956,13 @@ private:
 
 private:
   inline
-  static T* select_1_4_ab(T* a,
-                          T* b,
-                          T* c,
-                          T* d,
-                          signed_size_t p,
-                          signed_size_t dim) {
+  static T* select_1_4_ab(T* const a,
+                          T* const b,
+                          T* const c,
+                          T* const d,
+                          signed_size_t const p,
+                          signed_size_t const dim) {
+    
     if (superKeyCompare(c, d, p, dim) < 0) {
       // a < b && c < d
       return select_1_4_ab_cd(a, b, c, d, p, dim);
@@ -906,12 +975,13 @@ private:
 
 private:
   inline
-  static T* select_1_4(T* a,
-                       T* b,
-                       T* c,
-                       T* d,
-                       signed_size_t p,
-                       signed_size_t dim) {
+  static T* select_1_4(T* const a,
+                       T* const b,
+                       T* const c,
+                       T* const d,
+                       signed_size_t const p,
+                       signed_size_t const dim) {
+    
     if (superKeyCompare(a, b, p, dim) < 0) {
       // a < b
       return select_1_4_ab(a, b, c, d, p, dim);
@@ -924,13 +994,14 @@ private:
 
 private:
   inline
-  static T* select_2_5_ab_cd(T* a,
-                             T* b,
-                             T* c,
-                             T* d,
-                             T* e,
-                             signed_size_t p,
-                             signed_size_t dim) {
+  static T* select_2_5_ab_cd(T* const a,
+                             T* const b,
+                             T* const c,
+                             T* const d,
+                             T* const e,
+                             signed_size_t const p,
+                             signed_size_t const dim) {
+    
     if (superKeyCompare(c, a, p, dim) < 0) {
       // c < a < b && c < d ? e so c is eliminated and a < b && d ? e
       return select_1_4_ab(a, b, d, e, p, dim);
@@ -943,13 +1014,14 @@ private:
 
 private:
   inline
-  static T* select_2_5_ab(T* a,
-                          T* b,
-                          T* c,
-                          T* d,
-                          T* e,
-                          signed_size_t p,
-                          signed_size_t dim) {
+  static T* select_2_5_ab(T* const a,
+                          T* const b,
+                          T* const c,
+                          T* const d,
+                          T* const e,
+                          signed_size_t const p,
+                          signed_size_t const dim) {
+    
     if (superKeyCompare(c, d, p, dim) < 0) {
       // a < b && c < d
       return select_2_5_ab_cd(a, b, c, d, e, p, dim);
@@ -962,13 +1034,14 @@ private:
 
 private:
   inline
-  static T* select_2_5(T* a,
-                       T* b,
-                       T* c,
-                       T* d,
-                       T* e,
-                       signed_size_t p,
-                       signed_size_t dim) {
+  static T* select_2_5(T* const a,
+                       T* const b,
+                       T* const c,
+                       T* const d,
+                       T* const e,
+                       signed_size_t const p,
+                       signed_size_t const dim) {
+    
     if (superKeyCompare(a, b, p, dim) < 0) {
       // a < b
       return select_2_5_ab(a, b, c, d, e, p, dim);
@@ -1002,18 +1075,30 @@ private:
    * returns - the index of the kth element in the array about which the array has been partitioned
    */
 private:
-  static signed_size_t partition(T** a, signed_size_t start, signed_size_t n, signed_size_t size,
-                                 signed_size_t k,  T** medians, signed_size_t first, signed_size_t p,
-                                 signed_size_t dim, bool twoThreads) {
+  static signed_size_t partition(T** const a,
+                                 signed_size_t const start,
+                                 signed_size_t const n,
+                                 signed_size_t const size,
+                                 signed_size_t const k,
+                                 T** const medians,
+                                 signed_size_t const first,
+                                 signed_size_t const p,
+                                 signed_size_t const dim,
+                                 bool const twoThreads) {
 
     if (n <= 0 || n > size) {
-      std::cout << "Error in n = " << n << "  size = " << size << std::endl;
+      ostringstream buffer;
+      buffer << "\n\nn = " << n << "  size = " << size << " in partition\n";
+      throw runtime_error(buffer.str());
     }
     if (k <= 0 || k > n) {
-      std::cout << "Error in k = " << k << std::endl;
+      ostringstream buffer;
+      buffer << "\n\nk = " << k << " in partition\n";
+      throw runtime_error(buffer.str());
     }
     if (start + n > size) {
-      std::cout << "Error in start = " << start << "  n = " << n << "  size = " << size << std::endl;
+      ostringstream buffer;
+      buffer << "\n\nstart = " << start << "  n = " << n << "  size = " << size << " in partition\n";
     }
 
     // This trivial case terminates recursion.
@@ -1026,7 +1111,7 @@ private:
     // Addison-Wesley, 1999, that sorts in ascending order and leaves the result in the array a.
     if (n <= MEDIAN_OF_MEDIANS_CUTOFF) {
       for (signed_size_t i = start + 1; i <= start + n - 1; ++i) {
-        T* tmp = a[i];
+        auto const tmp = a[i];
         signed_size_t j;
         for (j = i; j > start && superKeyCompare(a[j - 1], tmp, p, dim) > 0; --j) {
           a[j] = a[j - 1];
@@ -1056,27 +1141,27 @@ private:
     if (twoThreads && m > MEDIAN_CUTOFF) {
 
       // Yes, calculate the relative index of the middle median.
-      signed_size_t mid = (m + 1) >> 1;
+      signed_size_t const mid = (m + 1) >> 1;
       startOfGroup = mid * GROUP_SIZE;
 
       // Calculate the lower set of medians with a child thread.
-      std::future<void> medianFuture =
-        std::async(std::launch::async, [&] {
-                                         for (signed_size_t firstOfGroup = 0, i = 0; i < mid; ++i) {
+      auto medianFuture =
+        async(launch::async, [&] {
+                               for (signed_size_t firstOfGroup = 0, i = 0; i < mid; ++i) {
 
-                                           // Find the median of the group of GROUP_SIZE elements via select_2_5.
-                                           medians[first + i] = select_2_5(a[start + firstOfGroup],
-                                                                           a[start + firstOfGroup + 1],
-                                                                           a[start + firstOfGroup + 2],
-                                                                           a[start + firstOfGroup + 3],
-                                                                           a[start + firstOfGroup + 4],
-                                                                           p,
-                                                                           dim);
+                                 // Find the median of the group of GROUP_SIZE elements via select_2_5.
+                                 medians[first + i] = select_2_5(a[start + firstOfGroup],
+                                                                 a[start + firstOfGroup + 1],
+                                                                 a[start + firstOfGroup + 2],
+                                                                 a[start + firstOfGroup + 3],
+                                                                 a[start + firstOfGroup + 4],
+                                                                 p,
+                                                                 dim);
 
-                                           // Update the index to the next group of GROUP_SIZE elements.
-                                           firstOfGroup += GROUP_SIZE;
-                                         }
-                                       });
+                                 // Update the index to the next group of GROUP_SIZE elements.
+                                 firstOfGroup += GROUP_SIZE;
+                               }
+                             });
 
       // Calculate the upper set of medians with the current thread.
       for (signed_size_t i = mid; i < m; ++i) {
@@ -1098,8 +1183,8 @@ private:
       try {
         medianFuture.get();
       }
-      catch (std::exception const& e) {
-        std::cout << "caught exception " << e.what() << std::endl;
+      catch (exception const& e) {
+        throw runtime_error("\n\ncaught exception for median future in partition\n");
       }
     }
     else
@@ -1124,9 +1209,9 @@ private:
     }
 
     // Calculate and check the number of remaining elements.
-    signed_size_t remainingElements = n - startOfGroup;
+    signed_size_t const remainingElements = n - startOfGroup;
     if (remainingElements < 0 || remainingElements >= GROUP_SIZE) {
-      std::cout << "Error: incorrect group calculation";
+      throw runtime_error("\n\nincorrect group calculation in partition\n");
     }
 
     // Find the median of any remaining elements via select_j_k.
@@ -1162,7 +1247,11 @@ private:
         ++m;
         break;
       default:
-        std::cout << "Error: unhandled case in switch: remainingElements = " << remainingElements << std::endl;
+      {
+        ostringstream buffer;
+        buffer << "\n\nunhandled case in switch: remainingElements = " << remainingElements << " in partition\n";
+        throw runtime_error(buffer.str());
+      }
     }
 
     // Select the median of medians for partitioning the elements.  Note that (m + 1) >> 1
@@ -1184,7 +1273,7 @@ private:
     // Note: it is possible to allocate the medians array locally to this partition method
     // instead of providing it via a calling parameter to this method; however, because the
     // mergeSort method requires a temporary array, that array is re-used as the medians array.
-    T const* medianOfMedians =
+    auto const* const medianOfMedians =
       medians[partition(medians, first, m, first + m, (m + 1) >> 1, medians, first + m, p, dim, twoThreads)];
 
     // Find the index of the median of medians and swap it into a[start + n - 1]
@@ -1202,18 +1291,18 @@ private:
     if (twoThreads && n > INDEX_CUTOFF) {
 
       // Yes, more than one thread is available, so calculate the relative index of the middle element.
-      signed_size_t middle = (n + 1) >> 1;
+      signed_size_t const middle = (n + 1) >> 1;
 
       // Search for the index in the lower half of the array a with a child thread.
-      std::future<void> indexFuture =
-        std::async(std::launch::async, [&] {
-                                         for (signed_size_t i = 0; i < middle; ++i) {
-                                           if (a[start + i] == medianOfMedians) {
-                                             swap(a, start + i, start + n - 1);
-                                             break;
-                                           }
-                                         }
-                                       });
+      auto indexFuture =
+        async(launch::async, [&] {
+                               for (signed_size_t i = 0; i < middle; ++i) {
+                                 if (a[start + i] == medianOfMedians) {
+                                   swap(a, start + i, start + n - 1);
+                                   break;
+                                 }
+                               }
+                             });
 
       // Search for the index in the upper half of the array a with the current thread.
       for (signed_size_t i = middle; i < n - 1; ++i) {
@@ -1227,95 +1316,95 @@ private:
       try {
         indexFuture.get();
       }
-      catch (std::exception const& e) {
-        std::cout << "caught exception " << e.what() << std::endl;
-      }
+      catch (exception const& e) {
+        throw runtime_error"\n\ncaught exception for index future in partition\n");
     }
-    else
+  }
+  else
 #endif
-    {
-      // No, only one thread is available to find the index of the median of medians.
-      for (signed_size_t i = 0; i < n - 1; ++i) {
-        if (a[start + i] == medianOfMedians) {
-          swap(a, start + i, start + n - 1);
-          break;
-        }
-      }
-    }
-
-    // Partition the array a relative to the median of medians into < and > subsets.
-    signed_size_t i = 0;
-
-#ifdef BIDIRECTIONAL_PARTITION
-    // Search from both ends of the array a in order to minimize the use of the swap
-    // function at the expense of greater use of the superKeyCompare function.
-    //
-    // NOTE, however, that searching from both ends appears to degrade performance.
-    signed_size_t j = n - 2;
-    while (j > i) {
-      if (superKeyCompare(a[start + i], medianOfMedians, p, dim) < 0) {
-        ++i;
-      }
-      else if (superKeyCompare(a[start + j], medianOfMedians, p, dim) > 0) {
-        --j;
-      }
-      else {
-        swap(a, start + i, start + j);
-        ++i;
-        --j;
-      }
-    }
-
-    // Ensure that all elements of the < subset are located below a[start + i].
-    for (; i < n - 1; ++i) {
-      if (superKeyCompare(a[start + i], medianOfMedians, p, dim) > 0) {
+  {
+    // No, only one thread is available to find the index of the median of medians.
+    for (signed_size_t i = 0; i < n - 1; ++i) {
+      if (a[start + i] == medianOfMedians) {
+        swap(a, start + i, start + n - 1);
         break;
       }
     }
-#else
-    // Search upward from the beginning of the array a in order to minimize the use of
-    // the superKeyCompare function at the expense of greater use of the swap function.
-    for (signed_size_t j = 0; j < n - 1; ++j) {
-      if (superKeyCompare(a[start + j], medianOfMedians, p, dim) < 0) {
-        if (j != i) {
-          swap(a, start + j, start + i);
-        }
-        ++i;
-      }
+  }
+
+  // Partition the array a relative to the median of medians into < and > subsets.
+  signed_size_t i = 0;
+
+#ifdef BIDIRECTIONAL_PARTITION
+  // Search from both ends of the array a in order to minimize the use of the swap
+  // function at the expense of greater use of the superKeyCompare function.
+  //
+  // NOTE, however, that searching from both ends appears to degrade performance.
+  signed_size_t j = n - 2;
+  while (j > i) {
+    if (superKeyCompare(a[start + i], medianOfMedians, p, dim) < 0) {
+      ++i;
     }
-#endif
-
-    // Swap the median of medians into a[start + i] between the < and > subsets.
-    swap(a, start + i, start + n - 1);
-
-    // k is 1-based but i is 0-based, so compare k to i + 1 and
-    // determine which subset (if any) must be partitioned recursively.
-    if (k < i + 1) {
-
-      // The median of medians occupies a position below i, so partition
-      // the array elements of the < subset; for this subset, the
-      // original kth element is still the kth element of this subset.
-      return partition(a, start, i, size, k, medians, first, p, dim, twoThreads);
-
-    }
-    else if (k > i + 1) {
-
-      // The median of medians occupies a position above i, so partition
-      // the array elements of the > subset; for this subset, the
-      // original kth element is not the kth element of this subset
-      // because i + 1 elements are in the < subset.
-      return partition(a, start + i + 1, n - i - 1, size, k - i - 1,
-                       medians, first, p, dim, twoThreads);
-
+    else if (superKeyCompare(a[start + j], medianOfMedians, p, dim) > 0) {
+      --j;
     }
     else {
-
-      // The median of medians occupies a[start + i] because k == i + 1, so no
-      // further partitioning is necessary.  Return start + i as the index of
-      // the kth element under the definition that start is the zeroth index.
-      return start + i;
+      swap(a, start + i, start + j);
+      ++i;
+      --j;
     }
   }
+
+  // Ensure that all elements of the < subset are located below a[start + i].
+  for (; i < n - 1; ++i) {
+    if (superKeyCompare(a[start + i], medianOfMedians, p, dim) > 0) {
+      break;
+    }
+  }
+#else
+  // Search upward from the beginning of the array a in order to minimize the use of
+  // the superKeyCompare function at the expense of greater use of the swap function.
+  for (signed_size_t j = 0; j < n - 1; ++j) {
+    if (superKeyCompare(a[start + j], medianOfMedians, p, dim) < 0) {
+      if (j != i) {
+        swap(a, start + j, start + i);
+      }
+      ++i;
+    }
+  }
+#endif
+
+  // Swap the median of medians into a[start + i] between the < and > subsets.
+  swap(a, start + i, start + n - 1);
+
+  // k is 1-based but i is 0-based, so compare k to i + 1 and
+  // determine which subset (if any) must be partitioned recursively.
+  if (k < i + 1) {
+
+    // The median of medians occupies a position below i, so partition
+    // the array elements of the < subset; for this subset, the
+    // original kth element is still the kth element of this subset.
+    return partition(a, start, i, size, k, medians, first, p, dim, twoThreads);
+
+  }
+  else if (k > i + 1) {
+
+    // The median of medians occupies a position above i, so partition
+    // the array elements of the > subset; for this subset, the
+    // original kth element is not the kth element of this subset
+    // because i + 1 elements are in the < subset.
+    return partition(a, start + i + 1, n - i - 1, size, k - i - 1,
+                     medians, first, p, dim, twoThreads);
+
+  }
+  else {
+
+    // The median of medians occupies a[start + i] because k == i + 1, so no
+    // further partitioning is necessary.  Return start + i as the index of
+    // the kth element under the definition that start is the zeroth index.
+    return start + i;
+  }
+}
 
   /*
    * The  buildKdTree function builds a k-d tree by recursively partitioning the reference
@@ -1339,1034 +1428,1590 @@ private:
    * returns: a KdNode pointer to the root of the k-d tree
    */
 private:
-  static KdNode<T>* buildKdTree(T** reference, T** temporary,
-                                std::vector<signed_size_t> const& permutation,
-                                std::vector<KdNode<T>*> const& kdNodes,
-                                signed_size_t start, signed_size_t end, signed_size_t size,
-                                signed_size_t dim, signed_size_t maximumSubmitDepth,
-                                signed_size_t depth) {
+static KdNode<T>* buildKdTree(T** const reference,
+                              T** const temporary,
+                              vector<signed_size_t> const& permutation,
+                              vector<KdNode<T>*> const& kdNodes,
+                              signed_size_t const start,
+                              signed_size_t const end,
+                              signed_size_t const size,
+                              signed_size_t const dim,
+                              signed_size_t const maximumSubmitDepth,
+                              signed_size_t const depth) {
 
-    KdNode<T>* node = nullptr;
+  KdNode<T>* node = nullptr;
 
-    // The partition permutes as x, y, z, w... and specifies the most significant key.
-    signed_size_t p = permutation.at(depth);
+  // The partition permutes as x, y, z, w... and specifies the most significant key.
+  signed_size_t const p = permutation[depth];
 
-    if (end == start) {
+  if (end == start) {
 
-      // Only one reference was passed to this method, so store it at this level of the tree.
-      node = getKdNode(reference, kdNodes, start);
+    // Only one reference was passed to this method, so store it at this level of the tree.
+    node = getKdNode(reference, kdNodes, start);
 
+  }
+  else if (end == start + 1) {
+
+    // Two references were passed to this method in unsorted order, so store the
+    // start reference at this level of the tree and determine whether to store the
+    // end reference as the < child or the > child.
+    node = getKdNode(reference, kdNodes, start);
+    if (superKeyCompare(reference[start], reference[end], p, dim) > 0) {
+      node->ltChild = getKdNode(reference, kdNodes, end);
     }
-    else if (end == start + 1) {
+    else {
+      node->gtChild = getKdNode(reference, kdNodes, end);
+    }
 
-      // Two references were passed to this method in unsorted order, so store the
-      // start reference at this level of the tree and determine whether to store the
-      // end reference as the < child or the > child.
-      node = getKdNode(reference, kdNodes, start);
-      if (superKeyCompare(reference[start], reference[end], p, dim) > 0) {
-        node->ltChild = getKdNode(reference, kdNodes, end);
-      }
-      else {
+  }
+  else if (end == start + 2) {
+
+    // Three references were passed to this method in unsorted order, so compare
+    // the three references to determine which reference is the median reference.
+    // Store the median reference at this level of the tree, store the smallest
+    // reference as the < child and store the largest reference as the > child.
+    signed_size_t mid = start + 1;
+    if (superKeyCompare(reference[start], reference[mid], p, dim) < 0) {
+      // reference[start] < reference[mid]
+      if (superKeyCompare(reference[mid], reference[end], p, dim) < 0) {
+        // reference[start] < reference[mid] < reference[end]
+        node = getKdNode(reference, kdNodes, mid);
+        node->ltChild = getKdNode(reference, kdNodes, start);
         node->gtChild = getKdNode(reference, kdNodes, end);
       }
-
-    }
-    else if (end == start + 2) {
-
-      // Three references were passed to this method in unsorted order, so compare
-      // the three references to determine which reference is the median reference.
-      // Store the median reference at this level of the tree, store the smallest
-      // reference as the < child and store the largest reference as the > child.
-      signed_size_t mid = start + 1;
-      if (superKeyCompare(reference[start], reference[mid], p, dim) < 0) {
-        // reference[start] < reference[mid]
-        if (superKeyCompare(reference[mid], reference[end], p, dim) < 0) {
-          // reference[start] < reference[mid] < reference[end]
-          node = getKdNode(reference, kdNodes, mid);
-          node->ltChild = getKdNode(reference, kdNodes, start);
-          node->gtChild = getKdNode(reference, kdNodes, end);
-        }
-        else {
-          // reference[start] < reference[mid]; reference[end] < reference[mid]
-          if (superKeyCompare(reference[start], reference[end], p, dim) < 0) {
-            // reference[start] < reference[end] < reference[mid]
-            node = getKdNode(reference, kdNodes, end);
-            node->ltChild = getKdNode(reference, kdNodes, start);
-            node->gtChild = getKdNode(reference, kdNodes, mid);
-          }
-          else {
-            // reference[end] < reference[start] < reference[mid]
-            node = getKdNode(reference, kdNodes, start);
-            node->ltChild = getKdNode(reference, kdNodes, end);
-            node->gtChild = getKdNode(reference, kdNodes, mid);
-          }
-        }
-      }
       else {
-        // reference[mid] < reference[start]
+        // reference[start] < reference[mid]; reference[end] < reference[mid]
         if (superKeyCompare(reference[start], reference[end], p, dim) < 0) {
-          // reference[mid] < reference[start] < reference[end]
-          node = getKdNode(reference, kdNodes, start);
-          node->ltChild = getKdNode(reference, kdNodes, mid);
-          node->gtChild = getKdNode(reference, kdNodes, end);
+          // reference[start] < reference[end] < reference[mid]
+          node = getKdNode(reference, kdNodes, end);
+          node->ltChild = getKdNode(reference, kdNodes, start);
+          node->gtChild = getKdNode(reference, kdNodes, mid);
         }
         else {
-          // reference[mid] < reference[start]; reference[end] < reference[start]
-          if (superKeyCompare(reference[mid], reference[end], p, dim) < 0) {
-            // reference[mid] < reference[end] < reference[start]
-            node = getKdNode(reference, kdNodes, end);
-            node->ltChild = getKdNode(reference, kdNodes, mid);
-            node->gtChild = getKdNode(reference, kdNodes, start);
-          }
-          else {
-            // reference[end] < reference[mid] < reference[start]
-            node = getKdNode(reference, kdNodes, mid);
-            node->ltChild = getKdNode(reference, kdNodes, end);
-            node->gtChild = getKdNode(reference, kdNodes, start);
-          }
+          // reference[end] < reference[start] < reference[mid]
+          node = getKdNode(reference, kdNodes, start);
+          node->ltChild = getKdNode(reference, kdNodes, end);
+          node->gtChild = getKdNode(reference, kdNodes, mid);
         }
       }
-
     }
-    else if (end > start + 2) {
-
-      // Four or more references were passed to this method, so calculate the offset
-      // of the median element. partition the reference array about its median element,
-      // which is the kth element as calculated below.
-      signed_size_t n = end - start + 1;
-      signed_size_t k = (n + 1) >> 1;
-
-      // Build the < branch of the tree with a child thread at as many levels of the
-      // tree as possible.  Create the child thread as high in the tree as possible.
-      // Are child threads available to build both branches of the tree?
-      if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
-
-        // No, child threads are not available, so find the median element then
-        // partition the reference array about it.  Store the median element
-        // from the reference array in a new KdNode.
-        signed_size_t median = partition(reference, start, n, size, k, temporary, start, p, dim, false);
-        node = getKdNode(reference, kdNodes, median);
-
-        // Recursively build the < branch of the tree with the current thread.
-        node->ltChild = buildKdTree(reference, temporary, permutation, kdNodes, start,
-                                    median - 1, size, dim, maximumSubmitDepth, depth + 1);
-
-        // Then recursively build the > branch of the tree with the current thread.
-        node->gtChild = buildKdTree(reference, temporary, permutation, kdNodes, median + 1,
-                                    end, size, dim, maximumSubmitDepth, depth + 1);
-
+    else {
+      // reference[mid] < reference[start]
+      if (superKeyCompare(reference[start], reference[end], p, dim) < 0) {
+        // reference[mid] < reference[start] < reference[end]
+        node = getKdNode(reference, kdNodes, start);
+        node->ltChild = getKdNode(reference, kdNodes, mid);
+        node->gtChild = getKdNode(reference, kdNodes, end);
       }
       else {
-
-        // Yes, child threads are available, so find the median element then partition
-        // the reference array about it.  Store the median element from the reference
-        // array in a new KdNode.
-        signed_size_t median = partition(reference, start, n, size, k, temporary, start, p, dim, true);
-        node = getKdNode(reference, kdNodes, median);
-
-        // Recursively build the < branch of the tree with a child thread.
-        // The recursive call to buildKdTree must be placed in a lambda
-        // expression because buildKdTree is a template not a function.
-        std::future<KdNode<T>*> buildFuture =
-          std::async(std::launch::async, [&] {
-                                           return buildKdTree(reference, temporary, permutation, kdNodes, start,
-                                                              median - 1, size, dim, maximumSubmitDepth, depth + 1);
-                                         });
-
-        // And simultaneously build the > branch of the tree with the current thread.
-        node->gtChild = buildKdTree(reference, temporary, permutation, kdNodes, median + 1,
-                                    end, size, dim, maximumSubmitDepth, depth + 1);
-
-        // Wait for the child thread to finish execution.
-        try {
-          node->ltChild = buildFuture.get();
+        // reference[mid] < reference[start]; reference[end] < reference[start]
+        if (superKeyCompare(reference[mid], reference[end], p, dim) < 0) {
+          // reference[mid] < reference[end] < reference[start]
+          node = getKdNode(reference, kdNodes, end);
+          node->ltChild = getKdNode(reference, kdNodes, mid);
+          node->gtChild = getKdNode(reference, kdNodes, start);
         }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
+        else {
+          // reference[end] < reference[mid] < reference[start]
+          node = getKdNode(reference, kdNodes, mid);
+          node->ltChild = getKdNode(reference, kdNodes, end);
+          node->gtChild = getKdNode(reference, kdNodes, start);
         }
       }
-
-    }
-    else if (end < start) {
-
-      // This is an illegal condition that should never occur, so test for it last.
-      std::cout << "error has occurred at depth = " << depth << " : end = " << end
-                << "  <  start = " << start << std::endl;
-      exit(1);
-
     }
 
-    // Return the pointer to the root of the k-d tree.
-    return node;
   }
+  else if (end > start + 2) {
 
-  /*
-   * The buildKdTreePresorted function method builds a k-d tree by using
-   * the median of the pre-sorted reference array to partition that array,
-   * then calls the buildKdTree function to recursively partition the
-   * reference array.
-   *
-   * Calling parameters:
-   *
-   * reference - a T** of references sorted by its T* (x, y, z, w...) tuples
-   * temporary - a scratch array into which to copy references
-   * permutation - a vector<signed_size_t> that indications permutation of the partition coordinate
-   * kdNodes - a vector<KdNode*> that contains pre-allocated KdNodes
-   * start - start element of the reference array
-   * end - end element of the reference array
-   * size - the size of the reference array
-   * dim - the number of dimensions
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   *
-   * returns: a KdNode pointer to the root of the k-d tree
-   */
-private:
-  static KdNode<T>* buildKdTreePresorted(T** reference, T** temporary,
-                                         std::vector<signed_size_t> const& permutation,
-                                         std::vector<KdNode<T>*> const& kdNodes,
-                                         signed_size_t start, signed_size_t end, signed_size_t size,
-                                         signed_size_t dim, signed_size_t maximumSubmitDepth) {
+    // Four or more references were passed to this method, so calculate the offset
+    // of the median element. partition the reference array about its median element,
+    // which is the kth element as calculated below.
+    signed_size_t const n = end - start + 1;
+    signed_size_t const k = (n + 1) >> 1;
 
-    KdNode<T>* node = nullptr;
-
-    // It is assumed that the reference array has been pre-sorted using the x:y:z super key.
-    signed_size_t depth = 0;
-
-    if (end == start) {
-
-      // Only one reference was passed to this method, so store it at this level of the tree.
-      node = getKdNode(reference, kdNodes, start);
-
-    }
-    else if (end == start + 1) {
-
-      // Two references were passed to this method in sorted order, so store the start
-      // element at this level of the tree and store the end element as the > child. 
-      node = getKdNode(reference, kdNodes, start);
-      node->gtChild = getKdNode(reference, kdNodes, end);
-
-    }
-    else if (end == start + 2) {
-
-      // Three references were passed to this method in sorted order, so
-      // store the median element at this level of the tree, store the start
-      // element as the < child and store the end element as the > child.
-      node = getKdNode(reference, kdNodes, start + 1);
-      node->ltChild = getKdNode(reference, kdNodes, start);
-      node->gtChild = getKdNode(reference, kdNodes, end);
-
-    }
-    else if (end > start + 2) {
-
-      // Four or more references were passed to this method, so use the median element of
-      // the pre-sorted reference array to partition the reference array.
-      signed_size_t n = end - start + 1;
-      signed_size_t median = (n + 1) >> 1;
-      node = getKdNode(reference, kdNodes, median);
-
-      // Build the < branch of the tree with a child thread at as many levels of the
-      // tree as possible.  Create the child thread as high in the tree as possible.
-      // Are child threads available to build both branches of the tree?
-      if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
-
-        // No, child threads are not available, so recursively build the < branch
-        // of the tree with the current thread.
-        node->ltChild = buildKdTree(reference, temporary, permutation, kdNodes, start,
-                                    median - 1, size, dim, maximumSubmitDepth, depth + 1);
-
-        // Then recursively build the > branch of the tree with the current thread.
-        node->gtChild = buildKdTree(reference, temporary, permutation, kdNodes, median + 1,
-                                    end, size, dim, maximumSubmitDepth, depth + 1);
-
-      }
-      else {
-
-        // Yes, child threads are available, so recursively build the < branch
-        // of the tree with a child thread. The recursive call to buildKdTree
-        // must be placed in a lambda expression because buildKdTree is a template
-        // not a function.
-        std::future<KdNode<T>*> buildFuture =
-          std::async(std::launch::async, [&] {
-                                           return buildKdTree(reference, temporary, permutation, kdNodes, start,
-                                                              median - 1, size, dim, maximumSubmitDepth, depth + 1);
-                                         });
-
-        // And simultaneously build the > branch of the tree with the current thread.
-        node->gtChild = buildKdTree(reference, temporary, permutation, kdNodes, median + 1,
-                                    end, size, dim, maximumSubmitDepth, depth + 1);
-
-        // Wait for the child thread to finish execution.
-        try {
-          node->ltChild = buildFuture.get();
-        }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
-        }
-      }
-
-    }
-    else if (end < start) {
-
-      // This is an illegal condition that should never occur, so test for it last.
-      std::cout << "error has occurred at depth = " << depth << " : end = " << end
-                << "  <  start = " << start << std::endl;
-      exit(1);
-
-    }
-
-    // Return the pointer to the root of the k-d tree.
-    return node;
-  }
-
-  /*
-   * The verifyKdTree function walks the k-d tree and checks that the
-   * children of a node are in the correct branch of that node.
-   *
-   * Calling parameters:
-   *
-   * dim - the number of dimensions
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * depth - the depth in the k-d tree
-   *
-   * returns: a count of the number of kdNodes in the k-d tree
-   */
-private:
-  signed_size_t verifyKdTree(signed_size_t dim, signed_size_t maximumSubmitDepth, signed_size_t depth) {
-
-    signed_size_t count = 1;
-    if (tuple == nullptr) {
-      std::cout << "point is null!" << std::endl;
-      exit(1);
-    }
-
-    // The partition cycles as x, y, z, w...
-    signed_size_t p = depth % dim;
-
-    if (ltChild != nullptr) {
-      if (ltChild->tuple[p] > tuple[p]) {
-        std::cout << "child is > node!" << std::endl;
-        exit(1);
-      }
-      if (superKeyCompare(ltChild->tuple, tuple, p, dim) >= 0) {
-        std::cout << "child is >= node!" << std::endl;
-        exit(1);
-      }
-    }
-    if (gtChild != nullptr) {
-      if (gtChild->tuple[p] < tuple[p]) {
-        std::cout << "child is < node!" << std::endl;
-        exit(1);
-      }
-      if (superKeyCompare(gtChild->tuple, tuple, p, dim) <= 0) {
-        std::cout << "child is <= node" << std::endl;
-        exit(1);
-      }
-    }
-
-    // Verify the < branch with a child thread at as many levels of the tree as possible.
-    // Create the child thread as high in the tree as possible for greater utilization.
-
-    // Is a child thread available to build the < branch?
+    // Build the < branch of the tree with a child thread at as many levels of the
+    // tree as possible.  Create the child thread as high in the tree as possible.
+    // Are child threads available to build both branches of the tree?
     if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
 
-      // No, so verify the < branch with the current thread.
-      if (ltChild != nullptr) {
-        count += ltChild->verifyKdTree(dim, maximumSubmitDepth, depth + 1);
-      }
+      // No, child threads are not available, so find the median element then
+      // partition the reference array about it.  Store the median element
+      // from the reference array in a new KdNode.
+      signed_size_t const median = partition(reference, start, n, size, k, temporary, start, p, dim, false);
+      node = getKdNode(reference, kdNodes, median);
 
-      // Then verify the > branch with the current thread.
-      if (gtChild != nullptr) {
-        count += gtChild->verifyKdTree(dim, maximumSubmitDepth, depth + 1);
-      }
+      // Recursively build the < branch of the tree with the current thread.
+      node->ltChild = buildKdTree(reference, temporary, permutation, kdNodes, start,
+                                  median - 1, size, dim, maximumSubmitDepth, depth + 1);
+
+      // Then recursively build the > branch of the tree with the current thread.
+      node->gtChild = buildKdTree(reference, temporary, permutation, kdNodes, median + 1,
+                                  end, size, dim, maximumSubmitDepth, depth + 1);
+
     }
     else {
 
-      // Yes, so verify the < branch with a child thread. Note that a
-      // lambda is required to instantiate the verifyKdTree template.
-      std::future<signed_size_t> verifyFuture;
-      if (ltChild != nullptr) {
-        verifyFuture =
-          std::async(std::launch::async, [&] {
-                                           return ltChild->verifyKdTree(dim, maximumSubmitDepth, depth + 1);
-                                         });
-      }
+      // Yes, child threads are available, so find the median element then partition
+      // the reference array about it.  Store the median element from the reference
+      // array in a new KdNode.
+      signed_size_t const median = partition(reference, start, n, size, k, temporary, start, p, dim, true);
+      node = getKdNode(reference, kdNodes, median);
 
-      // And simultaneously verify the > branch with the current thread.
-      signed_size_t gtCount = 0;
-      if (gtChild != nullptr) {
-        gtCount = gtChild->verifyKdTree(dim, maximumSubmitDepth, depth + 1);
-      }
+      // Recursively build the < branch of the tree with a child thread.
+      // The recursive call to buildKdTree must be placed in a lambda
+      // expression because buildKdTree is a template not a function.
+      auto buildFuture = async(launch::async,
+                               buildKdTree,
+                               reference,
+                               temporary,
+                               ref(permutation),
+                               ref(kdNodes),
+                               start,
+                               median - 1,
+                               size,
+                               dim,
+                               maximumSubmitDepth,
+                               depth + 1);
+
+      // And simultaneously build the > branch of the tree with the current thread.
+      node->gtChild = buildKdTree(reference, temporary, permutation, kdNodes, median + 1,
+                                  end, size, dim, maximumSubmitDepth, depth + 1);
 
       // Wait for the child thread to finish execution.
-      signed_size_t ltCount = 0;
-      if (ltChild != nullptr) {
-        try {
-          ltCount = verifyFuture.get();
-        }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
-        }
+      try {
+        node->ltChild = buildFuture.get();
       }
-      count += ltCount + gtCount;
+      catch (exception const& e) {
+        throw runtime_error("\n\ncaught exception for build future in buildKdTree\n");
+      }
     }
 
-    return count;
+  }
+  else if (end < start) {
+
+    // This is an illegal condition that should never occur, so test for it last.
+    ostringstream buffer;
+    buffer << "\n\nerror has occurred at depth = " << depth << " : end = " << end
+           << "  <  start = " << start << " in buildKdTree\n";
+    throw runtime_error(buffer.str());
+
   }
 
-  /*
-   * The createKdTree function performs the necessary initialization then calls
-   * the buildKdTreePresorted function.
-   *
-   * Calling parameters:
-   *
-   * coordinates - a vector<T*> of references to each of the (x, y, z, w...) tuples
-   * numDimensions - the number of dimensions
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   *
-   * returns: a KdNode pointer to the root of the k-d tree
-   */
-public:
-  static KdNode<T>* createKdTree(std::vector<T*>& coordinates, signed_size_t numDimensions,
-                                 signed_size_t maximumSubmitDepth) {
+  // Return the pointer to the root of the k-d tree.
+  return node;
+}
 
-    struct timespec startTime, endTime;
+/*
+ * The buildKdTreePresorted function method builds a k-d tree by using
+ * the median of the pre-sorted reference array to partition that array,
+ * then calls the buildKdTree function to recursively partition the
+ * reference array.
+ *
+ * Calling parameters:
+ *
+ * reference - a T** of references sorted by its T* (x, y, z, w...) tuples
+ * temporary - a scratch array into which to copy references
+ * permutation - a vector<signed_size_t> that indications permutation of the partition coordinate
+ * kdNodes - a vector<KdNode*> that contains pre-allocated KdNodes
+ * start - start element of the reference array
+ * end - end element of the reference array
+ * size - the size of the reference array
+ * dim - the number of dimensions
+ * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+ *
+ * returns: a KdNode pointer to the root of the k-d tree
+ */
+private:
+static KdNode<T>* buildKdTreePresorted(T** const reference,
+                                       T** const temporary,
+                                       vector<signed_size_t> const& permutation,
+                                       vector<KdNode<T>*> const& kdNodes,
+                                       signed_size_t const start,
+                                       signed_size_t const end,
+                                       signed_size_t const size,
+                                       signed_size_t const dim,
+                                       signed_size_t const maximumSubmitDepth) {
 
-    // Create a temporary vector for use in sorting the references and building the k-d tree.
-    std::vector<T*> temporary(coordinates.size());
+  KdNode<T>* node = nullptr;
 
-    // Sort the reference array using multiple threads. Importantly,
-    // for compatibility with the 'permutation' vector initialized below,
-    // use the first dimension (0) as the leading key of the super key.
-    startTime = getTime();
-    mergeSortReferenceAscending(coordinates.data(), temporary.data(), 0, coordinates.size() - 1,
-                                0, numDimensions, maximumSubmitDepth, 0);
-    endTime = getTime();
-    double sortTime = (endTime.tv_sec - startTime.tv_sec) +
-      1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+  // It is assumed that the reference array has been pre-sorted using the x:y:z super key.
+  signed_size_t const depth = 0;
 
-    // Remove references to duplicate coordinates via one pass through the reference array.
-    startTime = getTime();
-    signed_size_t end = removeDuplicates(coordinates.data(), 0, numDimensions, coordinates.size());
-    endTime = getTime();
-    double removeTime = (endTime.tv_sec - startTime.tv_sec) +
-      1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+  if (end == start) {
 
-    // Start the timer to time building the k-d tree.
-    startTime = getTime();
+    // Only one reference was passed to this method, so store it at this level of the tree.
+    node = getKdNode(reference, kdNodes, start);
 
-    // Allocate a vector of KdNodes to avoid contention between multiple threads.
-    std::vector<KdNode<T>*> kdNodes(end + 1);
-    for (size_t i = 0; i < kdNodes.size(); ++i) {
-      kdNodes[i] = new KdNode();
+  }
+  else if (end == start + 1) {
+
+    // Two references were passed to this method in sorted order, so store the start
+    // element at this level of the tree and store the end element as the > child. 
+    node = getKdNode(reference, kdNodes, start);
+    node->gtChild = getKdNode(reference, kdNodes, end);
+
+  }
+  else if (end == start + 2) {
+
+    // Three references were passed to this method in sorted order, so
+    // store the median element at this level of the tree, store the start
+    // element as the < child and store the end element as the > child.
+    node = getKdNode(reference, kdNodes, start + 1);
+    node->ltChild = getKdNode(reference, kdNodes, start);
+    node->gtChild = getKdNode(reference, kdNodes, end);
+
+  }
+  else if (end > start + 2) {
+
+    // Four or more references were passed to this method, so use the median element of
+    // the pre-sorted reference array to partition the reference array.
+    signed_size_t const n = end - start + 1;
+    signed_size_t const median = (n + 1) >> 1;
+    node = getKdNode(reference, kdNodes, median);
+
+    // Build the < branch of the tree with a child thread at as many levels of the
+    // tree as possible.  Create the child thread as high in the tree as possible.
+    // Are child threads available to build both branches of the tree?
+    if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
+
+      // No, child threads are not available, so recursively build the < branch
+      // of the tree with the current thread.
+      node->ltChild = buildKdTree(reference, temporary, permutation, kdNodes, start,
+                                  median - 1, size, dim, maximumSubmitDepth, depth + 1);
+
+      // Then recursively build the > branch of the tree with the current thread.
+      node->gtChild = buildKdTree(reference, temporary, permutation, kdNodes, median + 1,
+                                  end, size, dim, maximumSubmitDepth, depth + 1);
+
+    }
+    else {
+
+      // Yes, child threads are available, so recursively build the < branch
+      // of the tree with a child thread. The recursive call to buildKdTree
+      // must be placed in a lambda expression because buildKdTree is a template
+      // not a function.
+      auto buildFuture = async(launch::async,
+                               buildKdTree,
+                               reference,
+                               temporary,
+                               ref(permutation),
+                               ref(kdNodes),
+                               start,
+                               median - 1,
+                               size,
+                               dim,
+                               maximumSubmitDepth,
+                               depth + 1);
+
+      // And simultaneously build the > branch of the tree with the current thread.
+      node->gtChild = buildKdTree(reference, temporary, permutation, kdNodes, median + 1,
+                                  end, size, dim, maximumSubmitDepth, depth + 1);
+
+      // Wait for the child thread to finish execution.
+      try {
+        node->ltChild = buildFuture.get();
+      }
+      catch (exception const& e) {
+        throw runtime_error("\n\ncaught exception for build future in buildKdTreePresorted\n");
+      }
     }
 
-    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
-    signed_size_t size = coordinates.size();
-    signed_size_t maxDepth = 1;
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
+  }
+  else if (end < start) {
 
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the buildKdTree function because that coordinate depends only on the depth of
-    // recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    // Because the partition coordinate permutes n the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
-    // (for e.g. 4-dimensional data), the leading key of the super key will be 0 at the
-    // first level of the nascent tree, consistent with having sorted the reference array
-    // above using 0 as the leading key of the super key.
-    std::vector<signed_size_t> permutation(maxDepth);
-    for (size_t i = 0; i < permutation.size(); ++i) {
-      permutation[i] = i % numDimensions;
-    }
+    // This is an illegal condition that should never occur, so test for it last.
+    ostringstream buffer;
+    buffer << "\n\nerror has occurred at depth = " << depth << " : end = " << end
+           << "  <  start = " << start << " in buildKdTreePresorted\n";
+    throw runtime_error(buffer.str());
 
-    // Build the k-d tree with multiple threads if possible.
-    KdNode<T>* root = buildKdTreePresorted(coordinates.data(), temporary.data(), permutation, kdNodes, 0, end,
-                                           coordinates.size(), numDimensions, maximumSubmitDepth);
-    endTime = getTime();
-    double kdTime = (endTime.tv_sec - startTime.tv_sec) +
-      1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
-
-    // Verify the k-d tree and report the number of kdNodes.
-    startTime = getTime();
-    signed_size_t numberOfNodes;
-    numberOfNodes = root->verifyKdTree(numDimensions, maximumSubmitDepth, 0);
-    endTime = getTime();
-    double verifyTime = (endTime.tv_sec - startTime.tv_sec) +
-      1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
-    std::cout << "Number of nodes = " << numberOfNodes << std::endl << std::endl;
-
-    std::cout << "totalTime = " << std::fixed << std::setprecision(2) << (sortTime + removeTime + kdTime + verifyTime)
-              << "  sortTime = " << sortTime << "  removeTime = " << removeTime
-              << "  kdTime = " << kdTime << "  verifyTime = " << verifyTime << std::endl << std::endl;
-
-    // Return the pointer to the root of the k-d tree.
-    return root;
   }
 
-  /*
-   * Walk the k-d tree to delete each KdNode.
-   */
-public:
-  void deleteKdTree() {
+  // Return the pointer to the root of the k-d tree.
+  return node;
+}
 
-    // Delete the < sub-tree.
+/*
+ * The verifyKdTree function walks the k-d tree and checks that the
+ * children of a node are in the correct branch of that node.
+ *
+ * Calling parameters:
+ *
+ * permutation - the permutation vector
+ * dim - the number of dimensions
+ * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+ * depth - the depth in the k-d tree
+ *
+ * returns: a count of the number of kdNodes in the k-d tree
+ */
+private:
+signed_size_t verifyKdTree(vector<signed_size_t> const& permutation,
+                           signed_size_t const dim,
+                           signed_size_t const maximumSubmitDepth,
+                           signed_size_t const depth) const {
+
+  signed_size_t count = 1;
+  if (tuple == nullptr) {
+    throw runtime_error("\n\npoint is null in verifyKdTree\n");
+  }
+
+  // The partition cycles as x, y, z, w...
+  signed_size_t const p = permutation[depth];
+
+  if (ltChild != nullptr) {
+    if (ltChild->tuple[p] > tuple[p]) {
+      throw runtime_error("\n\nchild is > node in verifyKdTree\n");
+    }
+    if (superKeyCompare(ltChild->tuple, tuple, p, dim) >= 0) {
+      throw runtime_error("\n\nchild is >= node in verifyKdTree\n");
+    }
+  }
+  if (gtChild != nullptr) {
+    if (gtChild->tuple[p] < tuple[p]) {
+      throw runtime_error("\n\nchild is < node in verifyKdTree\n");
+    }
+    if (superKeyCompare(gtChild->tuple, tuple, p, dim) <= 0) {
+      throw runtime_error("\n\nchild is <= node in verifyKdTree\n");
+    }
+  }
+
+  // Verify the < branch with a child thread at as many levels of the tree as possible.
+  // Create the child thread as high in the tree as possible for greater utilization.
+
+  // Is a child thread available to verify the < branch?
+  if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
+
+    // No, so verify the < branch with the current thread.
     if (ltChild != nullptr) {
-      ltChild->deleteKdTree();
+      count += ltChild->verifyKdTree(permutation, dim, maximumSubmitDepth, depth + 1);
     }
-    // Delete the > sub-tree.
-    if (gtChild != nullptr) {
-      gtChild->deleteKdTree();
-    }
-    // Delete the current KdNode.
-    delete this;
-  }
 
-  /*
-   * The insideBounds function determines whether KdNode::tuple lies inside the
-   * hyper-rectangle defined by the query lower and upper bound vectors.
-   *
-   * Calling parameters:
-   *
-   * queryLower - the query lower bound vector
-   * queryUpper - the query upper bound vector
-   * enable - a vector that specifies the dimensions on which to test for insidedness
-   *
-   * return true if inside, false if outside
-   */
-private:
-  bool insideBounds(std::vector<T> const& queryLower, std::vector<T> const& queryUpper,
-                    std::vector<bool> const& enable) {
-    bool inside = true;
-    for (size_t i = 0; i < queryLower.size(); ++i) {
-      if (enable[i] && (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i])) {
-        inside = false;
-        break;
+    // Then verify the > branch with the current thread.
+    if (gtChild != nullptr) {
+      count += gtChild->verifyKdTree(permutation, dim, maximumSubmitDepth, depth + 1);
+    }
+  }
+  else {
+
+    // Yes, so verify the < branch with a child thread. Note that a lambda
+    // is required because this verifyKdTree function is not static. The use
+    // of ref may be unnecessary in view of the [&] lambda argument specification.
+
+    future<signed_size_t> verifyFuture;
+    if (ltChild != nullptr) {
+      verifyFuture =
+        async(launch::async, [&] {
+                               return ltChild->verifyKdTree(ref(permutation),
+                                                            dim,
+                                                            maximumSubmitDepth,
+                                                            depth + 1);
+                             });
+    }
+
+    // And simultaneously verify the > branch with the current thread.
+    signed_size_t gtCount = 0;
+    if (gtChild != nullptr) {
+      gtCount = gtChild->verifyKdTree(permutation, dim, maximumSubmitDepth, depth + 1);
+    }
+
+    // Wait for the child thread to finish execution.
+    signed_size_t ltCount = 0;
+    if (ltChild != nullptr) {
+      try {
+        ltCount = verifyFuture.get();
+      }
+      catch (exception const& e) {
+        throw runtime_error("\n\ncaught exception for verify future in verifyKdTree\n");
       }
     }
-    return inside;
+
+    // Sum the counts returned by the child and current threads.
+    count += ltCount + gtCount;
   }
 
-  /*
-   * The regionSearch function searches the k-d tree to find the KdNodes that
-   * lie within a hyper-rectangle defined by the query lower and upper bounds.
-   *
-   * Calling parameters:
-   *
-   * queryLower - the query lower bound vector
-   * queryUpper - the query upper bound vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * depth - the depth in the k-d tree
-   * enable - a vector that specifies the dimensions on which to prune the region search
-   *
-   * return a list that contains the KdNodes that lie within the cutoff distance of the query node
-   */
+  return count;
+}
+
+/*
+ * The createKdTree function performs the necessary initialization then calls
+ * the buildKdTreePresorted function.
+ *
+ * Calling parameters:
+ *
+ * coordinates - a vector<T*> of references to each of the (x, y, z, w...) tuples
+ * numDimensions - the number of dimensions
+ * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+ *
+ * returns: a KdNode pointer to the root of the k-d tree
+ */
+public:
+static KdNode<T>* createKdTree(vector<T*>& coordinates, signed_size_t numDimensions,
+                               signed_size_t maximumSubmitDepth) {
+
+  struct timespec startTime, endTime;
+
+  // Create a temporary vector for use in sorting the references and building the k-d tree.
+  vector<T*> temporary(coordinates.size());
+
+  // Sort the reference array using multiple threads. Importantly,
+  // for compatibility with the 'permutation' vector initialized below,
+  // use the first dimension (0) as the leading key of the super key.
+  startTime = getTime();
+  mergeSortReferenceAscending(coordinates.data(), temporary.data(), 0, coordinates.size() - 1,
+                              0, numDimensions, maximumSubmitDepth, 0);
+  endTime = getTime();
+  double const sortTime = (endTime.tv_sec - startTime.tv_sec) +
+    1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+  // Remove references to duplicate coordinates via one pass through the reference array.
+  startTime = getTime();
+  signed_size_t const end = removeDuplicates(coordinates.data(), 0, numDimensions, coordinates.size());
+  endTime = getTime();
+  double const removeTime = (endTime.tv_sec - startTime.tv_sec) +
+    1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+  // Start the timer to time building the k-d tree.
+  startTime = getTime();
+
+  // Allocate a vector of pointers to KdNodes to avoid contention between multiple threads.
+  // The vector of pointers will bee deleted when it goes out of scope but the KdNodes
+  // will persist and must be deleted explicitly when the k-d tree is deleted.
+  vector<KdNode<T>*> kdNodes(end + 1);
+  for (size_t i = 0; i < kdNodes.size(); ++i) {
+    kdNodes[i] = new KdNode();
+  }
+
+  // It is unnecessary to compute the partition coordinate upon each recursive call of
+  // the buildKdTree or verifyKdTree functions because that coordinate depends only on
+  // the depth of recursion, so it may be pre-computed and stored in the 'permutation' vector.
+  vector<signed_size_t> permutation;
+  createPermutation(permutation, numDimensions, coordinates.size());
+
+  // Build the k-d tree with multiple threads if possible.
+  auto const root = buildKdTreePresorted(coordinates.data(), temporary.data(), permutation, kdNodes, 0, end,
+                                         coordinates.size(), numDimensions, maximumSubmitDepth);
+  endTime = getTime();
+  double const kdTime = (endTime.tv_sec - startTime.tv_sec) +
+    1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+  // Verify the k-d tree and report the number of kdNodes.
+  startTime = getTime();
+  signed_size_t const numberOfNodes = root->verifyKdTree(permutation, numDimensions, maximumSubmitDepth, 0);
+  endTime = getTime();
+  double const verifyTime = (endTime.tv_sec - startTime.tv_sec) +
+    1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+  cout << "Number of nodes = " << numberOfNodes << endl << endl;
+
+  cout << "totalTime = " << fixed << setprecision(2) << (sortTime + removeTime + kdTime + verifyTime)
+       << "  sortTime = " << sortTime << "  removeTime = " << removeTime
+       << "  kdTime = " << kdTime << "  verifyTime = " << verifyTime << endl << endl;
+
+  // Return the pointer to the root of the k-d tree.
+  return root;
+}
+
+/*
+ * Walk the k-d tree to delete each KdNode.
+ */
+public:
+void deleteKdTree() {
+
+  // Delete the < sub-tree.
+  if (ltChild != nullptr) {
+    ltChild->deleteKdTree();
+  }
+  // Delete the > sub-tree.
+  if (gtChild != nullptr) {
+    gtChild->deleteKdTree();
+  }
+  // Delete the current KdNode.
+  delete this;
+}
+
+/*
+ * The insideBounds function determines whether KdNode::tuple lies inside the
+ * hyper-rectangle defined by the query lower and upper bound vectors.
+ *
+ * Calling parameters:
+ *
+ * queryLower - the query lower bound vector
+ * queryUpper - the query upper bound vector
+ * enable - a vector that specifies the dimensions on which to test for insidedness
+ *
+ * return true if inside, false if outside
+ */
 private:
-  std::list<KdNode<T>*> regionSearch(std::vector<T> const& queryLower, std::vector<T> const& queryUpper,
-                                     std::vector<signed_size_t> const& permutation,
-                                     signed_size_t maximumSubmitDepth, signed_size_t depth,
-                                     std::vector<bool> const& enable) {
-
-    // The partition cycles as x, y, z, w...
-    signed_size_t p = permutation.at(depth);
-
-    // If the KdNode is within the query hyper-rectangle for each of the k dimensions,
-    // add the KdNode to the list of KdNodes that lie inside the hyper-cube. The
-    // following loop is equivalent to the IN_REGION pseudo-Algol code proposed
-    // by Jon Bentley in his CACM article.
-    std::list<KdNode<T>*> result;
-    if (insideBounds(queryLower, queryUpper, enable)) {
-      result.push_back(this);
+bool insideBounds(vector<T> const& queryLower,
+                  vector<T> const& queryUpper,
+                  vector<bool> const& enable) const {
+    
+  bool inside = true;
+  for (size_t i = 0; i < queryLower.size(); ++i) {
+    if (enable[i] && (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i])) {
+      inside = false;
+      break;
     }
+  }
+  return inside;
+}
 
-    // Determine whether to search the < and > branches of the k-d tree. Although
-    // the superKeyCompare function can produce a different result for the == case
-    // than does comparing only the leading keys of the super-keys, that result
-    // will avoid unnecessary searching of a sub-tree (at the expense of a more
-    // precise super-key comparison) but the unnecessary search/ appears not to
-    // change the outcome of this recursive regionSearch function.
-    //
-    // Note that if the partition dimension is not enabled, both branches are searched.
+/*
+ * The regionSearch function searches the k-d tree recursively to find the KdNodes that
+ * lie within a hyper-rectangle defined by the query lower and upper bounds.
+ *
+ * Calling parameters:
+ *
+ * result - a list<KdNode<T>*> that is passed by reference and modified
+ * queryLower - the query lower bound vector
+ * queryUpper - the query upper bound vector
+ * permutation - vector that specifies permutation of the partition coordinate
+ * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+ * depth - the depth in the k-d tree
+ * enable - a vector that specifies the dimensions on which to prune the region search
+ */
+private:
+void regionSearch(list<KdNode<T>*>& result,
+                  vector<T> const& queryLower,
+                  vector<T> const& queryUpper,
+                  vector<signed_size_t> const& permutation,
+                  signed_size_t const maximumSubmitDepth,
+                  signed_size_t const depth,
+                  vector<bool> const&  enable) {
+
+  // The partition cycles as x, y, z, w...
+  signed_size_t const p = permutation[depth];
+
+  // If the KdNode is within the query hyper-rectangle for each of the k dimensions,
+  // add the KdNode to the list of KdNodes that lie inside the hyper-cube. The
+  // following loop is equivalent to the IN_REGION pseudo-Algol code proposed
+  // by Jon Bentley in his CACM article.
+  if (insideBounds(queryLower, queryUpper, enable)) {
+    result.push_front(this);
+  }
+
+  // Determine whether to search the < and > branches of the k-d tree. Although
+  // the superKeyCompare function can produce a different result for the == case
+  // than does comparing only the leading keys of the super-keys, that result
+  // will avoid unnecessary searching of a sub-tree (at the expense of a more
+  // precise super-key comparison) but the unnecessary search appears not to
+  // change the outcome of this recursive regionSearch function.
+  //
+  // Note that if the partition dimension is not enabled, both branches are searched.
 #ifdef NO_SUPER_KEY
-    bool searchLT = ltChild != nullptr && (tuple[p] >= queryLower[p] || !enable[p]);
-    bool searchGT = gtChild != nullptr && (tuple[p] <= queryUpper[p] || !enable[p]);;
+  bool const searchLT = ltChild != nullptr && (tuple[p] >= queryLower[p] || !enable[p]);
+  bool const searchGT = gtChild != nullptr && (tuple[p] <= queryUpper[p] || !enable[p]);;
 #else
-    bool searchLT = ltChild != nullptr && (superKeyCompare(tuple, queryLower.data(), p, queryLower.size()) >= 0
-                                           || !enable[p]);
-    bool searchGT = gtChild != nullptr && (superKeyCompare(tuple, queryUpper.data(), p, queryLower.size()) <= 0
-                                           || !enable[p]);
+  bool const searchLT = ltChild != nullptr && (superKeyCompare(tuple, queryLower.data(), p, queryLower.size()) >= 0
+                                               || !enable[p]);
+  bool const searchGT = gtChild != nullptr && (superKeyCompare(tuple, queryUpper.data(), p, queryLower.size()) <= 0
+                                               || !enable[p]);
 #endif
 
-    // Do both branches require searching and is a child thread available?
-    if (searchLT && searchGT && maximumSubmitDepth >= 0 && depth <= maximumSubmitDepth) {
+  // Do both branches require searching and is a child thread available?
+  if (searchLT && searchGT && maximumSubmitDepth >= 0 && depth <= maximumSubmitDepth) {
 
-      // Yes, both branches of the tree require searching and a child thread is available,
-      // so prepare to search the < branch with a child thread.
-      std::future< std::list<KdNode<T>*> > searchFuture;
+    // Yes, both branches of the tree require searching and a child thread is available,
+    // so prepare to search the < branch with a child thread.
+    future<void> searchFuture;
 
-      // Search the < branch?
-      if (searchLT) {
+    // Search the < branch?
+    if (searchLT) {
         
-        // Yes, search the < branch asynchronously with a child thread.
-        searchFuture = std::async(std::launch::async, [&] {
-                                                        return ltChild->regionSearch(queryLower, queryUpper, permutation,
-                                                                                     maximumSubmitDepth, depth + 1, enable);
-                                                      });
-        // Search the > branch?
-        std::list<KdNode<T>*> gtResult;
-        if (searchGT) {
+      // Yes, search the < branch asynchronously with a child thread.
+      // A lamba is required because this regionSearch function is not
+      // static. The use of std::ref may be unnecessary in view of the
+      // [&] lambda argument specification.
+      list<KdNode<T>*> ltResult;
+      searchFuture = async(launch::async, [&] {
+                                            ltChild->regionSearch(ref(ltResult),
+                                                                  ref(queryLower),
+                                                                  ref(queryUpper),
+                                                                  ref(permutation),
+                                                                  maximumSubmitDepth,
+                                                                  depth + 1,
+                                                                  ref(enable));
+                                          });
+      // Search the > branch?
+      list<KdNode<T>*> gtResult;
+      if (searchGT) {
           
-          // Yes, search the > branch  with the master thread.
-          gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
-        }
-
-        // Get the result of searching the < branch with the child thread.
-        std::list<KdNode<T>*> ltResult;
-        try {
-          ltResult = searchFuture.get();
-        }
-        catch (std::exception const& e) {
-          std::cout << "caught exception " << e.what() << std::endl;
-        }
-
-        // Append the results of searching the < and > branches to the result (if any) for this KdNode.
-        result.splice(result.end(), ltResult);
-        result.splice(result.end(), gtResult);
-
-      } else {
-
-        // No, don't search the < branch. Search the > branch?
-        std::list<KdNode<T>*> gtResult;
-        if (searchGT) {
-          
-          // Yes, search the > branch  with the master thread.
-          gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
-        }
-
-        // Append the result of searching the > branch to the result (if any) for this KdNode.
-        result.splice(result.end(), gtResult);
+        // Yes, search the > branch  with the master thread.
+        gtChild->regionSearch(gtResult, queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
       }
+
+      // Get the result of searching the < branch with the child thread.
+      try {
+        searchFuture.get();
+      }
+      catch (exception const& e) {
+        throw runtime_error("\n\ncaught exception for search future in regionSearch\n");
+      }
+
+      // Append the results of searching the < and > branches to the result (if any) for this KdNode.
+      result.splice(result.end(), ltResult);
+      result.splice(result.end(), gtResult);
 
     } else {
-      
-      // No, both branches do not require searching. Search the < branch with the master thread?
-      if (searchLT) {
-        auto ltResult = ltChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
-        result.splice(result.end(), ltResult); // Can't substitute regionSearch(...) for ltResult.
-      }
 
-      // Search the > branch with the master thread?
+      // No, don't search the < branch. Search the > branch?
+      list<KdNode<T>*> gtResult;
       if (searchGT) {
-        auto gtResult = gtChild->regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
-        result.splice(result.end(), gtResult); // Can't substitute regionSearch(...) for gtResult.
+          
+        // Yes, search the > branch  with the master thread.
+        gtChild->regionSearch(gtResult, queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
       }
 
+      // Append the result of searching the > branch to the result (if any) for this KdNode.
+      result.splice(result.end(), gtResult);
     }
 
-    return result;
+  } else {
+      
+    // No, both branches do not require searching. Search the < branch with the master thread?
+    if (searchLT) {
+      list<KdNode<T>*> ltResult;
+      ltChild->regionSearch(ltResult, queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
+      result.splice(result.end(), ltResult);
+    }
+
+    // Search the > branch with the master thread?
+    if (searchGT) {
+      list<KdNode<T>*> gtResult;
+      gtChild->regionSearch(gtResult, queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
+      result.splice(result.end(), gtResult);
+    }
+
   }
+}
 
-  /*
-   * The searchRegion function searches the k-d tree to find the KdNodes that
-   * lie within a hyper-rectangle defined by the query lower and upper bounds.
-   *
-   * Calling parameters:
-   *
-   * queryLower - the query lower bound vector
-   * queryUpper - the query upper bound vector
-
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * size - the number of points in the coordinates vector after removal of duplicates
-   *
-   * return a list of KdNodes that lie within the query hyper-rectangle
-   */
-public:
-  std::list<KdNode<T>*> searchRegion(std::vector<T>& queryLower, std::vector<T>& queryUpper,
-                                     signed_size_t maximumSubmitDepth, signed_size_t size) {
-    
-    // Determine the maximum depth of the k-d tree, which is log2(size).
-    signed_size_t maxDepth = 1;
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
-
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the regionSearch function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    // The partition coordinate permutes n the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
-    // for e.g. 4-dimensional data.
-    std::vector<signed_size_t> permutation(maxDepth);
-    for (size_t i = 0; i < permutation.size(); ++i) {
-      permutation[i] = i % queryLower.size();
-    }
-
-    // Ensure that each query lower bound <= the corresponding query upper bound.
-    for (size_t i = 0; i < queryLower.size(); ++i) {
-      if (queryLower[i] > queryUpper[i]) {
-        T tmp = queryLower[i];
-        queryLower[i] = queryUpper[i];
-        queryUpper[i] = tmp;
-      }
-    }
-
-    // Search the tree over all dimensions and return the resulting list of KdNodes.
-    std::vector<bool> enable(queryLower.size(), true);
-    return regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, 0, enable);
-  }
-
-  /*
-   * The searchRegion function searches the k-d tree to find the KdNodes that
-   * lie within a hyper-rectangle defined by the query lower and upper bounds.
-   *
-   * Calling parameters:
-   *
-   * queryLower - the query lower bound vector
-   * queryUpper - the query upper bound vector
-
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * size - the number of points in the coordinates vector after removal of duplicates
-   * enable - a vector that specifies the dimensions on which to test for insidedness
-   *          and prune the region search
-   *
-   * return a list of KdNodes that lie within the query hyper-rectangle
-   */
-public:
-  std::list<KdNode<T>*> searchRegion(std::vector<T>& queryLower, std::vector<T>& queryUpper,
-                                     signed_size_t maximumSubmitDepth, signed_size_t size,
-                                     std::vector<bool> const& enable) {
-    
-    // Determine the maximum depth of the k-d tree, which is log2(size).
-    signed_size_t maxDepth = 1;
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
-
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the regionSearch function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    // The partition coordinate permutes n the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
-    // for e.g. 4-dimensional data.
-    std::vector<signed_size_t> permutation(maxDepth);
-    for (signed_size_t i = 0; i < permutation.size(); ++i) {
-      permutation[i] = i % queryLower.size();
-    }
-
-    // Ensure that each query lower bound <= the corresponding query upper bound.
-    for (signed_size_t i = 0; i < queryLower.size(); ++i) {
-      if (queryLower[i] > queryUpper[i]) {
-        T tmp = queryLower[i];
-        queryLower[i] = queryUpper[i];
-        queryUpper[i] = tmp;
-      }
-    }
-
-    // Search the tree over the enabled dimensions and return the resulting list of KdNodes.
-    return regionSearch(queryLower, queryUpper, permutation, maximumSubmitDepth, 0, enable);
-  }
-
-  /*
-   * Walk the k-d tree and append to a list each KdNode that lies inside
-   * the hyper-rectangle defined by the query lower and upper bounds.
-   *
-   * Calling parameters:
-   *
-   * queryLower - the query lower bound vector
-   * queryUpper - the query upper bound vector
-   *
-   * return a list of KdNodes that lie within the query hyper-rectangle.
-   */
-public:
-  std::list<KdNode<T>*> bruteRegion(std::vector<T> const& queryLower, std::vector<T> const& queryUpper) {
-
-    // Append the KdNode to the list if it lies inside the query bounds.
-    std::list<KdNode<T>*> result;
-    std::vector<bool> enable(queryLower.size(), true);
-    if (insideBounds(queryLower, queryUpper, enable)) {
-      result.push_back(this);
-    }
-    // Visit the < sub-tree.
-    if (ltChild != nullptr) {
-      result.splice(result.end(), ltChild->bruteRegion(queryLower, queryUpper));
-    }
-    // Visit the > sub-tree.
-    if (gtChild != nullptr) {
-      result.splice(result.end(), gtChild->bruteRegion(queryLower, queryUpper));
-    }
-
-    return result;
-  }
-
-  /*
-   * Search the k-d tree for all possible M nearest geometric neighbors by adding them
-   * to the NearestNeighborHeap.  Exclude a branch of the tree wherein it is guaranteed
-   * that all nodes in that branch are farther way than the current farthest node stored
-   * in the heap.
-   *
-   * Calling parameters:
-   *
-   * heap - an instance of NearestNeighborHeap
-   * permutation - vector that specifies permutation of the partition coordinate
-   * depth - depth in the k-d tree
-   */
+/*
+ * Create a permutation vector.
+ *
+ * Calling parameters:
+ *
+ * permutation - the permutation vector that is passed by reference and modified
+ * numDimensions - the number of dimensions
+ * numCoordinates - the number of points in the coordinates vector
+ */
 private:
-  void nearestNeighbors(NearestNeighborHeap<T>& heap, std::vector<signed_size_t> const& permutation,
-                        signed_size_t depth) {
+static
+void createPermutation(vector<signed_size_t>& permutation,
+                       signed_size_t const numDimensions,
+                       signed_size_t const numCoordinates) {
+    
+  // Determine the maximum depth of the k-d tree, which is log2(numCoordinates).
+  signed_size_t size = numCoordinates;
+  signed_size_t maxDepth = 1;
+  while (size > 0) {
+    ++maxDepth;
+    size >>= 1;
+  }
 
-    // The partition permutes as x, y, z, w...
-    signed_size_t p = permutation.at(depth);
+  // Because the partition coordinate permutes in the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
+  // (for e.g. 4-dimensional data), the leading key of the super key will be 0 at the
+  // first level of the nascent tree, consistent with having sorted the reference array
+  // using 0 as the leading key of the super key.
+  permutation.resize(maxDepth);
+  for (size_t i = 0; i < permutation.size(); ++i) {
+    permutation[i] = i % numDimensions;
+  }
+}
 
-    // If query[p] < tuple[p], descend the < branch to the bottom of the tree before adding a point to the
-    // heap, which increases the probability that closer nodes to the query point will get added earlier,
-    // thus reducing the likelihood of adding more distant points that get kicked out of the heap later.
-    if (heap.query[p] < tuple[p]) {
-      if (ltChild != nullptr) {  // If not at the bottom of the tree, descend the < branch unconditionally.
-        ltChild->nearestNeighbors(heap, permutation, depth + 1);
-      }
-      // If the current node is closer to the query point than the farthest item in the heap, or if this
-      // component of the array is not part of the nearest neighbor search, or if the heap is not full,
-      // descend the > branch and then attempt to add the node to the heap.
-      double dist = static_cast<double>(tuple[p] - heap.query[p]); // May result in loss of precision.
-      if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
-        if (gtChild != nullptr) { // If not at the bottom of the tree, descend the > branch
-          gtChild->nearestNeighbors(heap, permutation, depth + 1);
-        }
-        heap.add(this);  // Attempt to add the current KdNode to the heap.
-      }
+/*
+ * The searchRegion function searches the k-d tree to find the KdNodes that
+ * lie within a hyper-rectangle defined by the query lower and upper bounds.
+ *
+ * Calling parameters:
+ *
+ * result - a list<KdNode<T>*> that is passed by reference and modified
+ * queryLower - the query lower bound vector that is passed by reference and modified
+ * queryUpper - the query upper bound vector that is passed by reference and modified
+ * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+ * size - the number of points in the coordinates vector
+ *
+ * return a list of KdNodes that lie within the query hyper-rectangle
+ */
+public:
+void searchRegion(list<KdNode<T>*>& result,
+                  vector<T>& queryLower,
+                  vector<T>& queryUpper,
+                  signed_size_t const maximumSubmitDepth,
+                  signed_size_t const size) {
+    
+  // It is unnecessary to compute the partition coordinate upon each recursive call
+  // of the regionSearch function because that coordinate depends only on the depth
+  // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
+  vector<signed_size_t> permutation;
+  createPermutation(permutation, queryLower.size(), size);
+    
+  // Ensure that each query lower bound <= the corresponding query upper bound.
+  for (size_t i = 0; i < queryLower.size(); ++i) {
+    if (queryLower[i] > queryUpper[i]) {
+      auto const tmp = queryLower[i];
+      queryLower[i] = queryUpper[i];
+      queryUpper[i] = tmp;
     }
-    // If query[p] > tuple[p], descend the > branch to the bottom of the tree before adding a point to the
-    // heap, which increases the probability that closer nodes to the query point will get added earlier,
-    // thus reducing the likelihood of adding more distant points that get kicked out of the heap later.
-    else if (heap.query[p] > tuple[p]) {
-      if (gtChild != nullptr) {  // If not at the bottom of the tree, descend the > branch unconditionally.
+  }
+
+  // Search the tree over all dimensions to obtain the resulting list of KdNodes.
+  vector<bool> enable(queryLower.size(), true);
+  regionSearch(result, queryLower, queryUpper, permutation, maximumSubmitDepth, 0, enable);
+}
+
+/*
+ * The searchRegion function searches the k-d tree to find the KdNodes that
+ * lie within a hyper-rectangle defined by the query lower and upper bounds.
+ *
+ * Calling parameters:
+ *
+ * result - a list of KdNode pointers that is passed by reference and modified
+ * queryLower - the query lower bound vector that is passed by reference and modified
+ * queryUpper - the query upper bound vector that is passed by reference and modified
+ * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+ * size - the number of points in the coordinates vector
+ * enable - a vector that specifies the dimensions on which to test for insidedness
+ *          and prune the region search
+ *
+ * return a list of KdNodes that lie within the query hyper-rectangle
+ */
+public:
+void searchRegion(list<KdNode<T>*>& result,
+                  vector<T>& queryLower,
+                  vector<T>& queryUpper,
+                  signed_size_t const maximumSubmitDepth,
+                  signed_size_t const size,
+                  vector<bool> const& enable) {
+    
+  // It is unnecessary to compute the partition coordinate upon each recursive call
+  // of the regionSearch function because that coordinate depends only on the depth
+  // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
+  vector<signed_size_t> permutation;
+  createPermutation(permutation, queryLower.size(), size);
+    
+  // Ensure that each query lower bound <= the corresponding query upper bound.
+  for (size_t i = 0; i < queryLower.size(); ++i) {
+    if (queryLower[i] > queryUpper[i]) {
+      auto const tmp = queryLower[i];
+      queryLower[i] = queryUpper[i];
+      queryUpper[i] = tmp;
+    }
+  }
+
+  // Search the tree over the enabled dimensions to obtain the resulting list of KdNodes.
+  regionSearch(result, queryLower, queryUpper, permutation, maximumSubmitDepth, 0, enable);
+}
+
+/*
+ * Walk the k-d tree recursively and append to a list each KdNode that lies inside
+ * the hyper-rectangle defined by the query lower and upper bounds.
+ *
+ * Calling parameters:
+ *
+ * result - a list of KdNode pointers that is passed by reference and modified
+ * queryLower - the query lower bound vector
+ * queryUpper - the query upper bound vector
+ * enable - a vector that specifies the dimensions on which to test for insidedness
+ *          and prune the search
+ *
+ * return a list of pointers to KdNodes that lie within the query hyper-rectangle.
+ */
+private:
+void regionBrute(list<KdNode<T>*>& result,
+                 vector<T> const& queryLower,
+                 vector<T> const& queryUpper,
+                 vector<bool> const& enable) {
+
+  // Append the KdNode to the list if it lies inside the query bounds.
+  if (insideBounds(queryLower, queryUpper, enable)) {
+    result.push_front(this);
+  }
+
+  // Visit the < sub-tree.
+  if (ltChild != nullptr) {
+    list<KdNode<T>*> ltResult;
+    ltChild->regionBrute(ltResult, queryLower, queryUpper, enable);
+    result.splice(result.end(), ltResult);
+  }
+
+  // Visit the > sub-tree.
+  if (gtChild != nullptr) {
+    list<KdNode<T>*> gtResult;
+    gtChild->regionBrute(gtResult, queryLower, queryUpper, enable);
+    result.splice(result.end(), gtResult);
+  }
+}
+
+/*
+ * Walk the k-d tree and append to a list each KdNode that lies inside
+ * the hyper-rectangle defined by the query lower and upper bounds.
+ *
+ * Calling parameters:
+ *
+ * result - a list of KdNode pointers that is passed by reference and modified
+ * queryLower - the query lower bound vector
+ * queryUpper - the query upper bound vector
+ *
+ * return a list of pointers to KdNodes that lie within the query hyper-rectangle.
+ */
+public:
+void bruteRegion(list<KdNode<T>*>& result,
+                 vector<T>& queryLower,
+                 vector<T>& queryUpper) {
+
+  // Search over all dimensions.
+  vector<bool> enable(queryLower.size(), true);
+
+  // Ensure that each query lower bound <= the corresponding query upper bound.
+  for (size_t i = 0; i < queryLower.size(); ++i) {
+    if (queryLower[i] > queryUpper[i]) {
+      auto const tmp = queryLower[i];
+      queryLower[i] = queryUpper[i];
+      queryUpper[i] = tmp;
+    }
+  }
+
+  // Walk the k-d tree recursively.
+  regionBrute(result, queryLower, queryUpper, enable);
+}
+
+/*
+ * Search the k-d tree recursively for up to M nearest geometric neighbors to a query point
+ * by adding them to the NearestNeighborHeap that stores up to M neighbors.  Exclude from the
+ * search any branch of the tree wherein it is guaranteed that all nodes in that branch are
+ * farther away than the current farthest node stored in the heap. Details of the search
+ * algorithm are described by Friedman et al. in "An Algorithm for Finding Best Matches in
+ * Logarithmic Expected Time", ACM Transactions on Mathematical Software, 3: 209-226, 1977.
+ *
+ * Calling parameters:
+ *
+ * heap - an instance of NearestNeighborHeap that is built relative to a query point
+ * permutation - vector that specifies permutation of the partition coordinate
+ * depth - depth in the k-d tree
+ */
+private:
+void nearestNeighbors(NearestNeighborHeap<T>& heap,
+                      vector<signed_size_t> const& permutation,
+                      signed_size_t const depth) {
+
+  // The partition permutes as x, y, z, w...
+  signed_size_t p = permutation[depth];
+
+  // If query[p] < tuple[p], descend the < branch to the bottom of the tree before adding a point to the
+  // heap, which increases the probability that closer nodes to the query point will get added earlier,
+  // thus reducing the likelihood of adding more distant points that get kicked out of the heap later.
+  if (heap.query[p] < tuple[p]) {
+    if (ltChild != nullptr) {  // If not at the bottom of the tree, descend the < branch unconditionally.
+      ltChild->nearestNeighbors(heap, permutation, depth + 1);
+    }
+    // If the current node is closer to the query point than the farthest item in the heap, or if this
+    // component of the array is not part of the nearest neighbor search, or if the heap is not full,
+    // descend the > branch and then attempt to add the node to the heap.
+    double const dist = static_cast<double>(tuple[p] - heap.query[p]); // May result in loss of precision.
+    if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
+      if (gtChild != nullptr) { // If not at the bottom of the tree, descend the > branch
         gtChild->nearestNeighbors(heap, permutation, depth + 1);
       }
-      // If the current node is closer to the query point than the farthest item in the heap, or if this
-      // component of the array is not part of the nearest neighbor search, or if the heap is not full,
-      // descend the < branch and then attempt to add the node to the heap.
-      double dist = static_cast<double>(tuple[p] - heap.query[p]); // May result in loss of precision.
-      if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
-        if (ltChild != nullptr) {
-          ltChild->nearestNeighbors(heap, permutation, depth + 1);
-        }
-        heap.add(this);  // Attempt to add the current node to the heap.
-      }
+      heap.add(this);  // Attempt to add the current KdNode to the heap.
     }
-    // Because query[p] == tuple[p], the probability of finding nearest neighbors is equal for both branches
-    // of the tree, so descend both branches and then attempt to add the current node to the heap.
-    else {
+  }
+  // If query[p] > tuple[p], descend the > branch to the bottom of the tree before adding a point to the
+  // heap, which increases the probability that closer nodes to the query point will get added earlier,
+  // thus reducing the likelihood of adding more distant points that get kicked out of the heap later.
+  else if (heap.query[p] > tuple[p]) {
+    if (gtChild != nullptr) {  // If not at the bottom of the tree, descend the > branch unconditionally.
+      gtChild->nearestNeighbors(heap, permutation, depth + 1);
+    }
+    // If the current node is closer to the query point than the farthest item in the heap, or if this
+    // component of the array is not part of the nearest neighbor search, or if the heap is not full,
+    // descend the < branch and then attempt to add the node to the heap.
+    double const dist = static_cast<double>(tuple[p] - heap.query[p]); // May result in loss of precision.
+    if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
       if (ltChild != nullptr) {
         ltChild->nearestNeighbors(heap, permutation, depth + 1);
-      }
-      if (gtChild != nullptr) {
-        gtChild->nearestNeighbors(heap, permutation, depth + 1);
       }
       heap.add(this);  // Attempt to add the current node to the heap.
     }
   }
-
-  /*
-   * Find M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to find
-   * size - the number of points in the coordinates vector after removal of duplicates
-   *
-   */
-public:
-  std::list< std::pair<double, KdNode<T>*> > findNearestNeighbors(std::vector<T> const& query,
-                                                                  signed_size_t numNeighbors,
-                                                                  signed_size_t size) {
-    
-    // Determine the maximum depth of the k-d tree, which is log2(size).
-    signed_size_t maxDepth = 1;
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
-
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the nearestNeighbors function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    // The partition coordinate permutes n the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
-    // for e.g. 4-dimensional data.
-    signed_size_t numDimensions = query.size();
-    std::vector<signed_size_t> permutation(maxDepth);
-    for (size_t i = 0; i < permutation.size(); ++i) {
-      permutation[i] = i % numDimensions;
-    }
-
-    // Create the heap and search the k-d tree for nearest neighbors.
-    NearestNeighborHeap<T> heap(query, numNeighbors);
-    nearestNeighbors(heap, permutation, 0);
-
-    // Empty the heap by successively removing the top of the heap and appending it to a list.
-    // Then reverse the list so that the results are ordered by increasing distance to the query.
-    std::list< std::pair<double, KdNode<T>*> > result;
-    for (signed_size_t i = 0; i < numNeighbors; ++i) {
-      result.push_back(heap.removeTop());
-    }
-    result.reverse();
-    return result;
-  }
-  
-  /*
-   * Find M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to find
-   * size - the number of points in the coordinates vector after removal of duplicates
-   * enable - a vector that specifies the dimensions on which to test distance
-   *
-   */
-public:
-  std::list< std::pair<double, KdNode<T>*> > findNearestNeighbors(std::vector<T> const& query,
-                                                                  signed_size_t numNeighbors,
-                                                                  signed_size_t size,
-                                                                  std::vector<bool> const& enable) {
-    
-    // Determine the maximum depth of the k-d tree, which is log2(size).
-    signed_size_t maxDepth = 1;
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
-
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the nearestNeighbors function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    // The partition coordinate permutes n the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
-    // for e.g. 4-dimensional data.
-    signed_size_t numDimensions = query.size();
-    std::vector<signed_size_t> permutation(maxDepth);
-    for (signed_size_t i = 0; i < permutation.size(); ++i) {
-      permutation[i] = i % numDimensions;
-    }
-
-    // Create the heap and search the k-d tree for nearest neighbors.
-    NearestNeighborHeap<T> heap(query, numNeighbors, enable);
-    nearestNeighbors(heap, permutation, 0);
-
-    // Empty the heap by successively removing the top of the heap and appending it to a list.
-    // Then reverse the list so that the results are ordered by increasing distance to the query.
-    std::list< std::pair<double, KdNode<T>*> > result;
-    for (signed_size_t i = 0; i < numNeighbors; ++i) {
-      result.push_back(heap.removeTop());
-    }
-    result.reverse();
-    return result;
-  }
-  
-  /*
-   * Walk the k-d tree and attempt to add each KdNode to the NearestNeighborHeap.
-   *
-   * Calling parameter:
-   *
-   * heap - an instance of NearestNeighborHeap
-   */
-private:
-  void allNeighbors(NearestNeighborHeap<T>& heap) {
-
-    // Visit the < sub-tree.
+  // Because query[p] == tuple[p], the probability of finding nearest neighbors is equal for both branches
+  // of the tree, so descend both branches and then attempt to add the current node to the heap.
+  else {
     if (ltChild != nullptr) {
-      ltChild->allNeighbors(heap);
+      ltChild->nearestNeighbors(heap, permutation, depth + 1);
     }
-    // Visit the > sub-tree.
     if (gtChild != nullptr) {
-      gtChild->allNeighbors(heap);
+      gtChild->nearestNeighbors(heap, permutation, depth + 1);
     }
-    // Attempt to add the current KdNode to the heap.
-    heap.add(this);
+    heap.add(this);  // Attempt to add the current node to the heap.
   }
+}
 
-  /*
-   * Find M nearest neighbors to the query vector via brute force and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to find
-   *
-   */
+/*
+ * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+ *
+ * Calling parameters:
+ *
+ * neighbors - the nearest neighbors list that is passed by reference and modified.
+ * query - the query vector
+ * numNeighbors - the number M of nearest neighbors to attempt to find
+ * size - the number of points in the coordinates vector
+ */
 public:
-  std::list< std::pair<double, KdNode<T>*> > bruteNearestNeighbors(std::vector<T> const& query, signed_size_t numNeighbors) {
+void findNearestNeighbors(forward_list< pair<double, KdNode<T>*> >& neighbors,
+                          vector<T> const& query,
+                          signed_size_t const numNeighbors,
+                          signed_size_t const size) {
     
-    // Create the heap, walk the k-d tree, and attempt to add each KdNode to the heap.
-    NearestNeighborHeap<T> heap(query, numNeighbors);
-    allNeighbors(heap);
+  // It is unnecessary to compute the partition coordinate upon each recursive call
+  // of the nearestNeighbors function because that coordinate depends only on the depth
+  // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
+  vector<signed_size_t> permutation;
+  createPermutation(permutation, query.size(), size);
 
-    // Empty the heap by successively removing the top of the heap and appending it to a list.
-    // Then reverse the list so that the results are ordered by increasing distance to the query.
-    std::list< std::pair<double, KdNode<T>*> > result;
-    for (signed_size_t i = 0; i < numNeighbors; ++i) {
-      result.push_back(heap.removeTop());
-    }
-    result.reverse();
-    return result;
+  // Create the heap and search the k-d tree for nearest neighbors.
+  NearestNeighborHeap<T> heap(query, numNeighbors);
+  nearestNeighbors(heap, permutation, 0);
+
+  // Empty the heap by successively removing the top of the heap and prepending it to a list.
+  // Remove only the number of heap entries present.
+  signed_size_t const heapDepth = heap.heapDepth();
+  for (signed_size_t i = 0; i < heapDepth; ++i) {
+    neighbors.push_front(heap.removeTop());
+  }
+}
+  
+/*
+ * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+ *
+ * Calling parameters:
+ *
+ * neighbors - the nearest neighbors list that is passed by reference and modified.
+ * query - the query vector
+ * numNeighbors - the number M of nearest neighbors to attempt to find
+ * size - the number of points in the coordinates vector
+ * enable - a vector that specifies the dimensions for which to test distance
+ */
+public:
+void findNearestNeighbors(forward_list< pair<double, KdNode<T>*> >& neighbors,
+                          vector<T> const& query,
+                          signed_size_t const numNeighbors,
+                          signed_size_t const size,
+                          vector<bool> const& enable) {
+    
+  // It is unnecessary to compute the partition coordinate upon each recursive call
+  // of the nearestNeighbors function because that coordinate depends only on the depth
+  // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
+  vector<signed_size_t> permutation;
+  createPermutation(permutation, query.size(), size);
+
+  // Create the heap and search the k-d tree for nearest neighbors.
+  NearestNeighborHeap<T> heap(query, numNeighbors, enable);
+  nearestNeighbors(heap, permutation, 0);
+
+  // Empty the heap by successively removing the top of the heap and prepending it to a list.
+  // Remove only the number of heap entries present.
+  signed_size_t const heapDepth = heap.heapDepth();;
+  for (signed_size_t i = 0; i < heapDepth; ++i) {
+    neighbors.push_front(heap.removeTop());
+  }
+}
+  
+/*
+ * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+ *
+ * Calling parameters:
+ *
+ * neighbors - the nearest neighbors list that is passed by reference and modified.
+ * query - the query vector
+ * permutation - vector that specifies permutation of the partition coordinate
+ * numNeighbors - the number M of nearest neighbors to attempt to find
+ */
+public:
+void findNearestNeighbors(forward_list< pair<double, KdNode<T>*> >& neighbors,
+                          vector<T> const& query,
+                          vector<signed_size_t> const& permutation,
+                          signed_size_t const numNeighbors) {
+    
+  // Create the heap and search the k-d tree for nearest neighbors.
+  NearestNeighborHeap<T> heap(query, numNeighbors);
+  nearestNeighbors(heap, permutation, 0);
+
+  // Empty the heap by successively removing the top of the heap and prepending it to a list.
+  // Remove only the number of heap entries present.
+  signed_size_t const heapDepth = heap.heapDepth();;
+  for (signed_size_t i = 0; i < heapDepth; ++i) {
+    neighbors.push_front(heap.removeTop());
+  }
+}
+
+/*
+ * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+ *
+ * Calling parameters:
+ *
+ * neighbors - the nearest neighbors list that is passed by reference and modified.
+ * query - the query vector
+ * permutation - vector that specifies permutation of the partition coordinate
+ * numNeighbors - the number M of nearest neighbors to attempt to  find
+ * enable - a vector that specifies the dimensions for which to test distance
+ */
+public:
+void findNearestNeighbors(forward_list< pair<double, KdNode<T>*> >& neighbors,
+                          vector<T> const& query,
+                          vector<signed_size_t> const& permutation,
+                          signed_size_t const numNeighbors,
+                          vector<bool> const& enable) {
+    
+  // Create the heap and search the k-d tree for nearest neighbors.
+  NearestNeighborHeap<T> heap(query, numNeighbors, enable);
+  nearestNeighbors(heap, permutation, 0);
+
+  // Empty the heap by successively removing the top of the heap and prepending it to a list.
+  // Remove only the number of heap entries present.
+  signed_size_t const heapDepth = heap.heapDepth();;
+  for (signed_size_t i = 0; i < heapDepth; ++i) {
+    neighbors.push_front(heap.removeTop());
+  }
+}
+
+/*
+ * Verify the consistency between the nearest neighbors lists found
+ * by k-d tree search and by brute force.
+ *
+ * Calling parameters:
+ *
+ * neighborsFast - a list of nearest neighbors found by k-d tree search
+ * neighborsSlow - a list of nearest neighbors found by brute force.
+ *
+ * Although this function does not directly access the k-d tree, it requires the persistence
+ * of the k-d tree for access to the KdNodes via the lists. Hence, this function is not static.
+ */
+public:
+void verifyNearestNeighbors(forward_list< pair<double, KdNode<T>*> >& neighborsFast,
+                            forward_list< pair<double, KdNode<T>*> >& neighborsSlow) const {
+    
+  auto itf1 = neighborsFast.begin();
+  auto its1 = neighborsSlow.begin();
+    
+  // Compare the first k-d tree (fast) distance to the first brute-force (slow) distance.
+  if (itf1->first != its1->first) {
+    ostringstream buffer;
+    buffer << "\n\nfast distance[0] = " << itf1->first << "  !=  slow distance[0] = " << its1->first << endl;
+    throw runtime_error(buffer.str());
+  }
+    
+  // Compare the first k-d tree KdNode pointer to the first brute-force KdNode pointer.
+  if (itf1->second != its1->second) {
+    throw runtime_error("\n\nfast KdNode*[0] != slow KdNode*[0]\n");
   }
 
-  /*
-   * The printTuple function prints one tuple.
-   *
-   * Calling parameters:
-   *
-   * tuple - the tuple to print
-   * dim - the number of dimensions
-   */
-public:
-  static void printTuple(T const* tuple, signed_size_t dim)
-    {
-      std::cout << "(" << tuple[0] << ",";
-      for (signed_size_t i = 1; i < dim - 1; ++i) std::cout << tuple[i] << ",";
-      std::cout << tuple[dim - 1] << ")";
+  // Compare the remaining distances and KdNode*
+  auto itf2 = itf1;
+  auto its2 = its1;
+  ++itf2;
+  ++its2;
+  signed_size_t i = 1;
+  for ( ; itf2 != neighborsFast.end(); ++itf1, ++its1, ++itf2, ++its2, ++i) {
+    // Ensure that the fast distances increase monotonically.
+    if (itf1->first > itf2->first) {
+      ostringstream buffer;
+      buffer << "\n\nfast distance[" << (i-1) << "] = " << itf1->first << "  >  fast distance[" << i << "] = " << itf2->first << endl;
+      throw runtime_error(buffer.str());
     }
+    // Ensure that the slow distances increase monotonically.
+    if (its1->first > its2->first) {
+      ostringstream buffer;
+      buffer << "\n\nslow distance[" << (i-1) << "] = " << its1->first << "  >  slow distance[" << i << "] = " << its2->first << endl;
+      throw runtime_error(buffer.str());
+    }
+    // Compare the ith k-d tree distance to the ith brute-force distance.
+    if (itf2->first != its2->first) {
+      ostringstream buffer;
+      buffer << "\n\nfast distance[" << i << "] = " << itf2->first << "  !=  slow distance[" << i << "] = " << its2->first << endl;
+      throw runtime_error(buffer.str());
+    }
+    // Compare the ith k-d tree KdNode pointer to the ith brute-force KdNode pointer.
+    if (itf2->second != its2->second) {
+      ostringstream buffer;
+      buffer << "\n\nfast KdNode*[" << i << "]  !=  slow KdNode*[" << i << "]\n";
+      throw runtime_error(buffer.str());
+    }
+  }
+}
+  
+/*
+ * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
+ * and add those nearest neighbors to a reverse nearest neighbors map and to a
+ * nearest neighbors map.
+ *
+ * Calling parameters:
+ *
+ * nn - the nearest neighbors map that is passed by reference and modified
+ * rnn - the reverse nearest neighbors map that is passed by reference and modified
+ * permutation - vector that specifies permutation of the partition coordinate
+ * root - the root of the k-d tree where a search for nearest neighbors must begin
+ * numDimensions - the dimensionality k of the k-d tree
+ * numNeighbors - the number M of nearest neighbors to attempt to find
+ */
+private:
+void reverseNearestNeighbors(map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& nn,
+                             map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& rnn,
+                             vector<signed_size_t> const& permutation,
+                             KdNode<T>* const root,
+                             signed_size_t const numDimensions,
+                             signed_size_t const numNeighbors) {
 
-  /*
-   * The printTuple function prints one tuple.
-   *
-   * Calling parameter:
-   *
-   * tuple - the tuple as a vector
-   */
-public:
-  static void printTuple(std::vector<T> const& tuple)
-    {
-      std::cout << "(" << tuple[0] << ",";
-      for (size_t i = 1; i < tuple.size() - 1; ++i) std::cout << tuple[i] << ",";
-      std::cout << tuple[tuple.size() - 1] << ")";
-    }
+  // Create a query point from the KdNode's tuple, find at most the M
+  // nearest neighbors to it, prepend those neighbors to a nearest
+  // neighbors list, remove the first element of the list (which is
+  // the query KdNode), and store a pointer to the list in the nn map.
+  vector<T> const query(tuple, tuple + numDimensions);
+  auto nnList = nn[this];
+  root->findNearestNeighbors(*nnList, query, permutation, numNeighbors);
+  nnList->pop_front();
 
-  /*
-   * The printKdTree function prints the k-d tree "sideways" with the root at the ltChild.
-   *
-   * Calling parameters:
-   *
-   * dim - the number of dimensions
-   * depth - the depth in the k-d tree
-   */
+  // Iterate over the remaining list of nearest neighbors and prepend
+  // the query KdNode to the reverse nearest neighbors list at the
+  // map entry for the nearest neighbor. There is no need to update
+  // the map because it contains a pointer to a list, not a list.
+  for (auto it = nnList->begin(); it != nnList->end(); ++it) {
+    rnn[it->second]->push_front(make_pair(it->first, this));
+  }
+    
+  // Visit the < sub-tree.
+  if (ltChild != nullptr) {
+    ltChild->reverseNearestNeighbors(nn, rnn, permutation, root, numDimensions, numNeighbors);
+  }
+    
+  // Visit the > sub-tree.
+  if (gtChild != nullptr) {
+    gtChild->reverseNearestNeighbors(nn, rnn, permutation, root, numDimensions, numNeighbors);
+  }
+}
+
+/*
+ * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
+ * and add those nearest neighbors to a reverse nearest neighbors map and to a
+ * nearest neighbors map.
+ *
+ * Calling parameters:
+ *
+ * nn - the nearest neighbors map that is passed by reference and modified
+ * rnn - the reverse nearest neighbors map that is passed by reference and modified
+ * permutation - vector that specifies permutation of the partition coordinate
+ * root - the root of the k-d tree where a search for nearest neighbors must begin
+ * numDimensions - the dimensionality k of the k-d tree
+ * numNeighbors - the number M of nearest neighbors to attempt to find
+ * enable - a vector that specifies the dimensions for which to test distance
+ */
+private:
+void reverseNearestNeighbors(map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& nn,
+                             map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& rnn,
+                             vector<signed_size_t> const& permutation,
+                             KdNode<T>* const root,
+                             signed_size_t const numDimensions,
+                             signed_size_t const numNeighbors,
+                             vector<bool> const& enable) {
+
+  // Create a query point from the KdNode's tuple, find at most the M
+  // nearest neighbors to it, prepend those neighbors to a nearest
+  // neighbors list, remove the first element of the list (which is
+  // the query KdNode), and store a pointer to the list in the nn map.
+  vector<T> const query(tuple, tuple + numDimensions);
+  auto nnList = nn[this];
+  root->findNearestNeighbors(*nnList, query, permutation, numNeighbors, enable);
+  nnList->pop_front();
+
+  // Iterate over the remaining list of nearest neighbors and prepend
+  // the query KdNode to the reverse nearest neighbors list at the
+  // map entry for the nearest neighbor. There is no need to update
+  // the map because it contains a pointer to a list, not a list.
+  for (auto it = nnList->begin(); it != nnList->end(); ++it) {
+    rnn[it->second]->push_front(make_pair(it->first, this));
+  }
+    
+  // Visit the < sub-tree.
+  if (ltChild != nullptr) {
+    ltChild->reverseNearestNeighbors(nn, rnn, permutation, root, numDimensions, numNeighbors, enable);
+  }
+    
+  // Visit the > sub-tree.
+  if (gtChild != nullptr) {
+    gtChild->reverseNearestNeighbors(nn, rnn, permutation, root, numDimensions, numNeighbors, enable);
+  }
+}
+
+/*
+ * Walk the k-d tree and initialize the reverse nearest neighbors map.
+ *
+ * Calling parameters:
+ *
+ * rnn - the reverse nearest neighbors map that is called by reference and modified
+ * rnnLists - a vector of reverse nearest neighbors lists
+ * index - an index into the vector that is passed by reference and modified
+ */
+private:
+void initMap(map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& rnn,
+             vector< forward_list< pair<double, KdNode<T>*> > >& rnnLists,
+             size_t& index) {
+
+  // Create a map entry that points to the vector element (which is a list)
+  // and increment the vector index to the next vector element.
+  rnn[this] = &rnnLists[index];
+  ++index;
+    
+  // Visit the < sub-tree.
+  if (ltChild != nullptr) {
+    ltChild->initMap(rnn, rnnLists, index);
+  }
+    
+  // Visit the > sub-tree.
+  if (gtChild != nullptr) {
+    gtChild->initMap(rnn, rnnLists, index);
+  }
+}
+  
+/*
+ * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
+ * and add those nearest neighbors to a reverse nearest neighbors map and to a
+ * nearest neighbors map.
+ *
+ * Each element of the nearest neighbors map contains a query KdNode and a list
+ * of KdNodes that are nearest neighbors to the query KdNode.
+ *
+ * Each element of the reverse nearest neighbors map contains a reference KdNode
+ * and a list of KdNodes to which the reference KdNode is a nearest neighbor.
+ * The concept of reverse nearest neighbors was first described by F. Korn and
+ * S. Muthukrishnan in "Influence Sets Based on Reverse Nearest Neigbor Queries",
+ * Proceedings of the 2000 ACM SIGMOD International Conference on Management of
+ * Data, pages 201-212.
+ *
+ * Calling parameters:
+ *
+ * nn - the nearest neighbors map that is passed by reference and modified
+ * rnn - the reverse nearest neighbors map that is passed by reference and modified
+ * nnLists - a vector of nearest neighbors lists
+ * rnnLists - a vector of reverse nearest neighbors lists
+ * numDimensions - the dimensionality k of the k-d tree
+ * numNeighbors - the number M of nearest neighbors to attempt to find
+ */
 public:
-  void printKdTree(signed_size_t dim, signed_size_t depth)
-    {
-      if (gtChild != nullptr) {
-        gtChild->printKdTree(dim, depth + 1);
-      }
-      for (signed_size_t i = 0; i < depth; ++i) std::cout << "       ";
-      printTuple(tuple, dim);
-      std::cout << std::endl;
-      if (ltChild != nullptr) {
-        ltChild->printKdTree(dim, depth + 1);
+void findReverseNearestNeighbors(map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& nn,
+                                 map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& rnn,
+                                 vector< forward_list< pair<double, KdNode<T>*> > >& nnLists,
+                                 vector< forward_list< pair<double, KdNode<T>*> > >& rnnLists,
+                                 signed_size_t const numDimensions,
+                                 signed_size_t const numNeighbors) {
+    
+  // It is unnecessary to compute the partition coordinate upon each recursive call
+  // of the nearestNeighbors function because that coordinate depends only on the depth
+  // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
+  vector<signed_size_t> permutation;
+  createPermutation(permutation, numDimensions, rnnLists.size());
+
+  // Initialize the nearest neighbors and reverse nearest neighbors maps.
+  size_t index = 0;
+  initMap(nn, nnLists, index);
+  index = 0;
+  initMap(rnn, rnnLists, index);
+    
+  // Walk the k-d tree and build the reverse nearest neighbors lists.
+  reverseNearestNeighbors(nn, rnn, permutation, this, numDimensions, numNeighbors);
+}
+
+/*
+ * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
+ * and add those nearest neighbors to a reverse nearest neighbors map and to a
+ * nearest neighbors map.
+ *
+ * Each element of the nearest neighbors map contains a query KdNode and a list
+ * of KdNodes that are nearest neighbors to the query KdNode.
+ *
+ * Each element of the reverse nearest neighbors map contains a reference KdNode
+ * and a list of KdNodes to which the reference KdNode is a nearest neighbor.
+ * The concept of reverse nearest neighbors was first described by F. Korn and
+ * S. Muthukrishnan in "Influence Sets Based on Reverse Nearest Neigbor Queries",
+ * Proceedings of the 2000 ACM SIGMOD International Conference on Management of
+ * Data, pages 201-212.
+ *
+ * Calling parameters:
+ *
+ * nn - the nearest neighbors map that is passed by reference and modified
+ * rnn - the reverse nearest neighbors map that is passed by reference and modified
+ * nnLists - a vector of nearest neighbors lists
+ * rnnLists - a vector of reverse nearest neighbors lists
+ * numDimensions - the dimensionality k of the k-d tree
+ * numNeighbors - the number M of nearest neighbors to attempt to find
+ * enable - a vector that specifies the dimensions for which to test distance
+ */
+public:
+void findReverseNearestNeighbors(map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& nn,
+                                 map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& rnn,
+                                 vector< forward_list< pair<double, KdNode<T>*> > >& nnLists,
+                                 vector< forward_list< pair<double, KdNode<T>*> > >& rnnLists,
+                                 signed_size_t const numDimensions,
+                                 signed_size_t const numNeighbors,
+                                 vector<bool> const& enable) {
+    
+  // It is unnecessary to compute the partition coordinate upon each recursive call
+  // of the nearestNeighbors function because that coordinate depends only on the depth
+  // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
+  vector<signed_size_t> permutation;
+  createPermutation(permutation, numDimensions, rnnLists.size());
+
+  // Initialize the nearest neighbors and reverse nearest neighbors maps.
+  size_t index = 0;
+  initMap(nn, nnLists, index);
+  index = 0;
+  initMap(rnn, rnnLists, index);
+    
+  // Walk the k-d tree and build the reverse nearest neighbors lists.
+  reverseNearestNeighbors(nn, rnn, permutation, this, numDimensions, numNeighbors, enable);
+}
+
+/*
+ * Verify the correctness of the reverse nearest neighbors map.
+ *
+ * Calling parameter:
+ *
+ * nn - the nearest neighbors map
+ * rnn - the reverse nearest neighbors map.
+ *
+ * Although this function does not directly access the k-d tree, it requires the persistence
+ * of the k-d tree for access to the KdNodes via the maps. Hence, this function is not static.
+ */
+void verifyReverseNeighbors(map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& nn,
+                            map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& rnn) const {
+
+  // Iterate through the reverse nearest neighbors map and if a list is not empty,
+  // verify the correctness of each list.
+  for (auto it = rnn.begin(); it != rnn.end(); ++it) {
+    auto const rnnListPtr = it->second;
+    if (!rnnListPtr->empty()) {
+      // Get the KdNode that is a nearest neighbor to all KdNodes on the list and
+      // verify that it is indeed a nearest neighbor to each KdNode on the list.
+      auto const kdNodePtr = it->first;
+      for (auto listIt = rnnListPtr->begin(); listIt != rnnListPtr->end(); ++listIt) {
+        auto const kdPtr = listIt->second;
+        // Get the nearest neighbor list for the KdNode from the nearest neighbors map
+        // and verify that the list contains KdNodePtr.
+        auto nnListPtr = nn[kdPtr];
+        bool match = false;
+        for (auto nnIt = nnListPtr->begin(); nnIt != nnListPtr->end(); ++nnIt) {
+          if (kdNodePtr == nnIt->second) {
+            match = true;
+            break;
+          }
+        }
+        if (!match) {
+          throw runtime_error("\n\nnode is not a nearest neighbor\n");
+        }
       }
     }
+  }
+}
+
+/*
+ * Calculate the mean and standard deviation of the distances and list sizes in a map.
+ *
+ * Calling parameter:
+ *
+ * nmap - a map from KdNode pointer to list.
+ *
+ * Although this function does not directly access the k-d tree, it requires the persistence
+ * of the k-d tree for access to the KdNodes via the map. Hence, this function is not static.
+ */
+void calculateMeanStd(map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& rnn,
+                      double& meanSize, double& stdSize, double& meanDist, double& stdDist) const {
+
+  // Count the number of map entries that have non-empty lists
+  // and sum the distances and list lengths.
+  size_t count = 0;
+  double sumDist = 0.0, sumDist2 = 0.0, sumSize = 0.0, sumSize2 = 0.0;
+  for (auto mapIt = rnn.begin(); mapIt != rnn.end(); ++mapIt) {
+    auto const rnnListPtr = mapIt->second;
+    if (!rnnListPtr->empty()) {
+      ++count;
+      double const size = static_cast<double>(distance(rnnListPtr->begin(), rnnListPtr->end()));
+      sumSize += size;
+      sumSize2 += size * size;
+      for (auto listIt = rnnListPtr->begin(); listIt != rnnListPtr->end(); ++listIt) {
+        double const dist2 = listIt->first;
+        sumDist += sqrt(dist2);
+        sumDist2 += dist2;
+      }
+    }
+  }
+  double mapSize = static_cast<double>(count);
+  meanSize = sumSize / mapSize;
+  stdSize = sqrt((sumSize2 - (sumSize * sumSize / mapSize)) / (mapSize - 1.0));
+  meanDist = sumDist / sumSize;
+  stdDist = sqrt((sumDist2 - (sumDist * sumDist / sumSize)) / (sumSize - 1.0));
+}
+
+/*
+ * Count the number of non-empty lists in a map.
+ *
+ * Calling parameter:
+ *
+ * rnn - the map
+ *
+ * Although this function does not directly access the k-d tree, it requires the persistence
+ * of the k-d tree for access to the KdNodes via the map. Hence, this function is not static.
+ */
+public:
+size_t nonEmptyLists(map< KdNode<T>*, forward_list< pair<double, KdNode<T>*> >* >& rnn) const {
+
+  size_t count = 0;
+  for (auto it = rnn.begin(); it != rnn.end(); ++it) {
+    if(!it->second->empty()) {
+      ++count;
+    }
+  }
+  return count;
+}
+                                                                                               
+/*
+ * Walk the k-d tree and attempt to add each KdNode to the NearestNeighborHeap.
+ *
+ * Calling parameter:
+ *
+ * heap - an instance of NearestNeighborHeap
+ */
+private:
+void allNeighbors(NearestNeighborHeap<T>& heap) {
+
+  // Visit the < sub-tree.
+  if (ltChild != nullptr) {
+    ltChild->allNeighbors(heap);
+  }
+  // Visit the > sub-tree.
+  if (gtChild != nullptr) {
+    gtChild->allNeighbors(heap);
+  }
+  // Attempt to add the current KdNode to the heap.
+  heap.add(this);
+}
+
+/*
+ * Find M nearest neighbors to the query vector via brute force and return them as a list ordered by increasing distance.
+ *
+ * Calling parameters:
+ *
+ * neighbors - the nearest neighbors list that is passed by reference and modified.
+ * query - the query vector
+ * numNeighbors - the number M of nearest neighbors to find
+ */
+public:
+void bruteNearestNeighbors(forward_list< pair<double, KdNode<T>*> >& neighbors,
+                           vector<T> const& query,
+                           signed_size_t const numNeighbors) {
+    
+  // Create the heap, walk the k-d tree, and attempt to add each KdNode to the heap.
+  NearestNeighborHeap<T> heap(query, numNeighbors);
+  allNeighbors(heap);
+
+  // Empty the heap by successively removing the top of the heap and appending it to a list.
+  for (signed_size_t i = 0; i < numNeighbors; ++i) {
+    neighbors.push_front(heap.removeTop());
+  }
+}
+  
+/*
+ * The printTuple function prints one tuple.
+ *
+ * Calling parameters:
+ *
+ * tuple - the tuple as an array
+ * dim - the number of dimensions
+ *
+ * Because this function does not access the k-d tree, it could be static.
+ * However, calling it as a static function requires speicification of a
+ * type, so calling it as a non-static function is less cumbersome.
+ */
+public:
+void printTuple(T const* tuple,
+                signed_size_t const dim) const {
+    
+  cout << "(" << tuple[0] << ",";
+  for (signed_size_t i = 1; i < dim - 1; ++i) cout << tuple[i] << ",";
+  cout << tuple[dim - 1] << ")";
+}
+
+/*
+ * The printTuple function prints one tuple.
+ *
+ * Calling parameter:
+ *
+ * tuple - the tuple as a vector
+ *
+ * Because this function does not access the k-d tree, it could be static.
+ * However, calling it as a static function requires speicification of a
+ * type, so calling it as a non-static function is less cumbersome.
+ */
+public:
+void printTuple(vector<T> const& tuple) const {
+    
+  cout << "(" << tuple[0] << ",";
+  for (size_t i = 1; i < tuple.size() - 1; ++i) cout << tuple[i] << ",";
+  cout << tuple[tuple.size() - 1] << ")";
+}
+
+/*
+ * The printTuples func prints all tuples in a list.
+ *
+ * Calling parameters:
+ *
+ * regionList - a list of KdNodes returned by a region search
+ * maximumNumberOfNodesToPrint - the maximum number of KdNodes to print
+ * numDimensions - the number of dimensions
+ *
+ * Because this function does not access the k-d tree, it could be static.
+ * However, calling it as a static function requires speicification of a
+ * type, so calling it as a non-static function is less cumbersome.
+ */
+public:
+void printTuples(list< KdNode<T>* > const& regionList,
+                 signed_size_t const maximumNumberOfNodesToPrint,
+                 signed_size_t const numDimensions) const {
+    
+  if (regionList.size() != 0) {
+    signed_size_t maxNodesToPrint = maximumNumberOfNodesToPrint;
+    for (auto it = regionList.begin(); it != regionList.end(); ++it) {
+      printTuple((*it)->getTuple(), numDimensions);
+      cout << endl;
+      --maxNodesToPrint;
+      if (maxNodesToPrint == 0) {
+        break;
+      }
+    }
+  }
+}
+
+/*
+ * The printKdTree function prints the k-d tree "sideways" with the root at the ltChild.
+ *
+ * Calling parameters:
+ *
+ * dim - the number of dimensions
+ * depth - the depth in the k-d tree
+ */
+public:
+void printKdTree(signed_size_t const dim,
+                 signed_size_t const depth) const {
+  if (gtChild != nullptr) {
+    gtChild->printKdTree(dim, depth + 1);
+  }
+  for (signed_size_t i = 0; i < depth; ++i) cout << "       ";
+  printTuple(tuple, dim);
+  cout << endl;
+  if (ltChild != nullptr) {
+    ltChild->printKdTree(dim, depth + 1);
+  }
+}
 }; // class KdNode
 
 /*
- * The NearestNeighborHeap Class implements a fixed length heap of both containing both a KdNode and euclidean distance
+ * The NearestNeighborHeap Class implements a fixed length heap of both containing both a KdNode and Euclidean distance
  * from the tuple in the node to a query point.  When a KdNode is added to the heap it is unconditionally placed in
  * the heap until the heap is full.  After the heap is full, a KdNode is added to the heap only if the calculated
  * distance from the query point to the tuple is less than the farthest KdNode currently in the heap; and in that
@@ -2383,12 +3028,12 @@ public:
 template <typename T>
 class NearestNeighborHeap {
 public:
-  std::vector<T> query; // query point for which nearest neighbors will be found
-  std::vector<bool> enable;
+  vector<T> query; // query point for which nearest neighbors will be found
+  vector<bool> enable;
 private:
   signed_size_t reqDepth; // requested number of nearest neighbors
-  std::vector<KdNode<T>* > nodes; // vector of KdNodes that are the nearest neighbors
-  std::vector<double> dists; // vector of squared distances
+  vector<KdNode<T>* > nodes; // vector of pointers to KdNodes that are the nearest neighbors
+  vector<double> dists; // vector of squared distances
   signed_size_t curDepth; // number of nearest nodes/distances on the heap
 
   /*
@@ -2400,7 +3045,7 @@ private:
    * numNeighbors - the number of nearest neighbors desired
    */
 public:
-  NearestNeighborHeap(std::vector<T> const& query, signed_size_t numNeighbors) {
+  NearestNeighborHeap(vector<T> const& query, signed_size_t numNeighbors) {
     this->nodes.resize(numNeighbors + 1, nullptr); // heap of KdNode* (address 0 is unused)
     this->dists.resize(numNeighbors + 1, 0); // corresponding heap of distances (initialized to 0)
     this->reqDepth = numNeighbors;
@@ -2410,16 +3055,16 @@ public:
   }
   
   /*
-   * Constructor that enables distance test on only specified dimensions
+   * Constructor that enables distance test for only specified dimensions
    *
    * Calling parameters:
    *
    * query - a vector that defines the query point
    * numNeighbors - the number of nearest neighbors desired
-   * enable - a vector that specifies the dimensions on which to test distance
+   * enable - a vector that specifies the dimensions for which to test distance
    */
 public:
-  NearestNeighborHeap(std::vector<T> const& query, signed_size_t numNeighbors, std::vector<bool> const& enable) {
+  NearestNeighborHeap(vector<T> const& query, signed_size_t numNeighbors, vector<bool> const& enable) {
     this->nodes.resize(numNeighbors + 1, nullptr); // heap of KdNode* (address 0 is unused)
     this->dists.resize(numNeighbors + 1, 0); // corresponding heap of distances (initialized to 0)
     this->reqDepth = numNeighbors;
@@ -2437,9 +3082,11 @@ public:
    * j - the index of the second element
    */
 private:
-  void swap(signed_size_t i, signed_size_t j) {
-    double tempDist = dists[i];
-    KdNode<T>* tempNode = nodes[i];
+  void swap(signed_size_t const i,
+            signed_size_t const j) {
+    
+    double const tempDist = dists[i];
+    KdNode<T>* const tempNode = nodes[i];
     dists[i] = dists[j];
     nodes[i] = nodes[j];
     dists[j] = tempDist;
@@ -2451,10 +3098,12 @@ private:
    *
    * Calling parameter:
    *
-   * k - the index of the element
+   * kk - the index of the element
    */
 private:
-  void rise(signed_size_t k) {
+  void rise(signed_size_t const kk) {
+
+    signed_size_t k = kk;
     while (k > 1 && dists[k/2] < dists[k]) {
       swap(k/2, k);
       k = k/2;
@@ -2465,12 +3114,14 @@ private:
    *
    * Calling parameter:
    *
-   * k - the index of the element
+   * kk - the index of the element
    */
 private:
-  void fall(signed_size_t k) {
+  void fall(signed_size_t const kk) {
+
+    signed_size_t k = kk;
     while (2*k <= curDepth) {
-      int j = 2*k;
+      signed_size_t j = 2*k;
       if (j < curDepth && dists[j] < dists[j+1]) {
         ++j;
       }
@@ -2488,8 +3139,8 @@ private:
    * return a pair that contains a pointer to the top KdNode and the distance to that KdNode
    */
 public:
-  std::pair<double, KdNode<T>*> removeTop() {
-    std::pair<double, KdNode<T>*> returnPair = std::make_pair(dists[1], nodes[1]);
+  pair<double, KdNode<T>*> removeTop() {
+    pair<double, KdNode<T>*> returnPair = make_pair(dists[1], nodes[1]);
     swap(1, curDepth--);
     nodes[curDepth+1] = nullptr;
     fall(1);
@@ -2505,7 +3156,7 @@ public:
    * node - KdNode to potentially add to the heap
    */
 public:
-  void add(KdNode<T>* node) {
+  void add(KdNode<T>* const node) {
     // Find the distance by subtracting the query from the tuple and
     // calculating the sum of the squared distances. Note that conversion
     // from type T to double may result in loss of precision but avoids
@@ -2544,29 +3195,36 @@ public:
   bool heapFull() {
     return curDepth >= reqDepth;
   }
+
+  /* Return the current depth of the heap, i.e., the number of nearest nodes/distances elements on the heap. */
+public:
+  signed_size_t heapDepth() {
+    return curDepth;
+  }
 }; // class NearestNeighborHeap
 
 /*
- * The randomLongInInterval function creates a random test_t in the interval [min, max].  See
+ * The randomLongInInterval function creates a random tuple_t in the interval [min, max].  See
  * http://stackoverflow.com/questions/6218399/how-to-generate-a-random-number-between-0-and-1
  *
  * Calling parameters:
  *
- * min - the minimum test_t value desired
- * max - the maximum test_t value desired
+ * min - the minimum tuple_t value desired
+ * max - the maximum tuple_t value desired
  *
- * returns: a random test_t
+ * returns: a random tuple_t
  */
-static test_t randomLongInInterval(test_t min, test_t max) {
+static tuple_t randomLongInInterval(tuple_t const min,
+                                    tuple_t const max) {
+  
   // subtract 32768 from range to avoid overflows.
-  return min + (test_t)((((double)rand()) / ((double)RAND_MAX)) * (max - min - 32768));
+  return min + (tuple_t)((((double)rand()) / ((double)RAND_MAX)) * (max - min - 32768));
 }
-
 
 #ifdef TEST_KD_TREE
 /* Create a simple k-d tree and print its topology for inspection. */
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
+
   struct timespec startTime, endTime;
 
   // Set the defaults then parse the input arguments.
@@ -2575,10 +3233,11 @@ int main(int argc, char** argv)
   signed_size_t extraPoints = 100;
   signed_size_t numDimensions = 3;
   signed_size_t numThreads = 4;
+  signed_size_t maximumNumberOfNodesToPrint = 5;
+  tuple_t searchDistance = 1000000000000000000L;
   bool bruteForceSearch = false;
   bool bruteForceRegion = false;
-  signed_size_t maximumNumberOfNodesToPrint = 5;
-  test_t searchDistance = 1000000000000000000L;
+  bool reverseNearestNeighbors = false;
 
   for (signed_size_t i = 1; i < argc; ++i) {
     if (0 == strcmp(argv[i], "-n") || 0 == strcmp(argv[i], "--numPoints")) {
@@ -2602,7 +3261,6 @@ int main(int argc, char** argv)
       continue;
     }
     if (0 == strcmp(argv[i], "-s") || 0 == strcmp(argv[i], "--searchDistance")) {
-
       continue;
     }
     if (0 == strcmp(argv[i], "-p") || 0 == strcmp(argv[i], "--maximumNodesToPrint")) {
@@ -2617,24 +3275,31 @@ int main(int argc, char** argv)
       bruteForceRegion = !bruteForceRegion;
       continue;
     }
-    std::cout << "illegal command-line argument: " << argv[i] << std::endl;
-    exit(1);
+    if (0 == strcmp(argv[i], "-r") || 0 == strcmp(argv[i], "--reverseNearestNeighbors")) {
+      reverseNearestNeighbors = !reverseNearestNeighbors;
+      continue;
+    }
+    {
+      ostringstream buffer;
+      buffer << "\n\nillegal command-line argument: " << argv[i] << endl;
+      throw runtime_error(buffer.str());
+    }
   }
 
-  // Declare and initialize the kdNodes vector and initialize it with tuples,
+  // Declare and initialize the coordinates vector and initialize it with tuples,
   // for example (x,y,z,w), in the half-open interval [0, MAX] where MAX is the
   // maximum value for the kdKey_t type. Create extraPoints-1 duplicate elements,
   // where extraPoints <= numPoints, to test the removal of duplicate points.
   //
-  // Note that the tuples are not vectors in order to avoid copying via assignment statements.
+  // Note that the tuples are arrays not vectors in order to avoid copying via assignment statements.
   extraPoints = (extraPoints <= numPoints) ? extraPoints : numPoints;
-  std::vector<test_t*> coordinates(numPoints + extraPoints - 1);
+  vector<tuple_t*> coordinates(numPoints + extraPoints - 1);
   for (size_t i = 0; i < coordinates.size(); ++i) {
-    coordinates[i] = new test_t[numDimensions];
+    coordinates[i] = new tuple_t[numDimensions];
   }
   for (signed_size_t i = 0; i < numPoints; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
-      coordinates[i][j] = randomLongInInterval(0, std::numeric_limits<test_t>::max());
+      coordinates[i][j] = randomLongInInterval(0, numeric_limits<tuple_t>::max());
     }
   }
   for (signed_size_t i = 1; i < extraPoints; ++i) {
@@ -2659,7 +3324,7 @@ int main(int argc, char** argv)
   else {
     numThreads = 0;
   }
-  signed_size_t childThreads = numThreads - 1;
+  signed_size_t const childThreads = numThreads - 1;
   signed_size_t maximumSubmitDepth = -1;
   if (numThreads < 2) {
     maximumSubmitDepth = -1; // The sentinel value -1 specifies no child threads.
@@ -2670,47 +3335,38 @@ int main(int argc, char** argv)
   else {
     maximumSubmitDepth = static_cast<signed_size_t>(floor(log(static_cast<double>(childThreads)) / log(2.)));
   }
-  std::cout << std::endl << "Max number of threads = " << numThreads << "  max submit depth = "
-            << maximumSubmitDepth << std::endl << std::endl;
+  cout << endl << "Max number of threads = " << numThreads << "  max submit depth = "
+       << maximumSubmitDepth << endl << endl;
 
   // Create the k-d tree.
-  KdNode<test_t>* root = KdNode<test_t>::createKdTree(coordinates, numDimensions, maximumSubmitDepth);
+  auto const root = KdNode<tuple_t>::createKdTree(coordinates, numDimensions, maximumSubmitDepth);
 
   // Search the k-d tree via region search for the KdNodes that lie within a hyper-cube centered near the origin.
-  std::vector<test_t> query(numDimensions);
-  std::vector<test_t> queryLower(numDimensions);
-  std::vector<test_t> queryUpper(numDimensions);
+  vector<tuple_t> query(numDimensions);
+  vector<tuple_t> queryLower(numDimensions);
+  vector<tuple_t> queryUpper(numDimensions);
   for (signed_size_t i = 0; i < numDimensions; ++i) {
     query[i] = i;
     queryLower[i] = query[i] - searchDistance;
     queryUpper[i] = query[i] + searchDistance;
   }
   startTime = getTime();
-  auto regionFast = root->searchRegion(queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
+  list<KdNode<tuple_t>*> regionFast;
+  root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
   endTime = getTime();
-  double fastRegionTime = (endTime.tv_sec - startTime.tv_sec) +
+  double const fastRegionTime = (endTime.tv_sec - startTime.tv_sec) +
     1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
 
-  std::cout << "fast region time = " << std::fixed << std::setprecision(6) << fastRegionTime << " seconds" << std::endl << std::endl;
+  cout << "fast region time = " << fixed << setprecision(6) << fastRegionTime << " seconds" << endl << endl;
 
-  std::cout << regionFast.size() << " nodes within " << searchDistance << " units of ";
-  KdNode<test_t>::printTuple(query);
-  std::cout << " in all dimensions." << std::endl << std::endl;
-  if (regionFast.size() != 0) {
-    regionFast.sort();
-    signed_size_t maxNodesToPrint = maximumNumberOfNodesToPrint;
-    std::cout << "List of the first <= " << maximumNumberOfNodesToPrint << " fast k-d nodes within a "
-              << searchDistance << "-unit search distance follows:" << std::endl << std::endl;
-    for (std::list<KdNode<test_t>*>::iterator it = regionFast.begin(); it != regionFast.end(); ++it) {
-      KdNode<test_t>::printTuple((*it)->getTuple(), numDimensions);
-      std::cout << std::endl;
-      --maxNodesToPrint;
-      if (maxNodesToPrint == 0) {
-        break;
-      }
-    }
-    std::cout << std::endl;
-  }
+  cout << regionFast.size() << " nodes within " << searchDistance << " units of ";
+  root->printTuple(query);
+  cout << " in all dimensions." << endl << endl;
+  cout << "List of the first <= " << maximumNumberOfNodesToPrint << " fast search k-d nodes within a "
+       << searchDistance << "-unit search distance follows:" << endl << endl;
+  regionFast.sort();
+  root->printTuples(regionFast, maximumNumberOfNodesToPrint, numDimensions);
+  cout << endl;
 
   // Verify that no duplicate KdNodes exist on the list returned from region search.
   auto itr1 = regionFast.begin();
@@ -2718,140 +3374,129 @@ int main(int argc, char** argv)
   ++itr2;
   for ( ; itr2 != regionFast.end(); ++itr1, ++itr2) {
     if (*itr1 == *itr2) {
-      throw std::runtime_error("Duplicate KdNode* on region-search list\n");
+      throw runtime_error("\n\nduplicate KdNode* on region-search list\n");
     }
   }
 
   // Search the k-d tree via brute force for the KdNodes that lie within a hyper-cube centered near the origin.
   if (bruteForceRegion) {
     startTime = getTime();
-    auto regionSlow = root->bruteRegion(queryLower, queryUpper);
+    list<KdNode<tuple_t>*> regionSlow;
+    root->bruteRegion(regionSlow, queryLower, queryUpper);
     endTime = getTime();
-    double slowRegionTime = (endTime.tv_sec - startTime.tv_sec) +
+    double const slowRegionTime = (endTime.tv_sec - startTime.tv_sec) +
       1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
 
-    std::cout << "slow region time = " << std::fixed << std::setprecision(6) << slowRegionTime << " seconds" << std::endl << std::endl;
+    cout << "slow region time = " << fixed << setprecision(6) << slowRegionTime << " seconds" << endl << endl;
 
-    std::cout << regionSlow.size() << " nodes within " << searchDistance << " units of ";
-    KdNode<test_t>::printTuple(query);
-    std::cout << " in all dimensions." << std::endl << std::endl;
-    if (regionSlow.size() != 0) {
-      regionSlow.sort();
-      signed_size_t maxNodesToPrint = maximumNumberOfNodesToPrint;
-      std::cout << "List of the first <= " << maximumNumberOfNodesToPrint << " slow k-d nodes within a "
-                << searchDistance << "-unit search distance follows:" << std::endl << std::endl;
-      for (std::list<KdNode<test_t>*>::iterator it = regionSlow.begin(); it != regionSlow.end(); ++it) {
-        KdNode<test_t>::printTuple((*it)->getTuple(), numDimensions);
-        std::cout << std::endl;
-        --maxNodesToPrint;
-        if (maxNodesToPrint == 0) {
-          break;
-        }
-      }
-      std::cout << std::endl;
-    }
+    cout << regionSlow.size() << " nodes within " << searchDistance << " units of ";
+    root->printTuple(query);
+    cout << " in all dimensions." << endl << endl;
+    cout << "List of the first <= " << maximumNumberOfNodesToPrint << " slow search k-d nodes within a "
+         << searchDistance << "-unit search distance follows:" << endl << endl;
+    regionSlow.sort();
+    root->printTuples(regionSlow, maximumNumberOfNodesToPrint, numDimensions);
+    cout << endl;
 
     // Verify that the region-search and brute-force lists are identical.
+    // Both lists must be sorted before the KdNode* comparisons are
+    // performed below because the region search and brute-force search
+    // algorithms do not produce lists wherein KdNodes are prepended
+    // in the same order.
     auto itrf = regionFast.begin();
     for (auto itrs = regionSlow.begin(); itrs != regionSlow.end(); ++itrf, ++itrs) {
       if (*itrf != *itrs) {
-        throw std::runtime_error("Non-identical region-search and brute-force lists\n");
+        throw runtime_error("\n\nnon-identical region-search and brute-force lists\n");
       }
     }
   }
 
   // It is impossible to find more nearest neighbors than there are points.
-  numNeighbors = std::min(numNeighbors, numPoints + extraPoints + 1);
+  numNeighbors = min(numNeighbors, numPoints + extraPoints + 1);
 
-  // Search the k-d tree for the numNeighbors nearest neighbors to the first tuple.
+  // Search the k-d tree for up to numNeighbors nearest neighbors to the first tuple.
   startTime = getTime();
-  auto neighborsFast = root->findNearestNeighbors(query, numNeighbors, coordinates.size());
+  forward_list< pair<double, KdNode<tuple_t>*> > neighborsFast;
+  root->findNearestNeighbors(neighborsFast, query, numNeighbors, coordinates.size());
   endTime = getTime();
-  double fastNeighborTime = (endTime.tv_sec - startTime.tv_sec) +
+  double const fastNeighborTime = (endTime.tv_sec - startTime.tv_sec) +
     1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
 
-  std::cout << "fast neighbor time = " << std::fixed << std::setprecision(6) << fastNeighborTime << " seconds" << std::endl << std::endl;
-  std::cout << "fast neighbor list size = " << neighborsFast.size() << std::endl << std::endl;
+  cout << "fast neighbor time = " << fixed << setprecision(6) << fastNeighborTime << " seconds" << endl << endl;
+  cout << "fast neighbor list size = " << distance(neighborsFast.begin(), neighborsFast.end()) << endl << endl;
 
   // Find nearest neighbors via brute force if requested.
   if (bruteForceSearch) {
     startTime = getTime();
-    auto neighborsSlow = root->bruteNearestNeighbors(query, numNeighbors);
+    forward_list< pair<double, KdNode<tuple_t>*> > neighborsSlow;
+    // Find only the number of nearest neighbors returned by findNearestNeighbors above.
+    root->bruteNearestNeighbors(neighborsSlow, query, distance(neighborsFast.begin(), neighborsFast.end()));
     endTime = getTime();
-    double slowNeighborTime = (endTime.tv_sec - startTime.tv_sec) +
+    double const slowNeighborTime = (endTime.tv_sec - startTime.tv_sec) +
       1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
 
-    std::cout << "slow neighbor time = " << std::fixed << std::setprecision(6) << slowNeighborTime << " seconds" << std::endl << std::endl;
-    std::cout << "slow neighbor list size = " << neighborsSlow.size() << std::endl << std::endl;
+    cout << "slow neighbor time = " << fixed << setprecision(6) << slowNeighborTime << " seconds" << endl << endl;
+    cout << "slow neighbor list size = " << distance(neighborsSlow.begin(), neighborsSlow.end()) << endl << endl;
 
-    auto itf1 = neighborsFast.begin();
-    auto its1 = neighborsSlow.begin();
-    
-    // Compare the first k-d tree distance to the first brute-force distance.
-    if (itf1->first != its1->first) {
-      char msg[256];
-      snprintf(msg, 256, "fast distance[0] = %f  !=  slow distance[0] = %f\n", itf1->first, its1->first);
-      throw std::runtime_error(msg);
-    }
-    
-    // Compare the first k-d tree KdNode* to the first brute-force KdNode*.
-    if (itf1->second != its1->second) {
-      char msg[256];
-      snprintf(msg, 256, "fast KdNode*[0] != slow KdNode*[0]\n");
-      throw std::runtime_error(msg);
-    }
+    // Verify the consistency between the nearest neighbors lists
+    // found by k-d tree search and by brute force.
+    root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
 
-    std::cout << "fast and slow distances squared follow:" << std::endl << std::endl;
-    std::cout << std::fixed << std::setprecision(0) << itf1->first << "\t" << its1->first << std::endl;
-
-    // Compare the remaining distances and KdNode*
-    auto itf2 = itf1;
-    auto its2 = its1;
-    ++itf2;
-    ++its2;
-    signed_size_t i = 1;
-    for ( ; itf2 != neighborsFast.end(); ++itf1, ++its1, ++itf2, ++its2, ++i) {
-      // Print the fast and slow distances for this iteration of the loop.
-      std::cout << std::fixed << std::setprecision(0) << itf2->first << "\t" << its2->first << std::endl;
-      // Ensure that the fast distances increase monotonically.
-      if (itf1->first > itf2->first) {
-        char msg[256];
-        snprintf(msg, 256, "fast distance[%ld] = %f  >  fast distance[%ld] = %f\n",
-                 i - 1, itf1->first, i, itf2->first);
-        throw std::runtime_error(msg);
-      }
-      // Ensure that the slow distances increase monotonically.
-      if (its1->first > its2->first) {
-        char msg[256];
-        snprintf(msg, 256, "slow distance[%ld] = %f  >  slow distance[%ld] = %f\n",
-                 i-1, its1->first, i, its2->first);
-        throw std::runtime_error(msg);
-      }
-      // Compare the ith k-d tree distance to the ith brute-force distance.
-      if (itf2->first != its2->first) {
-        char msg[256];
-        snprintf(msg, 256, "fast distance[%ld] = %f  !=  slow distance[%ld] = %f\n",
-                 i, itf2->first, i, its2->first);
-        throw std::runtime_error(msg);
-      }
-      // Compare the ith k-d tree KdNode* to the ith brute-force KdNode*.
-      if (itf2->second != its2->second) {
-        char msg[256];
-        snprintf(msg, 256, "fast KdNode*[%ld] != slow KdNode*[%ld]\n", i, i);
-        throw std::runtime_error(msg);
-      }
+    // Print the fast and slow distances squared.
+    cout << "fast and slow distances squared follow:" << endl << endl;
+    auto itf = neighborsFast.begin();
+    auto its = neighborsSlow.begin();
+    for ( ; itf != neighborsFast.end(); ++itf, ++its) {
+      cout << fixed << setprecision(0) << itf->first << "\t" << its->first << endl;
     }
-    std::cout << std::endl;
+    cout << endl;
+  }
+
+  // Optionally construct a nearest neighbor map and a reverse nearest neighbors map.
+  // Each map element contains a list. The lists are allocated within vectors below
+  // to permit the lists to be manipulated within the maps via pointers to lists, which
+  // avoids the possibility of copying lists that may be time-consuming.
+  if (reverseNearestNeighbors) {
+    startTime = getTime();
+    map< KdNode<tuple_t>*, forward_list< pair<double, KdNode<tuple_t>*> >* > nn;
+    map< KdNode<tuple_t>*, forward_list< pair<double, KdNode<tuple_t>*> >* > rnn;
+    vector< forward_list< pair<double, KdNode<tuple_t>*> > > nnLists(coordinates.size());
+    vector< forward_list< pair<double, KdNode<tuple_t>*> > > rnnLists(coordinates.size());
+    root->findReverseNearestNeighbors(nn, rnn, nnLists, rnnLists, numDimensions, numNeighbors);
+    endTime = getTime();
+    double const reverseNearestNeighborTime = (endTime.tv_sec - startTime.tv_sec) +
+      1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+    cout << "reverse nearest neighbor time = " << fixed << setprecision(2) << reverseNearestNeighborTime << " seconds" << endl << endl;
+    cout << "number of non-empty nearest neighbors lists = " << root->nonEmptyLists(nn) << endl;
+    cout << "number of non-empty reverse nearest neighbors lists = " << root->nonEmptyLists(rnn) << endl << endl;
+
+    // Report the mean and standard deviation distance and number of reverse nearest neighbors.
+    double meanSize, stdSize, meanDist, stdDist;
+    root->calculateMeanStd(rnn, meanSize, stdSize, meanDist, stdDist);
+    cout << "mean reverse nearest neighbor distance = " << scientific << meanDist
+         << "  standard deviation = " << stdDist << endl;
+    cout << "mean reverse nearest neighbor list size = " << fixed << setprecision(3) << meanSize
+         << "  standard deviation = " << stdSize << endl << endl;
+
+    // Verify the consistency between the nearest neighbors and reverse nearest neighbors maps.
+    startTime = getTime();
+    root->verifyReverseNeighbors(nn, rnn);
+    endTime = getTime();
+    double verifyReverseTime = (endTime.tv_sec - startTime.tv_sec) +
+      1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+    cout << "verify reverse nearest neighbor time = " << fixed << setprecision(2) << verifyReverseTime << " seconds" << endl << endl;
   }
 
   // Delete the k-d tree.
   startTime = getTime();
   root->deleteKdTree();
   endTime = getTime();
-  double deleteTime = (endTime.tv_sec - startTime.tv_sec) +
+  double const deleteTime = (endTime.tv_sec - startTime.tv_sec) +
     1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
 
-  std::cout << "deleteTime = " << std::fixed << std::setprecision(6) << deleteTime << " seconds" << std::endl << std::endl;
+  cout << "deleteTime = " << fixed << setprecision(6) << deleteTime << " seconds" << endl << endl;
 
   return 0;
 }
