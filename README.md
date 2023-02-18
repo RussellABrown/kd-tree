@@ -4,9 +4,9 @@ http://www.jcgt.org/published/0004/01/03/
 
 https://arxiv.org/abs/1410.5420
 
-The Journal of Computer Graphics Techniques article contains a detailed description of an O(kn logn) k-d tree building algorithm and compares the performance of that algorithm to the performance of an O(n logn) algorithm.
+The Journal of Computer Graphics Techniques (JCGT) article contains a detailed description of an O(kn log n) k-d tree building algorithm and compares the performance of that algorithm to the performance of an O(n log n) algorithm.
 
-The arXiv article includes an appendix that describes improvements to two k-d tree-building algorithms that were implemented following the description of those algorithms in the Journal of Computer Graphics Techniques article. A copy of the arXiv article is available in this master branch.
+In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the arXiv article includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following the presentation of those algorithms in the Journal of Computer Graphics Techniques article. A copy of the arXiv article is available in this master branch.
 
 The source files “kdTreeKnlogn.cpp” and “kdTreeNlogn.cpp” are implementations that build a balanced k-d tree.
 
