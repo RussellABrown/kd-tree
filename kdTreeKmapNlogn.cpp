@@ -2402,13 +2402,13 @@ void findNearestNeighbors(forward_list< pair<double, KdNode<K,V,N>*> >& neighbor
  *
  * Calling parameters:
  *
- * neighbors - the nearest neighbors list that is passed by reference and modified.
+ * neighbors - pointer to the nearest neighbors list that is modified
  * query - the query vector
  * permutation - vector that specifies permutation of the partition coordinate
  * numNeighbors - the number M of nearest neighbors to attempt to find
  */
 public:
-void findNearestNeighbors(forward_list< pair<double, KdNode<K,V,N>*> >& neighbors,
+void findNearestNeighbors(forward_list< pair<double, KdNode<K,V,N>*> >* const neighbors,
                           vector<K> const& query,
                           vector<signed_size_t> const& permutation,
                           signed_size_t const numNeighbors) {
@@ -2421,7 +2421,7 @@ void findNearestNeighbors(forward_list< pair<double, KdNode<K,V,N>*> >& neighbor
   // Remove only the number of heap entries present.
   signed_size_t const heapDepth = heap.heapDepth();;
   for (signed_size_t i = 0; i < heapDepth; ++i) {
-    neighbors.push_front(heap.removeTop());
+    neighbors->push_front(heap.removeTop());
   }
 }
 
@@ -2430,14 +2430,14 @@ void findNearestNeighbors(forward_list< pair<double, KdNode<K,V,N>*> >& neighbor
  *
  * Calling parameters:
  *
- * neighbors - the nearest neighbors list that is passed by reference and modified.
+ * neighbors - pointer to the nearest neighbors list that is modified
  * query - the query vector
  * permutation - vector that specifies permutation of the partition coordinate
  * numNeighbors - the number M of nearest neighbors to attempt to  find
  * enable - a vector that specifies the dimensions for which to test distance
  */
 public:
-void findNearestNeighbors(forward_list< pair<double, KdNode<K,V,N>*> >& neighbors,
+void findNearestNeighbors(forward_list< pair<double, KdNode<K,V,N>*> >* const neighbors,
                           vector<K> const& query,
                           vector<signed_size_t> const& permutation,
                           signed_size_t const numNeighbors,
@@ -2451,7 +2451,7 @@ void findNearestNeighbors(forward_list< pair<double, KdNode<K,V,N>*> >& neighbor
   // Remove only the number of heap entries present.
   signed_size_t const heapDepth = heap.heapDepth();;
   for (signed_size_t i = 0; i < heapDepth; ++i) {
-    neighbors.push_front(heap.removeTop());
+    neighbors->push_front(heap.removeTop());
   }
 }
 
@@ -2547,15 +2547,15 @@ void reverseNearestNeighbors(map< KdNode<K,V,N>*, forward_list< pair<double, KdN
   // neighbors list, remove the first element of the list (which is
   // the query KdNode), and store a pointer to the list in the nn map.
   vector<K> const query(tuple, tuple + numDimensions);
-  auto nnList = nn[this];
-  root->findNearestNeighbors(*nnList, query, permutation, numNeighbors);
-  nnList->pop_front();
+  auto nnListPtr = nn[this];
+  root->findNearestNeighbors(nnListPtr, query, permutation, numNeighbors);
+  nnListPtr->pop_front();
 
   // Iterate over the remaining list of nearest neighbors and prepend
   // the query KdNode to the reverse nearest neighbors list at the
   // map entry for the nearest neighbor. There is no need to update
   // the map because it contains a pointer to a list, not a list.
-  for (auto it = nnList->begin(); it != nnList->end(); ++it) {
+  for (auto it = nnListPtr->begin(); it != nnListPtr->end(); ++it) {
     rnn[it->second]->push_front(make_pair(it->first, this));
   }
     
@@ -2599,15 +2599,15 @@ void reverseNearestNeighbors(map< KdNode<K,V,N>*, forward_list< pair<double, KdN
   // neighbors list, remove the first element of the list (which is
   // the query KdNode), and store a pointer to the list in the nn map.
   vector<K> const query(tuple, tuple + numDimensions);
-  auto nnList = nn[this];
-  root->findNearestNeighbors(*nnList, query, permutation, numNeighbors, enable);
-  nnList->pop_front();
+  auto nnListPtr = nn[this];
+  root->findNearestNeighbors(nnListPtr, query, permutation, numNeighbors, enable);
+  nnListPtr->pop_front();
 
   // Iterate over the remaining list of nearest neighbors and prepend
   // the query KdNode to the reverse nearest neighbors list at the
   // map entry for the nearest neighbor. There is no need to update
   // the map because it contains a pointer to a list, not a list.
-  for (auto it = nnList->begin(); it != nnList->end(); ++it) {
+  for (auto it = nnListPtr->begin(); it != nnListPtr->end(); ++it) {
     rnn[it->second]->push_front(make_pair(it->first, this));
   }
     
@@ -2803,7 +2803,10 @@ void verifyReverseNeighbors(map< KdNode<K,V,N>*, forward_list< pair<double, KdNo
  * of the k-d tree for access to the KdNodes via the map. Hence, this function is not static.
  */
 void calculateMeanStd(map< KdNode<K,V,N>*, forward_list< pair<double, KdNode<K,V,N>*> >* >& rnn,
-                      double& meanSize, double& stdSize, double& meanDist, double& stdDist) const {
+                      double& meanSize,
+                      double& stdSize,
+                      double& meanDist,
+                      double& stdDist) const {
 
   // Count the number of map entries that have non-empty lists
   // and sum the distances and list lengths.
@@ -2980,6 +2983,7 @@ void printTuples(list< KdNode<K,V,N>* > const& regionList,
 public:
 void printKdTree(signed_size_t const dim,
                  signed_size_t const depth) const {
+  
   if (gtChild != nullptr) {
     gtChild->printKdTree(dim, depth + 1);
   }
@@ -2993,7 +2997,7 @@ void printKdTree(signed_size_t const dim,
 }; // class KdNode
 
 /*
- * The NearestNeighborHeap Class implements a fixed length heap of both containing both a KdNode and Euclidean distance
+ * The NearestNeighborHeap class implements a fixed length heap of both containing both a KdNode and Euclidean distance
  * from the tuple in the node to a query point.  When a KdNode is added to the heap it is unconditionally placed in
  * the heap until the heap is full.  After the heap is full, a KdNode is added to the heap only if the calculated
  * distance from the query point to the tuple is less than the farthest KdNode currently in the heap; and in that
@@ -3468,7 +3472,7 @@ int main(int argc, char** argv)
     startTime = getTime();
     root->verifyReverseNeighbors(nn, rnn);
     endTime = getTime();
-    double verifyReverseTime = (endTime.tv_sec - startTime.tv_sec) +
+    double const verifyReverseTime = (endTime.tv_sec - startTime.tv_sec) +
       1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
 
     cout << "verify reverse nearest neighbor time = " << fixed << setprecision(2) << verifyReverseTime << " seconds" << endl << endl;
