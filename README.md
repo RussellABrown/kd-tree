@@ -8,11 +8,13 @@ The Journal of Computer Graphics Techniques (JCGT) article contains a detailed d
 
 In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the arXiv article includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following the presentation of those algorithms in the Journal of Computer Graphics Techniques article. A copy of the arXiv article is available in this master branch.
 
-The source files “kdTreeKnlogn.cpp” and “kdTreeNlogn.cpp” are implementations that build a balanced k-d tree.
+The source-code files “kdTreeKnlogn.cpp” and “kdTreeNlogn.cpp” are implementations that build a balanced k-d tree.
 
-The source files "kdTreeMapKnlogn.cpp", "kdTreeMapNlogn.cpp", "kdTreeKmapKnlog.cpp", and "kdTreeKmapNlogn.cpp" are implementations that build a balanced k-d tree-based key-to-value map. The latter two implementations of the key-to-value map execute twice as rapidly as the former two implementations. See the arXiv article for details.
+The source-code files "kdTreeMapKnlogn.cpp", "kdTreeMapNlogn.cpp", "kdTreeKmapKnlog.cpp", and "kdTreeKmapNlogn.cpp" are implementations that build a balanced k-d tree-based key-to-value map. The latter two implementations of the key-to-value map execute twice as rapidly as the former two implementations. See the arXiv article for details.
 
-All six source files include algorithms that search a k-d tree (1) for all points that lie inside a k-dimensional hyper-rectangular region; (2) for the m nearest neighbors to a query point sorted according to their distances to the query point via a priority queue; and (3) for the reverse nearest neighbors to each point in the k-d tree, where the reverse nearest neighbors to a given point are defined as the set of points to which that point is a nearest neighbor. All six implementations build a k-d tree and search a k-dimensional hyper-rectangular region using multiple threads. The nearest-neighbors-search and reverse-nearest-neighbors-search algorithms are each single threaded.
+The source-code file "kdTreeMapAvlKnlogn.cpp" is a modification of "kdTreeMapKnlogn.cpp" that substitutes an AVL tree for std::map but that does not achieve an improvement in performance thereby.
+
+All seven source-code files include algorithms that search a k-d tree (1) for all points that lie inside a k-dimensional hyper-rectangular region; (2) for the m nearest neighbors to a query point sorted according to their distances to the query point via a priority queue; and (3) for the reverse nearest neighbors to each point in the k-d tree, where the reverse nearest neighbors to a given point are defined as the set of points to which that point is a nearest neighbor. All six implementations build a k-d tree and search a k-dimensional hyper-rectangular region using multiple threads. The nearest-neighbors-search and reverse-nearest-neighbors-search algorithms are each single threaded.
 
 The command-line options for controlling execution of the k-d tree-building programs are as follows.
 
