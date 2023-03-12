@@ -2725,23 +2725,23 @@ int main(int argc, char** argv) {
 
   // Declare and initialize the coordinates vector and initialize it with tuples,
   // for example (x,y,z,w), in the half-open interval [0, MAX] where MAX is the
-  // maximum value for the kdKey_t type. Create extraPoints duplicate elements,
-  // where extraPoints <= numPoints, to test the removal of duplicate points.
+  // maximum value for the tuple_t type. Create extraPoints duplicate elements,
+  // where extraPoints < numPoints, to test the removal of duplicate points.
   //
-  // Note that the tuples are arrays not vectors in order to avoid copying via assignment statements.
-  extraPoints = (extraPoints <= numPoints) ? extraPoints : numPoints;
+  // The tuples are arrays not vectors to avoid copying via assignment statements.
+  extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
   vector<tuple_t*> coordinates(numPoints + extraPoints);
   for (size_t i = 0; i < coordinates.size(); ++i) {
     coordinates[i] = new tuple_t[numDimensions];
   }
-  // Initialize each tuple including the extra points so that
-  // coordinates[numPoints] gets initialized.
-  for (signed_size_t i = 0; i < numPoints + extraPoints; ++i) {
+  // Initialize each tuple excluding the extra points.
+  for (signed_size_t i = 0; i < numPoints; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       coordinates[i][j] = randomLongInInterval(0, numeric_limits<tuple_t>::max());
     }
   }
-  for (signed_size_t i = 1; i < extraPoints; ++i) {
+  // Reflect tuples across coordinates[numPoints - 1] to initialize the extra points.
+  for (signed_size_t i = 1; i <= extraPoints; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       coordinates[numPoints - 1 + i][j] = coordinates[numPoints - 1 - i][j];
     }

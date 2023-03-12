@@ -2703,8 +2703,8 @@ int main(int argc, char** argv) {
   // Declare and initialize the kdNodes vector and initialize it with tuples,
   // for example (x,y,z,w), in the half-open interval [0, MAX] where MAX is the
   // maximum value for the kdKey_t type. Create extraPoints duplicate elements,
-  // where extraPoints <= numPoints, to test the removal of duplicate points.
-  extraPoints = (extraPoints <= numPoints) ? extraPoints : numPoints;
+  // where extraPoints < numPoints, to test the removal of duplicate points.
+  extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
   vector<KdNode<kdKey_t, kdValue_t>*> kdNodes(numPoints + extraPoints);
   // Create each KdNode with a tuple (all elements == 0) and a string value
   // obtained from the index into the kdNodes vector. The string value is
@@ -2716,15 +2716,14 @@ int main(int argc, char** argv) {
     buffer << i;
     kdNodes[i] = new KdNode<kdKey_t, kdValue_t>(numDimensions, buffer.str(), i);
   }
-  // Initialize each KdNode::tuple including the extra points so that
-  // kdNodes[numPoints] gets initialized.
-  for (signed_size_t i = 0; i < numPoints + extraPoints; ++i) {
+  // Initialize each KdNode::tuple excluding the extra pointa.
+  for (signed_size_t i = 0; i < numPoints; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       kdNodes[i]->tuple[j] = randomLongInInterval(0, numeric_limits<kdKey_t>::max());
     }
   }
-  // Replicate the tuples from the uppermost KdNodes to obtain the extra KdNodes' duplicate tuples.
-  for (signed_size_t i = 1; i < extraPoints; ++i) {
+  // Reflect tuples across kdNodes[numPoints - 1] to initialize the extra points.
+  for (signed_size_t i = 1; i <= extraPoints; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       kdNodes[numPoints - 1 + i]->tuple[j] = kdNodes[numPoints - 1 - i]->tuple[j];
     }
