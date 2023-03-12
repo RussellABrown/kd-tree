@@ -54,7 +54,6 @@
 #include <iostream>
 #include <limits>
 #include <list>
-#include <map>
 #include <math.h>
 #include <sstream>
 #include <stdexcept>
@@ -73,7 +72,6 @@ using std::forward_list;
 using std::future;
 using std::launch;
 using std::list;
-using std::map;
 using std::make_pair;
 using std::min;
 using std::numeric_limits;
@@ -198,13 +196,16 @@ private:
   KdNode<K,V>* gtChild;
   KdNode<K,V>* duplicates;
   V value;
+  size_t index;
 
 public:
   KdNode(signed_size_t const dim,
-         V const& value) {
+         V const& value,
+         size_t const index) {
     
     this->tuple = new K[dim];
     this->value = value;
+    this->index = index;
     this->ltChild = this->gtChild = this->duplicates = nullptr; // redundant
   }
 
@@ -797,6 +798,7 @@ private:
         kdNodes[end]->duplicates = kdNodes[j];
       }
     }
+    
     return end;
   }
 
@@ -1223,19 +1225,20 @@ public:
     struct timespec startTime, endTime;
 
     // Create the references arrays including one additional array for use in building the k-d tree.
-    auto const  references = new KdNode<K,V>**[numDimensions + 1];
+    auto const references = new KdNode<K,V>**[numDimensions + 1];
 
-    // The first references array is the .data() array of the kdNodes vector.
-    references[0] = kdNodes.data();
-
-    // Allocate the remaining references arrays.
-    for (int i = 1; i < numDimensions + 1; ++i) {
+    // Allocate the references arrays and copy the kdNodes vector into the first array.
+    for (int i = 0; i < numDimensions + 1; ++i) {
       references[i] = new KdNode<K,V>*[kdNodes.size()];
+    }
+    for (size_t i = 0; i < kdNodes.size(); ++i) {
+      references[0][i] = kdNodes[i];
     }
 
     // Sort the first reference array using multiple threads. Importantly,
     // for compatibility with the 'permutation' vector initialized below,
     // use the first dimension (0) as the leading key of the super key.
+    // After sorting, assign an index to each KdNode in the array.
     startTime = getTime();
     mergeSortReferenceAscending(references[0], references[numDimensions], 0, kdNodes.size() - 1,
                                 0, numDimensions, maximumSubmitDepth, 0);
@@ -1319,8 +1322,8 @@ public:
          << "  sortTime = " << sortTime << "  removeTime = " << removeTime
          << "  kdTime = " << kdTime << "  verifyTime = " << verifyTime << endl << endl;
 
-    // Delete all but the first of the references arrays.
-    for (int i = 1; i < numDimensions + 1; ++i) {
+    // Delete the references arrays.
+    for (int i = 0; i < numDimensions + 1; ++i) {
       delete[] references[i];
     }
     delete[] references;
@@ -1959,21 +1962,23 @@ public:
   
   /*
    * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
-   * and add those nearest neighbors to a reverse nearest neighbors map and to a
-   * nearest neighbors map.
+   * and add those nearest neighbors to a reverse nearest neighbors vector and to a
+   * nearest neighbors vector.
    *
    * Calling parameters:
    *
-   * nn - the nearest neighbors map that is passed by reference and modified
-   * rnn - the reverse nearest neighbors map that is passed by reference and modified
+   * nn - the nearest neighbors vector that is passed by reference and modified
+   * rnn - the reverse nearest neighbors vector that is passed by reference and modified
+   * kdNodes - a vector of KdNode pointers
    * permutation - vector that specifies permutation of the partition coordinate
    * root - the root of the k-d tree where a search for nearest neighbors must begin
    * numDimensions - the dimensionality k of the k-d tree
    * numNeighbors - the number M of nearest neighbors to attempt to find
    */
 private:
-  void reverseNearestNeighbors(map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& nn,
-                               map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+  void reverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> >* >& nn,
+                               vector< forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+                               vector< KdNode<K,V>* >& kdNodes,
                                vector<signed_size_t> const& permutation,
                                KdNode<K,V>* const root,
                                signed_size_t const numDimensions,
@@ -1981,41 +1986,45 @@ private:
 
     // Create a query point from the KdNode's tuple, find at most the M
     // nearest neighbors to it, prepend those neighbors to a nearest
-    // neighbors list, remove the first element of the list (which is
-    // the query KdNode), and store a pointer to the list in the nn map.
+    // neighbors list, and remove the first element of that list (which is
+    // the query KdNode). Also, check that the kdNodes vector element
+    // contains the pointer to the KdNode.
+    if (kdNodes[this->index] != this) {
+      throw runtime_error("\n\nkdNodes[index] != this KdNode\n");
+    }
     vector<K> const query(tuple, tuple + numDimensions);
-    auto nnListPtr = nn[this];
+    auto nnListPtr = nn[this->index];
     root->findNearestNeighbors(nnListPtr, query, permutation, numNeighbors);
     nnListPtr->pop_front();
 
     // Iterate over the remaining list of nearest neighbors and prepend
     // the query KdNode to the reverse nearest neighbors list at the
-    // map entry for the nearest neighbor. There is no need to update
-    // the map because it contains a pointer to a list, not a list.
+    // vector entry for the nearest neighbor.
     for (auto it = nnListPtr->begin(); it != nnListPtr->end(); ++it) {
-      rnn[it->second]->push_front(make_pair(it->first, this));
+      rnn[it->second->index]->push_front(make_pair(it->first, this));
     }
     
     // Visit the < sub-tree.
     if (ltChild != nullptr) {
-      ltChild->reverseNearestNeighbors(nn, rnn, permutation, root, numDimensions, numNeighbors);
+      ltChild->reverseNearestNeighbors(nn, rnn, kdNodes, permutation, root, numDimensions, numNeighbors);
     }
     
     // Visit the > sub-tree.
     if (gtChild != nullptr) {
-      gtChild->reverseNearestNeighbors(nn, rnn, permutation, root, numDimensions, numNeighbors);
+      gtChild->reverseNearestNeighbors(nn, rnn, kdNodes, permutation, root, numDimensions, numNeighbors);
     }
   }
 
   /*
    * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
-   * and add those nearest neighbors to a reverse nearest neighbors map and to a
-   * nearest neighbors map.
+   * and add those nearest neighbors to a reverse nearest neighbors vector and to a
+   * nearest neighbors vector.
    *
    * Calling parameters:
    *
-   * nn - the nearest neighbors map that is passed by reference and modified
-   * rnn - the reverse nearest neighbors map that is passed by reference and modified
+   * nn - the nearest neighbors vector that is passed by reference and modified
+   * rnn - the reverse nearest neighbors vector that is passed by reference and modified
+   * kdNodes - a vector of KdNode pointers
    * permutation - vector that specifies permutation of the partition coordinate
    * root - the root of the k-d tree where a search for nearest neighbors must begin
    * numDimensions - the dimensionality k of the k-d tree
@@ -2023,8 +2032,9 @@ private:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 private:
-  void reverseNearestNeighbors(map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& nn,
-                               map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+  void reverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> >* >& nn,
+                               vector< forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+                               vector< KdNode<K,V>* >& kdNodes,
                                vector<signed_size_t> const& permutation,
                                KdNode<K,V>* const root,
                                signed_size_t const numDimensions,
@@ -2033,72 +2043,45 @@ private:
 
     // Create a query point from the KdNode's tuple, find at most the M
     // nearest neighbors to it, prepend those neighbors to a nearest
-    // neighbors list, remove the first element of the list (which is
-    // the query KdNode), and store a pointer to the list in the nn map.
+    // neighbors list, and remove the first element of that list (which is
+    // the query KdNode). Also, check that the kdNodes vector element
+    // contains the pointer to the KdNode.
+    if (kdNodes[this->index] != this) {
+      throw runtime_error("\n\nkdNodes[index] != this KdNode\n");
+    }
     vector<K> const query(tuple, tuple + numDimensions);
-    auto nnListPtr = nn[this];
+    auto nnListPtr = nn[this->index];
     root->findNearestNeighbors(nnListPtr, query, permutation, numNeighbors, enable);
     nnListPtr->pop_front();
 
     // Iterate over the remaining list of nearest neighbors and prepend
     // the query KdNode to the reverse nearest neighbors list at the
-    // map entry for the nearest neighbor. There is no need to update
-    // the map because it contains a pointer to a list, not a list.
+    // vector entry for the nearest neighbor.
     for (auto it = nnListPtr->begin(); it != nnListPtr->end(); ++it) {
-      rnn[it->second]->push_front(make_pair(it->first, this));
+      rnn[it->second->index]->push_front(make_pair(it->first, this));
     }
     
     // Visit the < sub-tree.
     if (ltChild != nullptr) {
-      ltChild->reverseNearestNeighbors(nn, rnn, permutation, root, numDimensions, numNeighbors, enable);
+      ltChild->reverseNearestNeighbors(nn, rnn, kdNodes, permutation, root, numDimensions, numNeighbors, enable);
     }
     
     // Visit the > sub-tree.
     if (gtChild != nullptr) {
-      gtChild->reverseNearestNeighbors(nn, rnn, permutation, root, numDimensions, numNeighbors, enable);
-    }
-  }
-
-  /*
-   * Walk the k-d tree and initialize the reverse nearest neighbors map.
-   *
-   * Calling parameters:
-   *
-   * rnn - the reverse nearest neighbors map that is called by reference and modified
-   * rnnLists - a vector of reverse nearest neighbors lists
-   * index - an index into the vector that is passed by reference and modified
-   */
-private:
-  void initMap(map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
-               vector< forward_list< pair<double, KdNode<K,V>*> > >& rnnLists,
-               size_t& index) {
-
-    // Create a map entry that points to the vector element (which is a list)
-    // and increment the vector index to the next vector element.
-    rnn[this] = &rnnLists[index];
-    ++index;
-    
-    // Visit the < sub-tree.
-    if (ltChild != nullptr) {
-      ltChild->initMap(rnn, rnnLists, index);
-    }
-    
-    // Visit the > sub-tree.
-    if (gtChild != nullptr) {
-      gtChild->initMap(rnn, rnnLists, index);
+      gtChild->reverseNearestNeighbors(nn, rnn, kdNodes, permutation, root, numDimensions, numNeighbors, enable);
     }
   }
   
   /*
    * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
-   * and add those nearest neighbors to a reverse nearest neighbors map and to a
-   * nearest neighbors map.
+   * and add those nearest neighbors to a reverse nearest neighbors vector and to a
+   * nearest neighbors vector.
    *
-   * Each element of the nearest neighbors map contains a query KdNode and a list
+   * Each element of the nearest neighbors vector contains a pointer to a list
    * of KdNodes that are nearest neighbors to the query KdNode.
    *
-   * Each element of the reverse nearest neighbors map contains a reference KdNode
-   * and a list of KdNodes to which the reference KdNode is a nearest neighbor.
+   * Each element of the reverse nearest neighbors vector contains a pointer to
+   * a list of KdNodes to which the reference KdNode is a nearest neighbor.
    * The concept of reverse nearest neighbors was first described by F. Korn and
    * S. Muthukrishnan in "Influence Sets Based on Reverse Nearest Neigbor Queries",
    * Proceedings of the 2000 ACM SIGMOD International Conference on Management of
@@ -2106,18 +2089,20 @@ private:
    *
    * Calling parameters:
    *
-   * nn - the nearest neighbors map that is passed by reference and modified
-   * rnn - the reverse nearest neighbors map that is passed by reference and modified
+   * nn - the nearest neighbors vector that is passed by reference and modified
+   * rnn - the reverse nearest neighbors vector that is passed by reference and modified
    * nnLists - a vector of nearest neighbors lists
    * rnnLists - a vector of reverse nearest neighbors lists
+   * kdNodes - a vector of KdNode pointers
    * numDimensions - the dimensionality k of the k-d tree
    * numNeighbors - the number M of nearest neighbors to attempt to find
    */
 public:
-  void findReverseNearestNeighbors(map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& nn,
-                                   map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+  void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> >* >& nn,
+                                   vector< forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
                                    vector< forward_list< pair<double, KdNode<K,V>*> > >& nnLists,
                                    vector< forward_list< pair<double, KdNode<K,V>*> > >& rnnLists,
+                                   vector< KdNode<K,V>* >& kdNodes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors) {
     
@@ -2127,26 +2112,27 @@ public:
     vector<signed_size_t> permutation;
     createPermutation(permutation, numDimensions, rnnLists.size());
 
-    // Initialize the nearest neighbors and reverse nearest neighbors maps.
-    size_t index = 0;
-    initMap(nn, nnLists, index);
-    index = 0;
-    initMap(rnn, rnnLists, index);
+    // Initialize the nearest neighbors and reverse nearest neighbors vectors
+    // by assigning pointers to lists.
+    for (size_t i = 0; i < nn.size(); ++i) {
+      nn[i] = &nnLists[i];
+      rnn[i] = &rnnLists[i];
+    }
     
     // Walk the k-d tree and build the reverse nearest neighbors lists.
-    reverseNearestNeighbors(nn, rnn, permutation, this, numDimensions, numNeighbors);
+    reverseNearestNeighbors(nn, rnn, kdNodes, permutation, this, numDimensions, numNeighbors);
   }
 
   /*
    * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
-   * and add those nearest neighbors to a reverse nearest neighbors map and to a
-   * nearest neighbors map.
+   * and add those nearest neighbors to a reverse nearest neighbors vector and to a
+   * nearest neighbors vector.
    *
-   * Each element of the nearest neighbors map contains a query KdNode and a list
+   * Each element of the nearest neighbors vector contains a pointer to a list
    * of KdNodes that are nearest neighbors to the query KdNode.
    *
-   * Each element of the reverse nearest neighbors map contains a reference KdNode
-   * and a list of KdNodes to which the reference KdNode is a nearest neighbor.
+   * Each element of the reverse nearest neighbors vector contains a pointer to
+   * a list of KdNodes to which the reference KdNode is a nearest neighbor.
    * The concept of reverse nearest neighbors was first described by F. Korn and
    * S. Muthukrishnan in "Influence Sets Based on Reverse Nearest Neigbor Queries",
    * Proceedings of the 2000 ACM SIGMOD International Conference on Management of
@@ -2154,19 +2140,21 @@ public:
    *
    * Calling parameters:
    *
-   * nn - the nearest neighbors map that is passed by reference and modified
-   * rnn - the reverse nearest neighbors map that is passed by reference and modified
+   * nn - the nearest neighbors vector that is passed by reference and modified
+   * rnn - the reverse nearest neighbors vector that is passed by reference and modified
    * nnLists - a vector of nearest neighbors lists
    * rnnLists - a vector of reverse nearest neighbors lists
+   * kdNodes - a vector of KdNode pointers
    * numDimensions - the dimensionality k of the k-d tree
    * numNeighbors - the number M of nearest neighbors to attempt to find
    * enable - a vector that specifies the dimensions for which to test distance
    */
 public:
-  void findReverseNearestNeighbors(map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& nn,
-                                   map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+  void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> >* >& nn,
+                                   vector< forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
                                    vector< forward_list< pair<double, KdNode<K,V>*> > >& nnLists,
                                    vector< forward_list< pair<double, KdNode<K,V>*> > >& rnnLists,
+                                   vector< KdNode<K,V>* >& kdNodes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
                                    vector<bool> const& enable) {
@@ -2177,43 +2165,46 @@ public:
     vector<signed_size_t> permutation;
     createPermutation(permutation, numDimensions, rnnLists.size());
 
-    // Initialize the nearest neighbors and reverse nearest neighbors maps.
-    size_t index = 0;
-    initMap(nn, nnLists, index);
-    index = 0;
-    initMap(rnn, rnnLists, index);
+    // Initialize the nearest neighbors and reverse nearest neighbors vectors
+    // by assigning pointers to lists.
+    for (size_t i = 0; i < nn.size(); ++i) {
+      nn[i] = &nnLists[i];
+      rnn[i] = &rnnLists[i];
+    }
     
     // Walk the k-d tree and build the reverse nearest neighbors lists.
-    reverseNearestNeighbors(nn, rnn, permutation, this, numDimensions, numNeighbors, enable);
+    reverseNearestNeighbors(nn, rnn, kdNodes, permutation, this, numDimensions, numNeighbors, enable);
   }
 
   /*
-   * Verify the correctness of the reverse nearest neighbors map.
+   * Verify the correctness of the reverse nearest neighbors vector.
    *
    * Calling parameter:
    *
-   * nn - the nearest neighbors map
-   * rnn - the reverse nearest neighbors map.
+   * nn - the nearest neighbors vector
+   * rnn - the reverse nearest neighbors vector
+   * kdNodes - the vector of KdNode pointers
    *
    * Although this function does not directly access the k-d tree, it requires the persistence
-   * of the k-d tree for access to the KdNodes via the maps. Hence, this function is not static.
+   * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
    */
-  void verifyReverseNeighbors(map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& nn,
-                              map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& rnn) const {
+  void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> >* >& nn,
+                              vector< forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+                              vector< KdNode<K,V>* >& kdNodes) const {
 
-    // Iterate through the reverse nearest neighbors map and if a list is not empty,
-    // verify the correctness of each list.
-    for (auto it = rnn.begin(); it != rnn.end(); ++it) {
-      auto const rnnListPtr = it->second;
+    // Iterate through the reverse nearest neighbors vector and if a list is not empty,
+    // verify the correctness of that list.
+    for (size_t i = 0; i < rnn.size(); ++i) {
+      auto const rnnListPtr = rnn[i];
       if (!rnnListPtr->empty()) {
         // Get the KdNode that is a nearest neighbor to all KdNodes on the list and
         // verify that it is indeed a nearest neighbor to each KdNode on the list.
-        auto const kdNodePtr = it->first;
+        auto const kdNodePtr = kdNodes[i];
         for (auto listIt = rnnListPtr->begin(); listIt != rnnListPtr->end(); ++listIt) {
           auto const kdPtr = listIt->second;
-          // Get the nearest neighbor list for the KdNode from the nearest neighbors map
+          // Get the nearest neighbor list for the KdNode from the nearest neighbors vector
           // and verify that the list contains KdNodePtr.
-          auto nnListPtr = nn[kdPtr];
+          auto nnListPtr = nn[kdPtr->index];
           bool match = false;
           for (auto nnIt = nnListPtr->begin(); nnIt != nnListPtr->end(); ++nnIt) {
             if (kdNodePtr == nnIt->second) {
@@ -2230,27 +2221,27 @@ public:
   }
 
   /*
-   * Calculate the mean and standard deviation of the distances and list sizes in a map.
+   * Calculate the mean and standard deviation of the distances and list sizes in a vector.
    *
    * Calling parameter:
    *
-   * nmap - a map from KdNode pointer to list.
+   *  - a vector of pointers to lists
    *
    * Although this function does not directly access the k-d tree, it requires the persistence
-   * of the k-d tree for access to the KdNodes via the map. Hence, this function is not static.
+   * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
-  void calculateMeanStd(map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+  void calculateMeanStd(vector< forward_list< pair<double, KdNode<K,V>*> >* >& vec,
                         double& meanSize,
                         double& stdSize,
                         double& meanDist,
                         double& stdDist) const {
 
-    // Count the number of map entries that have non-empty lists
+    // Count the number of vector entries that have non-empty lists
     // and sum the distances and list lengths.
     size_t count = 0;
     double sumDist = 0.0, sumDist2 = 0.0, sumSize = 0.0, sumSize2 = 0.0;
-    for (auto mapIt = rnn.begin(); mapIt != rnn.end(); ++mapIt) {
-      auto const rnnListPtr = mapIt->second;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      auto const rnnListPtr = vec[i];
       if (!rnnListPtr->empty()) {
         ++count;
         double const size = static_cast<double>(distance(rnnListPtr->begin(), rnnListPtr->end()));
@@ -2271,21 +2262,21 @@ public:
   }
 
   /*
-   * Count the number of non-empty lists in a map.
+   * Count the number of non-empty lists in a vector.
    *
    * Calling parameter:
    *
-   * rnn - the map
+   * vec - a vector of pointers to lists
    *
    * Although this function does not directly access the k-d tree, it requires the persistence
-   * of the k-d tree for access to the KdNodes via the map. Hence, this function is not static.
+   * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  size_t nonEmptyLists(map< KdNode<K,V>*, forward_list< pair<double, KdNode<K,V>*> >* >& rnn) const {
+  size_t nonEmptyLists(vector< forward_list< pair<double, KdNode<K,V>*> >* >& vec) const {
 
     size_t count = 0;
-    for (auto it = rnn.begin(); it != rnn.end(); ++it) {
-      if(!it->second->empty()) {
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if(!vec[i]->empty()) {
         ++count;
       }
     }
@@ -2711,20 +2702,23 @@ int main(int argc, char** argv) {
 
   // Declare and initialize the kdNodes vector and initialize it with tuples,
   // for example (x,y,z,w), in the half-open interval [0, MAX] where MAX is the
-  // maximum value for the kdKey_t type. Create extraPoints-1 duplicate elements,
+  // maximum value for the kdKey_t type. Create extraPoints duplicate elements,
   // where extraPoints <= numPoints, to test the removal of duplicate points.
   extraPoints = (extraPoints <= numPoints) ? extraPoints : numPoints;
-  vector<KdNode<kdKey_t, kdValue_t>*> kdNodes(numPoints + extraPoints - 1);
+  vector<KdNode<kdKey_t, kdValue_t>*> kdNodes(numPoints + extraPoints);
   // Create each KdNode with a tuple (all elements == 0) and a string value
   // obtained from the index into the kdNodes vector. The string value is
-  // a proxy for a KdNode label.
+  // a proxy for a KdNode label. Also, assign the index field of each KdNode
+  // to be the index of that KdNode in the kdNodes vector to permit use of
+  // vectors for nn and rnn (see below) instead of using maps.
   for (size_t i = 0; i < kdNodes.size(); ++i) {
     ostringstream buffer;
     buffer << i;
-    kdNodes[i] = new KdNode<kdKey_t, kdValue_t>(numDimensions, buffer.str());
+    kdNodes[i] = new KdNode<kdKey_t, kdValue_t>(numDimensions, buffer.str(), i);
   }
-  // Initialize each KdNode::tuple except for the extra points.
-  for (signed_size_t i = 0; i < numPoints; ++i) {
+  // Initialize each KdNode::tuple including the extra points so that
+  // kdNodes[numPoints] gets initialized.
+  for (signed_size_t i = 0; i < numPoints + extraPoints; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       kdNodes[i]->tuple[j] = randomLongInInterval(0, numeric_limits<kdKey_t>::max());
     }
@@ -2880,17 +2874,17 @@ int main(int argc, char** argv) {
     cout << endl;
   }
 
-  // Optionally construct a nearest neighbor map and a reverse nearest neighbors map.
-  // Each map element contains a list. The lists are allocated within vectors below
-  // to permit the lists to be manipulated within the maps via pointers to lists, which
-  // avoids the possibility of copying lists that may be time-consuming.
+  // Optionally construct a nearest neighbor vector and a reverse nearest neighbors vector.
+  // Each vector element contains a pointer to a list. The lists are allocated within vectors
+  // below to permit the lists to be manipulated within the neighbors vextors via pointers
+  // to lists, which avoids the possibility of copying lists that may be time-consuming.
   if (reverseNearestNeighbors) {
     startTime = getTime();
-    map< KdNode<kdKey_t, kdValue_t>*, forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> >* > nn;
-    map< KdNode<kdKey_t, kdValue_t>*, forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> >* > rnn;
+    vector< forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> >* > nn(kdNodes.size());
+    vector< forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> >* > rnn(kdNodes.size());
     vector< forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > > nnLists(kdNodes.size());
     vector< forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > > rnnLists(kdNodes.size());
-    root->findReverseNearestNeighbors(nn, rnn, nnLists, rnnLists, numDimensions, numNeighbors);
+    root->findReverseNearestNeighbors(nn, rnn, nnLists, rnnLists, kdNodes, numDimensions, numNeighbors);
     endTime = getTime();
     double const reverseNearestNeighborTime = (endTime.tv_sec - startTime.tv_sec) +
       1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
@@ -2907,9 +2901,16 @@ int main(int argc, char** argv) {
     cout << "mean reverse nearest neighbor list size = " << fixed << setprecision(3) << meanSize
          << "  standard deviation = " << stdSize << endl << endl;
 
-    // Verify the consistency between the nearest neighbors and reverse nearest neighbors maps.
+    // Report the mean and standard deviation distance and number of nearest neighbors.
+    root->calculateMeanStd(nn, meanSize, stdSize, meanDist, stdDist);
+    cout << "mean nearest neighbor distance = " << scientific << meanDist
+         << "  standard deviation = " << stdDist << endl;
+    cout << "mean nearest neighbor list size = " << fixed << setprecision(3) << meanSize
+         << "  standard deviation = " << stdSize << endl << endl;
+
+    // Verify the consistency between the nearest neighbors and reverse nearest neighbors vectors.
     startTime = getTime();
-    root->verifyReverseNeighbors(nn, rnn);
+    root->verifyReverseNeighbors(nn, rnn, kdNodes);
     endTime = getTime();
     double const verifyReverseTime = (endTime.tv_sec - startTime.tv_sec) +
       1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));

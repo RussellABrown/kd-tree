@@ -1333,7 +1333,7 @@ public:
          << "  sortTime = " << sortTime << "  removeTime = " << removeTime
          << "  kdTime = " << kdTime << "  verifyTime = " << verifyTime << endl << endl;
 
-    // Delete all but the first of the references arrays.
+    // Delete the references arrays.
     for (int i = 1; i < numDimensions + 1; ++i) {
       delete[] references[i];
     }
@@ -2725,16 +2725,18 @@ int main(int argc, char** argv) {
 
   // Declare and initialize the coordinates vector and initialize it with tuples,
   // for example (x,y,z,w), in the half-open interval [0, MAX] where MAX is the
-  // maximum value for the kdKey_t type. Create extraPoints-1 duplicate elements,
+  // maximum value for the kdKey_t type. Create extraPoints duplicate elements,
   // where extraPoints <= numPoints, to test the removal of duplicate points.
   //
   // Note that the tuples are arrays not vectors in order to avoid copying via assignment statements.
   extraPoints = (extraPoints <= numPoints) ? extraPoints : numPoints;
-  vector<tuple_t*> coordinates(numPoints + extraPoints - 1);
+  vector<tuple_t*> coordinates(numPoints + extraPoints);
   for (size_t i = 0; i < coordinates.size(); ++i) {
     coordinates[i] = new tuple_t[numDimensions];
   }
-  for (signed_size_t i = 0; i < numPoints; ++i) {
+  // Initialize each tuple including the extra points so that
+  // coordinates[numPoints] gets initialized.
+  for (signed_size_t i = 0; i < numPoints + extraPoints; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       coordinates[i][j] = randomLongInInterval(0, numeric_limits<tuple_t>::max());
     }
@@ -2914,6 +2916,13 @@ int main(int argc, char** argv) {
     cout << "mean reverse nearest neighbor distance = " << scientific << meanDist
          << "  standard deviation = " << stdDist << endl;
     cout << "mean reverse nearest neighbor list size = " << fixed << setprecision(3) << meanSize
+         << "  standard deviation = " << stdSize << endl << endl;
+
+    // Report the mean and standard deviation distance and number of nearest neighbors.
+    root->calculateMeanStd(nn, meanSize, stdSize, meanDist, stdDist);
+    cout << "mean nearest neighbor distance = " << scientific << meanDist
+         << "  standard deviation = " << stdDist << endl;
+    cout << "mean nearest neighbor list size = " << fixed << setprecision(3) << meanSize
          << "  standard deviation = " << stdSize << endl << endl;
 
     // Verify the consistency between the nearest neighbors and reverse nearest neighbors maps.
