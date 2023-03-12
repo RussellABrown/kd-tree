@@ -6,15 +6,17 @@ https://arxiv.org/abs/1410.5420
 
 The Journal of Computer Graphics Techniques (JCGT) article contains a detailed description of an O(kn log n) k-d tree building algorithm and compares the performance of that algorithm to the performance of an O(n log n) algorithm.
 
-In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the arXiv article includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following the presentation of those algorithms in the Journal of Computer Graphics Techniques article. A copy of the arXiv article is available in this master branch.
+In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the arXiv article includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following the presentation of those algorithms in the Journal of Computer Graphics Techniques article.
 
-The source-code files “kdTreeKnlogn.cpp” and “kdTreeNlogn.cpp” are implementations that build a balanced k-d tree.
+The source-code files kdTreeKnlogn.cpp and kdTreeNlogn.cpp build a balanced k-d tree.
 
-The source-code files "kdTreeMapKnlogn.cpp", "kdTreeMapNlogn.cpp", "kdTreeKmapKnlog.cpp", and "kdTreeKmapNlogn.cpp" are implementations that build a balanced k-d tree-based key-to-value map. The latter two implementations of the key-to-value map execute twice as rapidly as the former two implementations. See the arXiv article for details.
+The source-code files kdTreeMapKnlogn.cpp, kdTreeMapNlogn.cpp, kdTreeKmapKnlog.cpp, and kdTreeKmapNlogn.cpp build a balanced k-d tree-based key-to-value map. The latter two implementations of the key-to-value map execute twice as rapidly as the former two implementations. See the arXiv article for details.
 
-The source-code file "kdTreeMapAvlKnlogn.cpp" is a modification of "kdTreeMapKnlogn.cpp" that substitutes an AVL tree for std::map, which is likely implemented as a red-black tree, but that substitution does not achieve an improvement in performance. Operations that are supported by the AVL-tree implementation are add-entry, find-entry, and replace-entry. The delete-entry operation is not supported; however, that operation is supported by the C++ code in the chezruss/avl-tree repository.
+All six source-code files include algorithms that search a k-d tree (1) for all points that lie inside a k-dimensional hyper-rectangular region; (2) for the m nearest neighbors to a query point sorted according to their distances to the query point via a priority queue; and (3) for the reverse nearest neighbors to each point in the k-d tree, where the reverse nearest neighbors to a given point are defined as the set of points to which that point is a nearest neighbor. All six implementations build a k-d tree and search a k-dimensional hyper-rectangular region using multiple threads. The nearest-neighbors-search and reverse-nearest-neighbors-search algorithms are each single threaded.
 
-All seven source-code files include algorithms that search a k-d tree (1) for all points that lie inside a k-dimensional hyper-rectangular region; (2) for the m nearest neighbors to a query point sorted according to their distances to the query point via a priority queue; and (3) for the reverse nearest neighbors to each point in the k-d tree, where the reverse nearest neighbors to a given point are defined as the set of points to which that point is a nearest neighbor. All six implementations build a k-d tree and search a k-dimensional hyper-rectangular region using multiple threads. The nearest-neighbors-search and reverse-nearest-neighbors-search algorithms are each single threaded.
+The source-code files kdTreeKnlogn.cpp and kdTreeNlogn.cpp store the nearest-neighbor and reverse-nearest-neighbor lists as maps wherein the key is a k-d node pointer and the value is a neighbor list.
+
+The source-code files kdTreeMapKnlogn.cpp, kdTreeMapNlogn.cpp, kdTreeKmapKnlog.cpp, and kdTreeKmapNlogn.cpp store the nearest-neighbor and reverse-nearest-neighbor lists as vectors wherein each element is a neighbor list. The vectors permit faster access than maps permit.
 
 The command-line options for controlling execution of the k-d tree-building programs are as follows.
 
