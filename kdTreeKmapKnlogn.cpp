@@ -1983,17 +1983,19 @@ private:
                                signed_size_t const maximumSubmitDepth,
                                signed_size_t const depth) {
 
+    // Check that the kdNodes vector element contains the pointer to the KdNode.
+    if (kdNodes[this->index] != this) {
+      throw runtime_error("\n\nkdNodes[index] != this KdNode in nearestNeighborsForEach\n");
+    }
     // Create a query point from the KdNode's tuple, find at most the M
     // nearest neighbors to it, prepend those neighbors to a nearest
     // neighbors list, and remove the first element of that list (which is
-    // the query KdNode). Also, check that the kdNodes vector element
-    // contains the pointer to the KdNode.
-    if (kdNodes[this->index] != this) {
-      throw runtime_error("\n\nkdNodes[index] != this KdNode\n");
-    }
+    // the query KdNode). Use the nnList reference to improve readability
+    // without copying the list.
     vector<K> const query(tuple, tuple + numDimensions);
-    root->findNearestNeighbors(nn[this->index], query, permutation, numNeighbors);
-    nn[this->index].pop_front();
+    auto& nnList = nn[this->index];
+    root->findNearestNeighbors(nnList, query, permutation, numNeighbors);
+    nnList.pop_front();
 
     // Are child threads available to visit both branches of the tree?
     if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
@@ -2075,17 +2077,19 @@ private:
                                signed_size_t const depth,
                                vector<bool> const& enable) {
 
+    // Check that the kdNodes vector element contains the pointer to the KdNode.
+    if (kdNodes[this->index] != this) {
+      throw runtime_error("\n\nkdNodes[index] != this KdNode in nearestNeighborsForEach\n");
+    }
     // Create a query point from the KdNode's tuple, find at most the M
     // nearest neighbors to it, prepend those neighbors to a nearest
     // neighbors list, and remove the first element of that list (which is
-    // the query KdNode). Also, check that the kdNodes vector element
-    // contains the pointer to the KdNode.
-    if (kdNodes[this->index] != this) {
-      throw runtime_error("\n\nkdNodes[index] != this KdNode\n");
-    }
+    // the query KdNode). Use the nnList reference to improve readability
+    // without copying the list.
     vector<K> const query(tuple, tuple + numDimensions);
-    root->findNearestNeighbors(nn[this->index], query, permutation, numNeighbors, enable);
-    nn[this->index].pop_front();
+    auto& nnList = nn[this->index];
+    root->findNearestNeighbors(nnList, query, permutation, numNeighbors, enable);
+    nnList.pop_front();
 
     // Are child threads available to visit both branches of the tree?
     if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
@@ -2186,13 +2190,14 @@ public:
     // nearest neighbor.
     //
     // This prepending could be performed by the nearestNeighborsForEach
-    // function if multiple rnn vectors were provided to the function,
-    // i.e., one rnn vector for each thread. Then reduction of the rnn
+    // function if (1) multiple rnn vectors were provided to the function,
+    // i.e., one rnn vector per thread, followed by reduction of the rnn
     // vectors via concatenation of the reverse nearest neighbors lists
-    // could be performed by the findNearestNeighbors function. However,
-    // the reduction might require more execution time that would be
-    // gained by prepending to the reverse nearest neighbors lists by
-    // multiple threads.
+    // could be performed by this findNearestNeighbors function; or (2)
+    // each prepending operation performed by the nearestNeighborsForEach
+    // function were protected by a lock to render it atomic. However,
+    // it is unclear that either approach would improve performance,
+    // although it may improve scalability.
     for (size_t i = 0; i < nn.size(); ++i) {
       for (auto it = nn[i].begin(); it != nn[i].end(); ++it) {
         rnn[it->second->index].push_front(make_pair(it->first, kdNodes[i]));
@@ -2247,13 +2252,14 @@ public:
     // nearest neighbor.
     //
     // This prepending could be performed by the nearestNeighborsForEach
-    // function if multiple rnn vectors were provided to the function,
-    // i.e., one rnn vector for each thread. Then reduction of the rnn
+    // function if (1) multiple rnn vectors were provided to the function,
+    // i.e., one rnn vector per thread, followed by reduction of the rnn
     // vectors via concatenation of the reverse nearest neighbors lists
-    // could be performed by the findNearestNeighbors function. However,
-    // the reduction might require more execution time that would be
-    // gained by prepending to the reverse nearest neighbors lists by
-    // multiple threads.
+    // could be performed by this findNearestNeighbors function; or (2)
+    // each prepending operation performed by the nearestNeighborsForEach
+    // function were protected by a lock to render it atomic. However,
+    // it is unclear that either approach would improve performance,
+    // although it may improve scalability.
     for (size_t i = 0; i < nn.size(); ++i) {
       for (auto it = nn[i].begin(); it != nn[i].end(); ++it) {
         rnn[it->second->index].push_front(make_pair(it->first, kdNodes[i]));
@@ -2281,11 +2287,15 @@ public:
     for (size_t i = 0; i < rnn.size(); ++i) {
       // Get the KdNode that is a nearest neighbor to all KdNodes on the list and
       // verify that it is indeed a nearest neighbor to each KdNode on the list.
-      for (auto rnnIt = rnn[i].begin(); rnnIt != rnn[i].end(); ++rnnIt) {
+      // Use the rnnList reference to improve readability without copying the list.
+      auto& rnnList = rnn[i];
+      for (auto rnnIt = rnnList.begin(); rnnIt != rnnList.end(); ++rnnIt) {
         // Get the nearest neighbor list for the KdNode from the nearest neighbors vector
-        // and verify that the list contains the KdNode.
+        // and verify that the list contains the KdNode. Use the nnList reference to
+        // improve readability without copying the list.
         bool match = false;
-        for (auto nnIt = nn[rnnIt->second->index].begin(); nnIt != nn[rnnIt->second->index].end(); ++nnIt) {
+        auto& nnList = nn[rnnIt->second->index];
+        for (auto nnIt = nnList.begin(); nnIt != nnList.end(); ++nnIt) {
           if (kdNodes[i] == nnIt->second) {
             match = true;
             break;
@@ -2319,12 +2329,13 @@ public:
     size_t count = 0;
     double sumDist = 0.0, sumDist2 = 0.0, sumSize = 0.0, sumSize2 = 0.0;
     for (size_t i = 0; i < vec.size(); ++i) {
-      if (!vec[i].empty()) {
+      auto& vecList = vec[i];
+      if (!vecList.empty()) {
         ++count;
-        double const size = static_cast<double>(distance(vec[i].begin(), vec[i].end()));
+        double const size = static_cast<double>(distance(vecList.begin(), vecList.end()));
         sumSize += size;
         sumSize2 += size * size;
-        for (auto listIt = vec[i].begin(); listIt != vec[i].end(); ++listIt) {
+        for (auto listIt = vecList.begin(); listIt != vecList.end(); ++listIt) {
           double const dist2 = listIt->first;
           sumDist += sqrt(dist2);
           sumDist2 += dist2;

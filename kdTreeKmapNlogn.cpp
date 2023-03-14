@@ -2551,17 +2551,19 @@ void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K,V,N>*> 
                              signed_size_t const maximumSubmitDepth,
                              signed_size_t const depth) {
 
+  // Check that the kdNodes vector element contains the pointer to the KdNode.
+  if (kdNodes[this->index] != this) {
+    throw runtime_error("\n\nkdNodes[index] != this KdNode in nearestNeighborsForEach\n");
+  }
   // Create a query point from the KdNode's tuple, find at most the M
   // nearest neighbors to it, prepend those neighbors to a nearest
   // neighbors list, and remove the first element of that list (which is
-  // the query KdNode). Also, check that the kdNodes vector element
-  // contains the pointer to the KdNode.
-  if (kdNodes[this->index] != this) {
-    throw runtime_error("\n\nkdNodes[index] != this KdNode\n");
-  }
+  // the query KdNode). Use the nnList reference to improve readability
+  // without copying the list.
   vector<K> const query(tuple, tuple + numDimensions);
-  root->findNearestNeighbors(nn[this->index], query, permutation, numNeighbors);
-  nn[this->index].pop_front();
+  auto& nnList = nn[this->index];
+  root->findNearestNeighbors(nnList, query, permutation, numNeighbors);
+  nnList.pop_front();
 
   // Are child threads available to visit both branches of the tree?
   if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
@@ -2643,17 +2645,19 @@ void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K,V,N>*> 
                              signed_size_t const depth,
                              vector<bool> const& enable) {
 
+  // Check that the kdNodes vector element contains the pointer to the KdNode.
+  if (kdNodes[this->index] != this) {
+    throw runtime_error("\n\nkdNodes[index] != this KdNode in nearestNeighborsForEach\n");
+  }
   // Create a query point from the KdNode's tuple, find at most the M
   // nearest neighbors to it, prepend those neighbors to a nearest
   // neighbors list, and remove the first element of that list (which is
-  // the query KdNode). Also, check that the kdNodes vector element
-  // contains the pointer to the KdNode.
-  if (kdNodes[this->index] != this) {
-    throw runtime_error("\n\nkdNodes[index] != this KdNode\n");
-  }
+  // the query KdNode). Use the nnList reference to improve readability
+  // without copying the list.
   vector<K> const query(tuple, tuple + numDimensions);
-  root->findNearestNeighbors(nn[this->index], query, permutation, numNeighbors, enable);
-  nn[this->index].pop_front();
+  auto& nnList = nn[this->index];
+  root->findNearestNeighbors(nnList, query, permutation, numNeighbors);
+  nnList.pop_front();
 
   // Are child threads available to visit both branches of the tree?
   if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
@@ -2849,11 +2853,15 @@ void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K,V,N>*> >
   for (size_t i = 0; i < rnn.size(); ++i) {
     // Get the KdNode that is a nearest neighbor to all KdNodes on the list and
     // verify that it is indeed a nearest neighbor to each KdNode on the list.
-    for (auto rnnIt = rnn[i].begin(); rnnIt != rnn[i].end(); ++rnnIt) {
+    // Use the rnnList reference to improve readability without copying the list.
+    auto& rnnList = rnn[i];
+    for (auto rnnIt = rnnList.begin(); rnnIt != rnnList.end(); ++rnnIt) {
       // Get the nearest neighbor list for the KdNode from the nearest neighbors vector
-      // and verify that the list contains the KdNode.
+      // and verify that the list contains the KdNode. Use the nnList reference to
+      // improve readability without copying the list.
       bool match = false;
-      for (auto nnIt = nn[rnnIt->second->index].begin(); nnIt != nn[rnnIt->second->index].end(); ++nnIt) {
+      auto& nnList = nn[rnnIt->second->index];
+      for (auto nnIt = nnList.begin(); nnIt != nnList.end(); ++nnIt) {
         if (kdNodes[i] == nnIt->second) {
           match = true;
           break;
@@ -2887,12 +2895,13 @@ void calculateMeanStd(vector< forward_list< pair<double, KdNode<K,V,N>*> > >& ve
   size_t count = 0;
   double sumDist = 0.0, sumDist2 = 0.0, sumSize = 0.0, sumSize2 = 0.0;
   for (size_t i = 0; i < vec.size(); ++i) {
-    if (!vec[i].empty()) {
+    auto& vecList = vec[i];
+    if (!vecList.empty()) {
       ++count;
-      double const size = static_cast<double>(distance(vec[i].begin(), vec[i].end()));
+      double const size = static_cast<double>(distance(vecList.begin(), vecList.end()));
       sumSize += size;
       sumSize2 += size * size;
-      for (auto listIt = vec[i].begin(); listIt != vec[i].end(); ++listIt) {
+      for (auto listIt = vecList.begin(); listIt != vecList.end(); ++listIt) {
         double const dist2 = listIt->first;
         sumDist += sqrt(dist2);
         sumDist2 += dist2;
