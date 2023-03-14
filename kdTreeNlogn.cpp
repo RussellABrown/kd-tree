@@ -1558,8 +1558,6 @@ static KdNode<T>* buildKdTree(T** const reference,
       node = getKdNode(reference, kdNodes, median);
 
       // Recursively build the < branch of the tree with a child thread.
-      // The recursive call to buildKdTree must be placed in a lambda
-      // expression because buildKdTree is a template not a function.
       auto buildFuture = async(launch::async,
                                buildKdTree,
                                reference,
@@ -1687,9 +1685,7 @@ static KdNode<T>* buildKdTreePresorted(T** const reference,
     else {
 
       // Yes, child threads are available, so recursively build the < branch
-      // of the tree with a child thread. The recursive call to buildKdTree
-      // must be placed in a lambda expression because buildKdTree is a template
-      // not a function.
+      // of the tree with a child thread.
       auto buildFuture = async(launch::async,
                                buildKdTree,
                                reference,
