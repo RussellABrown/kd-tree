@@ -1970,7 +1970,7 @@ public:
    *
    * nn - the nearest neighbors vector that is passed by reference and modified
    * rnn - the reverse nearest neighbors vector that is passed by reference and modified
-   * rnnMutex - a vector of mutexes to make individual rnn list update thread safe
+   * mutexes - a vector of mutexes to make individual rnn list update thread safe
    * kdNodes - a vector of KdNode pointers
    * permutation - vector that specifies permutation of the partition coordinate
    * root - the root of the k-d tree where a search for nearest neighbors must begin
@@ -1982,7 +1982,7 @@ public:
 private:
   void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
                                vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
-                               vector<mutex>& rnnMutex,
+                               vector<mutex>& mutexes,
                                vector< KdNode<K,V>* >& kdNodes,
                                vector<signed_size_t> const& permutation,
                                KdNode<K,V>* const root,
@@ -2012,12 +2012,12 @@ private:
     // to the same reverse nearest neighbors list. Because the number
     // of reverse nearest neighbors lists greatly exceeds the number
     // of threads, the probability of thread contention for the lock
-    // is small, so better performance might be obtained by designing
-    // a lock that is optimized for the non-contention case.
+    // is small, so hopefully the std::mutex lock() function is
+    // efficient for the non-contention case.
     for (auto it = nnList.begin(); it != nnList.end(); ++it) {
+      auto& index = it->second->index;
       {
-        auto& index = it->second->index;
-        lock_guard<mutex> lk(rnnMutex[index]);
+        lock_guard<mutex> lk(mutexes[index]);
         rnn[index].push_front(make_pair(it->first, this));
       }
     }
@@ -2027,13 +2027,13 @@ private:
 
       // No, so visit the < sub-tree with the master thread.
       if (ltChild != nullptr) {
-        ltChild->nearestNeighborsForEach(nn, rnn, rnnMutex, kdNodes, permutation, root, numDimensions,
+        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, kdNodes, permutation, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1);
       }
     
       // And then visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, rnnMutex, kdNodes, permutation, root, numDimensions,
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, kdNodes, permutation, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1);
       }
     } else {
@@ -2048,7 +2048,7 @@ private:
                                              ltChild->nearestNeighborsForEach(
                                                ref(nn),
                                                ref(rnn),
-                                               ref(rnnMutex),
+                                               ref(mutexes),
                                                ref(kdNodes),
                                                ref(permutation),
                                                root,
@@ -2061,7 +2061,7 @@ private:
 
       // And simultaneously visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, rnnMutex, kdNodes, permutation, root, numDimensions,
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, kdNodes, permutation, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1);
       }
 
@@ -2086,7 +2086,7 @@ private:
    *
    * nn - the nearest neighbors vector that is passed by reference and modified
    * rnn - the reverse nearest neighbors vector that is passed by reference and modified
-   * rnnMutex - a vector of mutexes to make individual rnn list update thread safe
+   * mutexes - a vector of mutexes to make individual rnn list update thread safe
    * kdNodes - a vector of KdNode pointers
    * permutation - vector that specifies permutation of the partition coordinate
    * root - the root of the k-d tree where a search for nearest neighbors must begin
@@ -2099,7 +2099,7 @@ private:
 private:
   void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
                                vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
-                               vector<mutex>& rnnMutex,
+                               vector<mutex>& mutexes,
                                vector< KdNode<K,V>* >& kdNodes,
                                vector<signed_size_t> const& permutation,
                                KdNode<K,V>* const root,
@@ -2130,12 +2130,12 @@ private:
     // to the same reverse nearest neighbors list. Because the number
     // of reverse nearest neighbors lists greatly exceeds the number
     // of threads, the probability of thread contention for the lock
-    // is small, so better performance might be obtained by designing
-    // a lock that is optimized for the non-contention case.
+    // is small, so hopefully the std::mutex lock() function is
+    // efficient for the non-contention case.
     for (auto it = nnList.begin(); it != nnList.end(); ++it) {
+      auto& index = it->second->index;
       {
-        auto& index = it->second->index;
-        lock_guard<mutex> lk(rnnMutex[index]);
+        lock_guard<mutex> lk(mutexes[index]);
         rnn[index].push_front(make_pair(it->first, this));
       }
     }
@@ -2145,13 +2145,13 @@ private:
 
       // No, so visit the < sub-tree with the master thread.
       if (ltChild != nullptr) {
-        ltChild->nearestNeighborsForEach(nn, rnn, rnnMutex, kdNodes, permutation, root, numDimensions,
+        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, kdNodes, permutation, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1, enable);
       }
     
       // And then visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, rnnMutex, kdNodes, permutation, root, numDimensions,
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, kdNodes, permutation, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1, enable);
       }
     } else {
@@ -2166,7 +2166,7 @@ private:
                                              ltChild->nearestNeighborsForEach(
                                                ref(nn),
                                                ref(rnn),
-                                               ref(rnnMutex),
+                                               ref(mutexes),
                                                ref(kdNodes),
                                                ref(permutation),
                                                root,
@@ -2180,7 +2180,7 @@ private:
 
       // And simultaneously visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, rnnMutex, kdNodes, permutation, root, numDimensions,
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, kdNodes, permutation, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1, enable);
       }
 
@@ -2213,7 +2213,7 @@ private:
    *
    * nn - the nearest neighbors vector that is passed by reference and modified
    * rnn - the reverse nearest neighbors vector that is passed by reference and modified
-   * rnnMutex - a vector of mutexes to make individual rnn list update thread safe
+   * mutexes - a vector of mutexes to make individual rnn list update thread safe
    * kdNodes - a vector of KdNode pointers
    * numDimensions - the dimensionality k of the k-d tree
    * numNeighbors - the number M of nearest neighbors to attempt to find
@@ -2222,7 +2222,7 @@ private:
 public:
   void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
                                    vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
-                                   vector<mutex>& rnnMutex,
+                                   vector<mutex>& mutexes,
                                    vector< KdNode<K,V>* >& kdNodes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
@@ -2235,7 +2235,7 @@ public:
     createPermutation(permutation, numDimensions, nn.size());
 
     // Walk the k-d tree and build the nearest neighbors lists.
-    nearestNeighborsForEach(nn, rnn, rnnMutex, kdNodes, permutation, this, numDimensions,
+    nearestNeighborsForEach(nn, rnn, mutexes, kdNodes, permutation, this, numDimensions,
                             numNeighbors, maximumSubmitDepth, 0);
   }
 
@@ -2256,7 +2256,7 @@ public:
    *
    * nn - the nearest neighbors vector that is passed by reference and modified
    * rnn - the reverse nearest neighbors vector that is passed by reference and modified
-   * rnnMutex - a vector of mutexes to make individual rnn list update thread safe
+   * mutexes - a vector of mutexes to make individual rnn list update thread safe
    * kdNodes - a vector of KdNode pointers
    * numDimensions - the dimensionality k of the k-d tree
    * numNeighbors - the number M of nearest neighbors to attempt to find
@@ -2266,7 +2266,7 @@ public:
 public:
   void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> >* >& nn,
                                    vector< forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
-                                   vector<mutex>& rnnMutex,
+                                   vector<mutex>& mutexes,
                                    vector< KdNode<K,V>* >& kdNodes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
@@ -2280,7 +2280,7 @@ public:
     createPermutation(permutation, numDimensions, nn.size());
 
     // Walk the k-d tree and build the nearest neighbors lists.
-    nearestNeighborsForEach(nn, rnn, rnnMutex, kdNodes, permutation, this, numDimensions,
+    nearestNeighborsForEach(nn, rnn, mutexes, kdNodes, permutation, this, numDimensions,
                             numNeighbors, maximumSubmitDepth, 0, enable);
   }
 
@@ -2982,10 +2982,18 @@ int main(int argc, char** argv) {
   // Each vector element contains a list that is initialized to an empty list.
   if (reverseNearestNeighbors) {
     startTime = getTime();
+    startTime = getTime();
     vector< forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > > nn(kdNodes.size());
     vector< forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > > rnn(kdNodes.size());
-    vector<mutex> rnnMutex(kdNodes.size());
-    root->findReverseNearestNeighbors(nn, rnn, rnnMutex, kdNodes, numDimensions, numNeighbors, maximumSubmitDepth);
+    vector<mutex> mutexes(kdNodes.size());
+    endTime = getTime();
+    double const vectorTime = (endTime.tv_sec - startTime.tv_sec) +
+      1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
+
+    cout << "vector initialization  time = " << fixed << setprecision(2) << vectorTime << " seconds" << endl << endl;
+
+    startTime = getTime();
+    root->findReverseNearestNeighbors(nn, rnn, mutexes, kdNodes, numDimensions, numNeighbors, maximumSubmitDepth);
     endTime = getTime();
     double const reverseNearestNeighborTime = (endTime.tv_sec - startTime.tv_sec) +
       1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec));
