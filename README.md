@@ -24,7 +24,9 @@ The kdTreeKnlogn.cpp and kdTreeNlogn.cpp source-code files store the nearest-nei
 
 The kdTreeMapKnlogn.cpp, kdTreeMapNlogn.cpp, kdTreeKmapKnlog.cpp, and kdTreeKmapNlogn.cpp source-code files store the nearest-neighbor and reverse-nearest-neighbor lists as vectors wherein each element is a neighbor list. The vectors permit faster access than maps permit.
 
-The command-line options for controlling execution of the k-d tree-building programs are as follows.
+All six source-code files contain a main() function that tests k-d tree building and search. This main() function is bracketed by '#ifdef TEST_KD_TREE ... #endif'; hence, to use a source-code file as a header file, it is necessary to compile without the '-D TEST_KD_TREE' option.
+
+The command-line options that control execution of the main() function to build and search the k-d tree are as follows.
 
 -n The number of randomly generated points used to build the k-d tree
 
@@ -44,4 +46,4 @@ The command-line options for controlling execution of the k-d tree-building prog
 
 -c Enable region search by exhaustive search for comparison to k-d tree search
 
--r Enable construction of nearest-neighbors and reverse-nearest-neighbors maps
+-r Enable construction of nearest-neighbors and reverse-nearest-neighbors maps or vectors
