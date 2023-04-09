@@ -16,13 +16,7 @@ All six source-code files include algorithms that search a k-d tree (1) for all 
 
 All six source-code files build a k-d tree and search a k-dimensional hyper-rectangular region using multiple threads.
 
-The kdTreeKnlogn.cpp and kdTreeNlogn.cpp source-code files search for nearest neighbors and reverse nearest neighbors via a single thread.
-
-The kdTreeMapKnlogn.cpp, kdTreeMapNlogn.cpp, kdTreeKmapKnlog.cpp, and kdTreeKmapNlogn.cpp source-code files search for the nearest neighbors to a single point via a single thread but search for the nearest neighbors and reverse nearest neighbors to all points in the k-d tree via multiple threads.
-
-The kdTreeKnlogn.cpp and kdTreeNlogn.cpp source-code files store the nearest-neighbor and reverse-nearest-neighbor lists as maps wherein the key is a k-d node pointer and the value is a neighbor list.
-
-The kdTreeMapKnlogn.cpp, kdTreeMapNlogn.cpp, kdTreeKmapKnlog.cpp, and kdTreeKmapNlogn.cpp source-code files store the nearest-neighbor and reverse-nearest-neighbor lists as vectors wherein each element is a neighbor list. The vectors permit faster access than maps permit.
+All six source-code files search for the nearest neighbors to a single point using a single thread and build nearest-neighbor and reverse-nearest-neighbors lists using multiple threads.
 
 All six source-code files contain a main() function that tests k-d tree building and search. This main() function is bracketed by '#ifdef TEST_KD_TREE ... #endif'; hence, to use a source-code file as a header file, it is necessary to compile without the '-D TEST_KD_TREE' option.
 
