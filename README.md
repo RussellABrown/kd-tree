@@ -16,7 +16,7 @@ All six source-code files include algorithms that search a k-d tree (1) for all 
 
 All six source-code files build a k-d tree and search a k-dimensional hyper-rectangular region using multiple threads.
 
-All six source-code files search for the nearest neighbors to a single point using a single thread and build nearest-neighbor and reverse-nearest-neighbors lists using multiple threads.
+All six source-code files search the k-d tree for the nearest neighbors to a single point using a single thread and they search for the nearest neighbors and reverse nearest neighbors to all points in the k-d tree using multiple threads.
 
 All six source-code files contain a main() function that tests k-d tree building and search. This main() function is bracketed by '#ifdef TEST_KD_TREE ... #endif'; hence, to use a source-code file as a header file, it is necessary to compile without the '-D TEST_KD_TREE' option.
 
