@@ -1241,12 +1241,12 @@ public:
     // Create the references arrays including one additional array for use in building the k-d tree.
     auto const references = new T**[numDimensions + 1];
 
-    // Allocate the references arrays and copy the coordinates vector into the first array.
-    for (signed_size_t i = 0; i < numDimensions + 1; ++i) {
+    // The first references array is the .data() array of the coordinates vector.
+    references[0] = coordinates.data();
+
+    // Allocate the remaining references arrays.
+    for (signed_size_t i = 1; i < numDimensions + 1; ++i) {
       references[i] = new T*[coordinates.size()];
-    }
-    for (size_t i = 0; i < coordinates.size(); ++i) {
-      references[0][i] = coordinates[i];
     }
 
     // Sort the first reference array using multiple threads. Importantly,
@@ -1341,7 +1341,7 @@ public:
          << "  kdTime = " << kdTime << "  verifyTime = " << verifyTime << endl << endl;
 
     // Delete the references arrays.
-    for (signed_size_t i = 0; i < numDimensions + 1; ++i) {
+    for (signed_size_t i = 1; i < numDimensions + 1; ++i) {
       delete[] references[i];
     }
     delete[] references;
