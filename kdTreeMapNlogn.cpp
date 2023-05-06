@@ -45,9 +45,9 @@
  * -D MEDIAN_OF_MEDIANS_CUTOFF=n - A cutoff for switching from median of medians to insertion sort
  *                                 in KdNode::partition (default 15)
  * -D MEDIAN_CUTOFF=n - A cutoff for switching from to 2 threads to calculate the median
- in KdNode::partition (default 16384)
+ *                      in KdNode::partition (default 16384)
  * -D INDEX_CUTOFF=n - A cutoff for switching from to 2 threads to find the index of
- the calculated median in KdNode::partition (default 512)
+ *                     the calculated median in KdNode::partition (default 512)
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  * -D DUAL_THREAD_MEDIAN - Calculate the medians with two threads.
  * -D DUAL_THREAD_INDEX - Find the index of the median of medians with two threads.
@@ -55,6 +55,31 @@
  *                              from both ends of the array instead of only the beginning.
  * -D MACH - Use a Mach equivalent to the clock_gettime(CLOCK_REALTIME, &time) function
  *           but this option appears to no longer be necessary.
+ *
+ * Usage:
+ *
+ * kdTreeMapNlogn [-n N] [-m M] [-x X] [-d D] [-t T] [-s S] [-p P] [-b] [-c] [-r]
+ *
+ * where the command-line options are interpreted as follows.
+ *
+ * -n The number N of randomly generated points used to build the k-d tree
+ *
+ * -m The maximum number M of nearest neighbors added to a priority queue
+ *    when searching the k-d tree for nearest neighbors
+ *
+ * -x The number X of duplicate points added to test removal of duplicate points
+ *
+ * -t The number of threads T used to build and search the k-d tree
+ *
+ * -s The search distance S used for region search
+ *
+ * -p The maximum number P of nodes to report when reporting region search results
+ *
+ * -b Compare k-d tree nearest neighbors search to exhaustive search
+ *
+ * -c Compare k-d tree region search to exhaustive search
+ *
+ * -r Construct nearest-neighbors and reverse-nearest-neighbors maps
  */
 
 #include <exception>

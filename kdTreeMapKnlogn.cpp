@@ -45,6 +45,33 @@
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  * -D MACH - Use a Mach equivalent to the clock_gettime(CLOCK_REALTIME, &time) function
  *           but this option appears to no longer be necessary.
+ *
+ * Usage:
+ *
+ * kdTreeMapKnlogn [-n N] [-m M] [-x X] [-d D] [-t T] [-s S] [-p P] [-b] [-c] [-r]
+ *
+ * where the command-line options are interpreted as follows.
+ *
+ * -n The number N of randomly generated points used to build the k-d tree
+ *
+ * -m The maximum number M of nearest neighbors added to a priority queue
+ *    when searching the k-d tree for nearest neighbors
+ *
+ * -x The number X of duplicate points added to test removal of duplicate points
+ *
+ * -d The number of dimensions D (aka k) of the k-d tree
+ *
+ * -t The number of threads T used to build and search the k-d tree
+ *
+ * -s The search distance S used for region search
+ *
+ * -p The maximum number P of nodes to report when reporting region search results
+ *
+ * -b Compare k-d tree nearest neighbors search to exhaustive search
+ *
+ * -c Compare k-d tree region search to exhaustive search
+ *
+ * -r Construct nearest-neighbors and reverse-nearest-neighbors maps
  */
 
 #include <exception>
