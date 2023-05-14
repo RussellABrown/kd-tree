@@ -2826,7 +2826,7 @@ int main(int argc, char** argv)
            << "-n The number N of randomly generated points used to build the k-d tree" << endl << endl
            << "-m The maximum number M of nearest neighbors added to a priority queue" << endl << endl
            << "-x The number X of duplicate points added to test removal of duplicate points" << endl << endl
-           << "-d This command-line option is disabled for kdTreeKmapNlogn.cpp because the number" << endl
+           << "-d This command-line option is disabled for kdTreeKmapKnlogn.cpp because the number" << endl
            << "   of dimensions (k) is specified at compilation time via '-D K_DIMENSIONALITY=k'" << endl << endl
            << "-t The number of threads T used to build and search the k-d tree" << endl << endl
            << "-s The search distance S used for region search" << endl << endl
