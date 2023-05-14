@@ -3384,6 +3384,23 @@ int main(int argc, char** argv) {
       reverseNearestNeighbors = !reverseNearestNeighbors;
       continue;
     }
+    if (0 == strcmp(argv[i], "-h") || 0 == strcmp(argv[i], "--help")) {
+      cout << endl << "Usage:" << endl << endl
+           << "kdTreeNlogn [-n N] [-m M] [-x X] [-d D] [-t T] [-s S] [-p P] [-b] [-c] [-r] [-h]" << endl << endl
+           << "where the command-line options are interpreted as follows." << endl << endl
+           << "-n The number N of randomly generated points used to build the k-d tree" << endl << endl
+           << "-m The maximum number M of nearest neighbors added to a priority queue" << endl << endl
+           << "-x The number X of duplicate points added to test removal of duplicate points" << endl << endl
+           << "-d The number of dimensions D (aka k) of the k-d tree" << endl << endl
+           << "-t The number of threads T used to build and search the k-d tree" << endl << endl
+           << "-s The search distance S used for region search" << endl << endl
+           << "-p The maximum number P of nodes to report when reporting region search results" << endl << endl
+           << "-b Compare k-d tree nearest neighbors search to exhaustive search" << endl << endl
+           << "-c Compare k-d tree region search to exhaustive search" << endl << endl
+           << "-r Construct nearest-neighbors and reverse-nearest-neighbors maps" << endl << endl
+           << "-h List the command-line options" << endl << endl;
+      exit(1);
+    }
     {
       ostringstream buffer;
       buffer << "\n\nillegal command-line argument: " << argv[i] << endl;
