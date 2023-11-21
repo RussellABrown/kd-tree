@@ -929,10 +929,10 @@ private:
           }
           // Sort the lower half of references[permut[0]] with the current thread.
           mergeSortReferenceAscending(dst, tmp, start, median - 1, p + 1, dim,
-                                      maximumSubmitDepth, depth);
+                                      maximumSubmitDepth, depth + 1);
           // Sort the upper half of references[permut[0]] with the current thread.
           mergeSortReferenceAscending(dst, tmp, median + 1, end, p + 1, dim,
-                                      maximumSubmitDepth, depth);
+                                      maximumSubmitDepth, depth + 1);
         }
 
         // Partition the reference arrays specified by 'startIndex' in
