@@ -3368,7 +3368,7 @@ int main(int argc, char** argv)
       continue;
     }
     if (0 == strcmp(argv[i], "-s") || 0 == strcmp(argv[i], "--searchDistance")) {
-
+      searchDistance = atol(argv[++i]);
       continue;
     }
     if (0 == strcmp(argv[i], "-p") || 0 == strcmp(argv[i], "--maximumNodesToPrint")) {
