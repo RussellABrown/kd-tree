@@ -100,20 +100,24 @@ typedef streamsize signed_size_t;
 #include "kdSetMergeSort.h"
 #include "kdSetHeapSort.h"
 
-/* A forward reference to the friend class KdTree */
+/* A forward reference to the friend classes KdTree and MergeSort */
 template <typename, typename>
 class KdTree;
+
+template<typename, typename>
+class MergeSort;
 
 /* One node of a k-d tree where K is key type and V is value type */
 template <typename K, typename V>
 class KdNode {
-public:
+private:
+
 #ifdef DIMENSIONS
   K tuple[static_cast<size_t>(DIMENSIONS)];
 #else
   K* tuple;
 #endif
-private:
+
   KdNode<K,V>* ltChild;
   KdNode<K,V>* gtChild;
   KdNode<K,V>* duplicates;
@@ -1466,6 +1470,7 @@ private:
   }
 
   friend class KdTree<K,V>;
+  friend class MergeSort<K,V>;
   friend class NearestNeighborHeap<K,V>;
 }; // class KdNode
 
