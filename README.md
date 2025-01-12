@@ -8,27 +8,26 @@ The Journal of Computer Graphics Techniques (JCGT) article contains a detailed d
 
 In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the arXiv article includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following the publication of those algorithms in the JCGT article.
 
-The kdTreeKnlogn.cpp and kdTreeNlogn.cpp source-code files build a balanced k-d tree.
+The test_kdtree.cpp file and associated .h files build and test a k-d tree via either the O(kn log n) or the O(n log n) algorithm.
 
-The kdTreeMapKnlogn.cpp, kdTreeMapNlogn.cpp, kdTreeKmapKnlog.cpp, and kdTreeKmapNlogn.cpp source-code files build a balanced k-d tree-based key-to-value map. The latter two implementations of the key-to-value map execute twice as rapidly as the former two implementations. See the arXiv article for details.
+The test_kdset.cpp file and associated .h files build and test a k-d tree-based set via either the O(kn log n) or the O(n log n) algorithm.
 
-All six source-code files include algorithms that search a k-d tree (1) for all points that lie inside a k-dimensional hyper-rectangular region; (2) for the m nearest neighbors to a query point sorted according to their distances to the query point via a priority queue; and (3) for the reverse nearest neighbors to each point in the k-d tree, where the reverse nearest neighbors to a given point are defined as the set of points to which that point is a nearest neighbor.
+The '-D NLOGN' compilation option specifies the O(n log n) algorithm; otherwise, the O(kn log n) algorithm is used.
 
-All six source-code files build a k-d tree and search a k-dimensional hyper-rectangular region using multiple threads.
+For test_kdSet.cpp, the '-D DIMENSIONS=k' compilation option specifies the number of dimensions k. If this directive is included, each node of the k-d tree-based set stores (x, y, z, w...) coordinates directly instead of storing the coordinates in a separate array. This approach may improve performance by eliminating one degree of indirection for accessing coordinates.
 
-All six source-code files search the k-d tree for the nearest neighbors to a single point using a single thread and they search for the nearest neighbors and reverse nearest neighbors to all points in the k-d tree using multiple threads.
+See the test_kdtree.cpp and test_kdset.cpp files for discussion of other compilation options.
 
-All six source-code files contain a main() function that tests k-d tree building and search. This main() function is bracketed by '#ifdef TEST_KD_TREE ... #endif'; hence, to use a source-code file as a header file, it is necessary to compile without the '-D TEST_KD_TREE' option.
+The command-line options that control execution of the main() function to build and search the k-d tree are as follows:
 
-The command-line options that control execution of the main() function to build and search the k-d tree are as follows.
-
+-i The number of iterations of k-d tree creation; more iterations enable more reliable measurement of execution times                                                    
 -n The number of randomly generated points used to build the k-d tree
 
 -m The number of nearest neighbors kept on the priority queue created when searching the k-d tree for nearest neighbors
 
 -x The number of duplicate points added to test removal of duplicate points
 
--d The number of dimensions (k) of the k-d tree; not applicable to the kdTreeKmapKnlogn.cpp and kdTreeKmapNlogn.cpp programs because for these programs the number of dimensions is specified at compile time
+-d The number of dimensions (k) of the k-d tree; not applicable to the test_kdset.cpp program if '-D DIMENSIONS=k' is specified to the compiler
 
 -t The number of threads used to build and region-search the k-d tree
 
