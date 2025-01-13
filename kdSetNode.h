@@ -919,6 +919,51 @@ private:
     }
   }
   
+  /*
+   * Sort a list of KdNode instances by increasing distance from the query point.
+   *
+   * Calling parameters:
+   * 
+   * kdList - the list of KdNode instances
+   * query - a vector that contains the query point coordinates
+   * maxNodes - the maximum number of nodes to maintain on the heap
+   * 
+   * returns: a sorted list of KdNode instances
+   *
+   * Because this function does not access the k-d tree, it could be static.
+   * However, calling it as a static function requires speicification of a
+   * type, so calling it as a non-static function is less cumbersome.
+   */
+private:
+  list<KdNode<K,V>*> sortByDistance(list<KdNode<K,V>*> const& kdList,
+                                    vector<K> const& query,
+                                    signed_size_t const& maxNodes) {
+
+    // Create a heap and add each KdNode on the list to the heap
+    // if that KdNode's distance to the query point is less than
+    // the distance of the currently farthest KdNode on the heap.
+    NearestNeighborHeap<K,V> heap(query, maxNodes);
+    for (auto it = kdList.begin(); it != kdList.end(); ++it) {
+      double dist = 0;
+      for (size_t j = 0; j < query.size(); ++j) {
+        double delta = static_cast<double>((*it)->tuple[j] - query[j]); // Potential loss of precision
+        dist += delta * delta;
+      }
+      if (dist * dist <= heap.curMaxDist() || ! heap.heapFull()) {
+        heap.add(*it);
+      }
+    }
+
+    // Empty the heap and prepend each entry to a sorted list.
+      list<KdNode<K,V>*> sortedList;
+    signed_size_t const heapDepth = heap.heapDepth();
+    for (signed_size_t i = 0; i < heapDepth; ++i) {
+      sortedList.push_front(heap.removeTop().second);
+    }
+      
+  return sortedList;
+  }
+
 #ifdef REVERSE_NEAREST_NEIGHBORS
   /*
    * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,

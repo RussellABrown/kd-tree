@@ -416,10 +416,10 @@ int main(int argc, char** argv) {
   cout << regionFast.size() << " nodes within " << queryRange << " units of ";
   root->printTuple(query);
   cout << " in all dimensions." << endl << endl;
-  cout << "List of the first <= " << maximumNumberOfNodesToPrint << " fast search k-d nodes within a "
+  cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " fast search k-d nodes within a "
        << queryRange << "-unit search distance follows:" << endl << endl;
-  regionFast.sort(); // This sort merely guarantees consistency between regionFast and regionSlow
-  root->printTuples(regionFast, maximumNumberOfNodesToPrint, numDimensions);
+  auto printRegionFast = root->sortByDistance(regionFast, query, maximumNumberOfNodesToPrint);
+  root->printTuples(printRegionFast, maximumNumberOfNodesToPrint, numDimensions);
   cout << endl;
 
   // Verify that no duplicate KdNodes exist on the list returned from region search.
@@ -446,18 +446,19 @@ int main(int argc, char** argv) {
     cout << regionSlow.size() << " nodes within " << queryRange << " units of ";
     root->printTuple(query);
     cout << " in all dimensions." << endl << endl;
-    cout << "List of the first <= " << maximumNumberOfNodesToPrint << " slow search k-d nodes within a "
+    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " slow search k-d nodes within a "
          << queryRange << "-unit search distance follows:" << endl << endl;
-    regionSlow.sort(); // This sort merely guarantees consistency between regionFast and regionSlow
-    root->printTuples(regionSlow, maximumNumberOfNodesToPrint, numDimensions);
+    auto printRegionSlow = root->sortByDistance(regionFast, query, maximumNumberOfNodesToPrint);
+    root->printTuples(printRegionSlow, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
 
     // Verify that the region-search and brute-force lists are identical.
     // Both lists must be sorted before the KdNode* comparisons are
     // performed below because the region search and brute-force search
-    // algorithms do not produce lists wherein KdNodes are prepended
-    // in the same order.
-    auto itrf = regionFast.begin();
+    // algorithms do not prepend KdNode* to their lists in the same order.
+    regionFast.sort();
+    regionSlow.sort();
+     auto itrf = regionFast.begin();
     for (auto itrs = regionSlow.begin(); itrs != regionSlow.end(); ++itrf, ++itrs) {
       if (*itrf != *itrs) {
         throw runtime_error("\n\nnon-identical region-search and brute-force lists\n");

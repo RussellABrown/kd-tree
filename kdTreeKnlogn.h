@@ -682,6 +682,29 @@ public:
     root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
   }
   
+  /*
+   * Sort a list of KdNode instances by increasing distance from the query point.
+   *
+   * Calling parameters:
+   * 
+   * kdList - the list of KdNode instances
+   * query - a vector that contains the query point coordinates
+   * maxNodes - the maximum number of nodes to maintain on the heap
+   * 
+   * returns: a sorted list of KdNode instances
+   *
+   * Because this function does not access the k-d tree, it could be static.
+   * However, calling it as a static function requires speicification of a
+   * type, so calling it as a non-static function is less cumbersome.
+   */
+public:
+  list<KdNode<K>*> sortByDistance(list<KdNode<K>*> const& kdList,
+                                  vector<K> const& query,
+                                  signed_size_t const& maxNodes) {
+
+  return root->sortByDistance(kdList, query, maxNodes);
+  }
+
 #ifdef REVERSE_NEAREST_NEIGHBORS
   /*
    * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
