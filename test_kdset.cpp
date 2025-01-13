@@ -465,11 +465,11 @@ int main(int argc, char** argv) {
 
     cout << "slow region time = " << fixed << setprecision(6) << slowRegionTime << " seconds" << endl << endl;
 
-    cout << regionSlow.size() << " nodes within " << (endCoordinate - beginCoordinate) << " units of ";
+    cout << regionSlow.size() << " nodes within " << queryRange << " units of ";
     root->printTuple(query);
     cout << " in all dimensions." << endl << endl;
     cout << "List of the first <= " << maximumNumberOfNodesToPrint << " slow search k-d nodes within a "
-         << (endCoordinate - beginCoordinate) << "-unit search distance follows:" << endl << endl;
+         << queryRange << "-unit search distance follows:" << endl << endl;
     regionSlow.sort(); // This sort merely guarantees consistency between regionFast and regionSlow
     root->printTuples(regionSlow, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
