@@ -440,7 +440,7 @@ int main(int argc, char** argv) {
   cout << " in all dimensions." << endl << endl;
   cout << "List of the first <= " << maximumNumberOfNodesToPrint << " fast search k-d nodes within a "
        << queryRange << "-unit search distance follows:" << endl << endl;
-  regionFast.sort();
+  regionFast.sort(); // This sort merely guarantees consistency between regionFast and regionSlow
   root->printTuples(regionFast, maximumNumberOfNodesToPrint, numDimensions);
   cout << endl;
 
@@ -469,8 +469,8 @@ int main(int argc, char** argv) {
     root->printTuple(query);
     cout << " in all dimensions." << endl << endl;
     cout << "List of the first <= " << maximumNumberOfNodesToPrint << " slow search k-d nodes within a "
-         << queryRange << "-unit search distance follows:" << endl << endl;
-    regionSlow.sort();
+         << (endCoordinate - beginCoordinate) << "-unit search distance follows:" << endl << endl;
+    regionSlow.sort(); // This sort merely guarantees consistency between regionFast and regionSlow
     root->printTuples(regionSlow, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
 
