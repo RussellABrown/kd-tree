@@ -942,7 +942,7 @@ private:
         double delta = static_cast<double>((*it)->tuple[j] - query[j]); // Potential loss of precision
         dist += delta * delta;
       }
-      if (dist * dist <= heap.curMaxDist() || ! heap.heapFull()) {
+      if (dist * dist <= heap.curMaxDist() || !heap.heapFull()) {
         heap.add(*it);
       }
     }

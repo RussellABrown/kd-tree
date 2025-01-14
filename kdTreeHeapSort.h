@@ -55,7 +55,6 @@ class NearestNeighborHeap {
 private:
   vector<K> query; // query point for which nearest neighbors will be found
   vector<bool> enable;
-private:
   signed_size_t reqDepth; // requested number of nearest neighbors
   vector<KdNode<K>* > nodes; // vector of pointers to KdNodes that are the nearest neighbors
   vector<double> dists; // vector of squared distances
@@ -184,7 +183,7 @@ private:
   void add(KdNode<K>* const node) {
     // Find the distance by subtracting the query from the tuple and
     // calculating the sum of the squared distances. Note that conversion
-    // from type T to double may result in loss of precision but avoids
+    // from type K to double may result in loss of precision but avoids
     // the possibility of integer overflow.
     double dist2 = 0.0;
     for (size_t i = 0; i < query.size(); ++i) {
