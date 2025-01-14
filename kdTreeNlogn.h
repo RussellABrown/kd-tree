@@ -1258,18 +1258,18 @@ public:
    * query - a vector that contains the query point coordinates
    * maxNodes - the maximum number of nodes to maintain on the heap
    * 
-   * returns: a sorted list of KdNode instances
+   * returns: a sorted forward list of (double, KdNode*) pairs
    *
    * Because this function does not access the k-d tree, it could be static.
    * However, calling it as a static function requires speicification of a
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  list<KdNode<K>*> sortByDistance(list<KdNode<K>*> const& kdList,
-                                  vector<K> const& query,
-                                  signed_size_t const& maxNodes) {
+  forward_list<pair<double, KdNode<K>*>> sortByDistance(list<KdNode<K>*> const& kdList,
+                                                        vector<K> const& query,
+                                                        signed_size_t const& maxNodes) {
 
-  return root->sortByDistance(kdList, query, maxNodes);
+    return root->sortByDistance(kdList, query, maxNodes);
   }
 
 #ifdef REVERSE_NEAREST_NEIGHBORS
@@ -1399,7 +1399,8 @@ public:
 #endif // REVERSE_NEAREST_NEIGHBORS
                                                                                                
   /*
-   * Find M nearest neighbors to the query vector via brute force and return them as a list ordered by increasing distance.
+   * Find M nearest neighbors to the query vector via brute force
+   * and return them as a list ordered by increasing distance.
    *
    * Calling parameters:
    *
@@ -1451,12 +1452,12 @@ public:
     root->printTuple(tuple);
   }
 
-  /*
-   * The printTuples func prints all tuples in a list.
+ /*
+   * The printTuples function prints all tuples in a forward list of pairs.
    *
    * Calling parameters:
    *
-   * regionList - a list of KdNodes returned by a region search
+   * regionList - a list of (double, KdNode*) pairs
    * maximumNumberOfNodesToPrint - the maximum number of KdNodes to print
    * numDimensions - the number of dimensions
    *
@@ -1465,7 +1466,7 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  void printTuples(list< KdNode<K>* > const& regionList,
+  void printTuples(forward_list<pair<double, KdNode<K>*>> const& regionList,
                    signed_size_t const maximumNumberOfNodesToPrint,
                    signed_size_t const numDimensions) const {
     

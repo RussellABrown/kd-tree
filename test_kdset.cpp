@@ -438,7 +438,7 @@ int main(int argc, char** argv) {
   cout << regionFast.size() << " nodes within " << queryRange << " units of ";
   root->printTuple(query);
   cout << " in all dimensions." << endl << endl;
-  cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " fast search k-d nodes within a "
+  cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " fast region-search k-d nodes within a "
        << queryRange << "-unit search distance follows:" << endl << endl;
   auto printRegionFast = root->sortByDistance(regionFast, query, maximumNumberOfNodesToPrint);
   root->printTuples(printRegionFast, maximumNumberOfNodesToPrint, numDimensions);
@@ -468,10 +468,19 @@ int main(int argc, char** argv) {
     cout << regionSlow.size() << " nodes within " << queryRange << " units of ";
     root->printTuple(query);
     cout << " in all dimensions." << endl << endl;
-    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " slow search k-d nodes within a "
+    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " slow region-search k-d nodes within a "
          << queryRange << "-unit search distance follows:" << endl << endl;
     auto printRegionSlow = root->sortByDistance(regionFast, query, maximumNumberOfNodesToPrint);
     root->printTuples(printRegionSlow, maximumNumberOfNodesToPrint, numDimensions);
+    cout << endl;
+
+    // Print the fast and slow distances squared.
+    cout << "fast and slow closest region-search distances squared follow in increasing order:" << endl << endl;
+    auto itf = printRegionFast.begin();
+    auto its = printRegionSlow.begin();
+    for ( ; itf != printRegionFast.end(); ++itf, ++its) {
+      cout << fixed << setprecision(0) << itf->first << "\t" << its->first << endl;
+    }
     cout << endl;
 
     // Verify that the region-search and brute-force lists are identical.
@@ -502,6 +511,10 @@ int main(int argc, char** argv) {
   cout << "fast neighbor time = " << fixed << setprecision(6) << fastNeighborTime << " seconds" << endl << endl;
   cout << "fast neighbor list size = " << distance(neighborsFast.begin(), neighborsFast.end()) << endl << endl;
 
+  cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " fast neighbor-search k-d nodes follows:" << endl << endl;
+  root->printTuples(neighborsFast, maximumNumberOfNodesToPrint, numDimensions);
+  cout << endl;
+
   // Find nearest neighbors via brute force if requested.
   if (bruteForceSearch) {
     beginTime = steady_clock::now();
@@ -515,12 +528,16 @@ int main(int argc, char** argv) {
     cout << "slow neighbor time = " << fixed << setprecision(6) << slowNeighborTime << " seconds" << endl << endl;
     cout << "slow neighbor list size = " << distance(neighborsSlow.begin(), neighborsSlow.end()) << endl << endl;
 
+    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " slow neighbor-search k-d nodes follows:" << endl << endl;
+    root->printTuples(neighborsSlow, maximumNumberOfNodesToPrint, numDimensions);
+    cout << endl;
+
     // Verify the consistency between the nearest neighbors lists
     // found by k-d tree search and by brute force.
     root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
 
     // Print the fast and slow distances squared.
-    cout << "fast and slow distances squared follow:" << endl << endl;
+    cout << "fast and slow closest nearest-neighbor distances squared follow in increasing order:" << endl << endl;
     auto itf = neighborsFast.begin();
     auto its = neighborsSlow.begin();
     for ( ; itf != neighborsFast.end(); ++itf, ++its) {

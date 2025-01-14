@@ -921,16 +921,16 @@ private:
    * query - a vector that contains the query point coordinates
    * maxNodes - the maximum number of nodes to maintain on the heap
    * 
-   * returns: a sorted list of KdNode instances
+   * returns: a sorted forward list of (distance, KdNode*) pairs
    *
    * Because this function does not access the k-d tree, it could be static.
    * However, calling it as a static function requires speicification of a
    * type, so calling it as a non-static function is less cumbersome.
    */
 private:
-  list<KdNode<K>*> sortByDistance(list<KdNode<K>*> const& kdList,
-                                  vector<K> const& query,
-                                  signed_size_t const& maxNodes) {
+  forward_list<pair<double, KdNode<K>*>> sortByDistance(list<KdNode<K>*> const& kdList,
+                                                        vector<K> const& query,
+                                                        signed_size_t const& maxNodes) {
 
     // Create a heap and add each KdNode on the list to the heap
     // if that KdNode's distance to the query point is less than
@@ -948,13 +948,13 @@ private:
     }
 
     // Empty the heap and prepend each entry to a sorted list.
-      list<KdNode<K>*> sortedList;
+    forward_list<pair<double, KdNode<K>*>> sortedList;
     signed_size_t const heapDepth = heap.heapDepth();
     for (signed_size_t i = 0; i < heapDepth; ++i) {
-      sortedList.push_front(heap.removeTop().second);
+      sortedList.push_front(heap.removeTop());
     }
       
-  return sortedList;
+    return sortedList;
   }
 
 #ifdef REVERSE_NEAREST_NEIGHBORS
@@ -1415,7 +1415,8 @@ private:
   }
 
   /*
-   * Find M nearest neighbors to the query vector via brute force and return them as a list ordered by increasing distance.
+   * Find M nearest neighbors to the query vector via brute force
+   * and return them as a list ordered by increasing distance.
    *
    * Calling parameters:
    *
@@ -1479,11 +1480,11 @@ private:
   }
 
   /*
-   * The printTuples func prints all tuples in a list.
+   * The printTuples function prints all tuples in a forward list of pairs.
    *
    * Calling parameters:
    *
-   * regionList - a list of KdNodes returned by a region search
+   * regionList - a forward list of (double, KdNode*) pairs
    * maximumNumberOfNodesToPrint - the maximum number of KdNodes to print
    * numDimensions - the number of dimensions
    *
@@ -1492,14 +1493,14 @@ private:
    * type, so calling it as a non-static function is less cumbersome.
    */
 private:
-  void printTuples(list< KdNode<K>* > const& regionList,
+  void printTuples(forward_list<pair<double, KdNode<K>*>> const& regionList,
                    signed_size_t const maximumNumberOfNodesToPrint,
                    signed_size_t const numDimensions) const {
     
-    if (regionList.size() != 0) {
+    if (!regionList.empty()) {
       signed_size_t maxNodesToPrint = maximumNumberOfNodesToPrint;
       for (auto it = regionList.begin(); it != regionList.end(); ++it) {
-        printTuple((*it)->getTuple(), numDimensions);
+        printTuple((*it).second->getTuple(), numDimensions);
         cout << endl;
         --maxNodesToPrint;
         if (maxNodesToPrint == 0) {
