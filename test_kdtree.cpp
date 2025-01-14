@@ -251,7 +251,7 @@ int main(int argc, char** argv) {
     endCoordinate = thisCoordinate;
     thisCoordinate += deltaCoordinate;
   }
-  cout << "endCoordinate = " << thisCoordinate << endl;
+  cout << "endCoordinate = " << endCoordinate << endl;
 
   // Calculate the number of child threads to be the number of threads minus 1, then
   // calculate the maximum tree depth at which to launch a child thread.  Truncate
@@ -452,12 +452,12 @@ int main(int argc, char** argv) {
     root->printTuples(printRegionSlow, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
 
-    // Print the fast and slow distances squared.
-    cout << "fast and slow closest region-search distances squared follow in increasing order:" << endl << endl;
+    // Print the fast and slow distances.
+    cout << "fast and slow closest region-search distances follow in increasing order:" << endl << endl;
     auto itf = printRegionFast.begin();
     auto its = printRegionSlow.begin();
     for ( ; itf != printRegionFast.end(); ++itf, ++its) {
-      cout << fixed << setprecision(0) << itf->first << "\t" << its->first << endl;
+      cout << scientific << sqrt(itf->first) << "\t" << sqrt(its->first) << endl;
     }
     cout << endl;
 
@@ -478,7 +478,7 @@ int main(int argc, char** argv) {
   // It is impossible to find more nearest neighbors than there are points.
   numNeighbors = min(numNeighbors, numPoints + extraPoints + 1);
 
-  // Search the k-d tree for up to numNeighbors nearest neighbors to the first tuple.
+  // Search the k-d tree for up to numNeighbors nearest neighbors to the query tuple.
   beginTime = steady_clock::now();
   forward_list< pair<double, KdNode<kdKey_t>*> > neighborsFast;
   root->findNearestNeighbors(neighborsFast, query, numNeighbors, coordinates.size());
@@ -514,12 +514,12 @@ int main(int argc, char** argv) {
     // found by k-d tree search and by brute force.
     root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
 
-    // Print the fast and slow distances squared.
-    cout << "fast and slow closest nearest-neighbor distances squared follow in increasing order:" << endl << endl;
+    // Print the fast and slow distances.
+    cout << "fast and slow closest nearest-neighbor distances follow in increasing order:" << endl << endl;
     auto itf = neighborsFast.begin();
     auto its = neighborsSlow.begin();
     for ( ; itf != neighborsFast.end(); ++itf, ++its) {
-      cout << fixed << setprecision(0) << itf->first << "\t" << its->first << endl;
+      cout << scientific << sqrt(itf->first) << "\t" << sqrt(its->first) << endl;
     }
     cout << endl;
   }

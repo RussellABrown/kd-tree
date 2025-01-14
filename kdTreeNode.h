@@ -680,7 +680,9 @@ private:
       // If the current node is closer to the query point than the farthest item in the heap, or if this
       // component of the array is not part of the nearest neighbor search, or if the heap is not full,
       // descend the > branch and then attempt to add the node to the heap.
-      double const dist = static_cast<double>(tuple[p] - heap.query[p]); // May result in loss of precision.
+      double const tup = static_cast<double>(tuple[p]);      // May result in loss of precision
+      double const que = static_cast<double>(heap.query[p]); // May result in loss of precision
+      double const dist = tup - que;
       if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
         if (gtChild != nullptr) { // If not at the bottom of the tree, descend the > branch
           gtChild->nearestNeighbors(heap, permutation, depth + 1);
@@ -698,7 +700,9 @@ private:
       // If the current node is closer to the query point than the farthest item in the heap, or if this
       // component of the array is not part of the nearest neighbor search, or if the heap is not full,
       // descend the < branch and then attempt to add the node to the heap.
-      double const dist = static_cast<double>(tuple[p] - heap.query[p]); // May result in loss of precision.
+      double const tup = static_cast<double>(tuple[p]);      // May result in loss of precision
+      double const que = static_cast<double>(heap.query[p]); // May result in loss of precision
+      double const dist = tup - que;
       if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
         if (ltChild != nullptr) {
           ltChild->nearestNeighbors(heap, permutation, depth + 1);
@@ -937,12 +941,14 @@ private:
     // the distance of the currently farthest KdNode on the heap.
     NearestNeighborHeap<K> heap(query, maxNodes);
     for (auto it = kdList.begin(); it != kdList.end(); ++it) {
-      double dist = 0;
+      double dist2 = 0;
       for (size_t j = 0; j < query.size(); ++j) {
-        double delta = static_cast<double>((*it)->tuple[j] - query[j]); // Potential loss of precision
-        dist += delta * delta;
+        double tup = (*it)->tuple[j]; // May result in loss of precision
+        double que = query[j] ;       // May result in loss of precision
+        double dist = tup - que;
+        dist2 += dist * dist;
       }
-      if (dist * dist <= heap.curMaxDist() || !heap.heapFull()) {
+      if (dist2 <= heap.curMaxDist() || !heap.heapFull()) {
         heap.add(*it);
       }
     }

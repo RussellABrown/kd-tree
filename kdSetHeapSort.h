@@ -189,8 +189,10 @@ private:
     for (size_t i = 0; i < query.size(); ++i) {
       // Add the squared coordinate distance only if the dimension is enabled.
       if (enable[i]) {
-        K const  comp = node->tuple[i] - query[i];
-        dist2 += static_cast<double>(comp) * static_cast<double>(comp);
+        double tup = node->tuple[i]; // May result in loss of precision
+        double que = query[i];       // May result in loss of precision
+        double dist = tup - que;
+        dist2 += dist * dist;
       }
     }
     // If the queue is not full, add the point to the bottom of the heap unconditionally and let it rise;
