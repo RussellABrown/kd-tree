@@ -8,15 +8,15 @@ The Journal of Computer Graphics Techniques (JCGT) article contains a detailed d
 
 In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the arXiv article includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following the publication of those algorithms in the JCGT article.
 
-The test_kdtree.cpp file and associated .h files build and test a k-d tree via either the O(kn log n) or the O(n log n) algorithm.
+The test_kdtree.cpp file and associated .h files build and test a k-d tree (in fact, a set) via either the O(kn log n) or the O(n log n) algorithm.
 
-The test_kdset.cpp file and associated .h files build and test a k-d tree-based set via either the O(kn log n) or the O(n log n) algorithm.
+The test_kdmap.cpp file and associated .h files build and test a k-d tree-based map via either the O(kn log n) or the O(n log n) algorithm.
 
 The '-D NLOGN' compilation option specifies the O(n log n) algorithm; otherwise, the O(kn log n) algorithm is used.
 
-For test_kdSet.cpp, the '-D DIMENSIONS=k' compilation option specifies the number of dimensions k. If this directive is included, each node of the k-d tree-based set stores (x, y, z, w...) coordinates directly instead of storing the coordinates in a separate array. This approach may improve performance by eliminating one degree of indirection for accessing coordinates.
+For test_kdmap.cpp, the '-D DIMENSIONS=k' compilation option specifies the number of dimensions k. If this directive is included, each node of the k-d tree-based map stores (x, y, z, w...) coordinates directly instead of storing the coordinates in a separate array. This approach may improve performance by eliminating one degree of indirection for accessing coordinates.
 
-See the test_kdtree.cpp and test_kdset.cpp files for discussion of other compilation options.
+See the test_kdtree.cpp and test_kdmap.cpp files for discussion of other compilation options.
 
 The command-line options that control execution of the main() function to build and search the k-d tree are as follows:
 
