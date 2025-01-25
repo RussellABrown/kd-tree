@@ -12,9 +12,11 @@ The test_kdtree.cpp file and associated .h files build and test a k-d tree (in f
 
 The test_kdmap.cpp file and associated .h files build and test a k-d tree-based map via either the O(kn log n) or the O(n log n) algorithm.
 
-The '-D NLOGN' compilation option specifies the O(n log n) algorithm; otherwise, the O(kn log n) algorithm is used.
+The '-D NLOGN' compilation define specifies the O(n log n) algorithm; otherwise, the O(kn log n) algorithm is used.
 
-For test_kdmap.cpp, the '-D DIMENSIONS=k' compilation option specifies the number of dimensions k. If this directive is included, each node of the k-d tree-based map stores (x, y, z, w...) coordinates directly instead of storing the coordinates in a separate array. This approach may improve performance by eliminating one degree of indirection for accessing coordinates.
+The '-D PREALLOCATE' compilation define causes temporary data structures that are required to build the k-d tree to be allocated and deallocated en masse, which improves performance.
+
+For test_kdmap.cpp, the '-D DIMENSIONS=k' compilation define specifies the number of dimensions k. This define is useful only if the '-D PREALLOCATE' define fails to compile correctly and is ignored unless '-D PREALLOCATE' is specified as well. It improves performance similarly to '-D PREALLOCATE' but requires that the number of dimensions be specified at compile time instead of run time, so it results in less flexibility than '-D PREALLOCATE'.
 
 See the test_kdtree.cpp and test_kdmap.cpp files for discussion of other compilation options.
 
