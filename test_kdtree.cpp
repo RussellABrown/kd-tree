@@ -31,14 +31,19 @@
 /*
  * Test program for kdTreeKnlogn.h and kdTreeNlogn.h
  *
- * Compile via: g++ -O3 -std=c++11 -pthread -W test_kdtree.cpp
+ * Compile via: g++ -O3 -std=c++11 -pthread -W -D PREALLOCATE test_kdtree.cpp
  *
- * Optional compilation options are as follows.
+ * Optional compilation defines are as follows.
  * 
  * -D NLOGN - Select the O(n log n) algorithm instead of the O(kn log n) algorithm.
  * 
- * The following compilation options apply to both O(n log n) and O(kn log n) algorithms.
+ * The following compilation defines apply to both O(n log n) and O(kn log n) algorithms.
  *
+ * -D PREALLOCATE - If defined, all instances of KdNodes and all tuple arrays are
+ *                  allocated en masse within vectors instead of being allocated
+ *                  individually. This decreases the time required to allocate and
+ *                  deallocate the KdNode instances and tuple arrays.
+ * 
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  *
  * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
@@ -47,7 +52,7 @@
  * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
  *                                list in response to the -r command-line option.
  * 
- * The following compilation options apply only to the O(n log n) algorithm.
+ * The following compilation defines apply only to the O(n log n) algorithm.
  *
  * -D MEDIAN_OF_MEDIANS_CUTOFF=n - A cutoff for switching from median of medians to insertion sort
  *                                 in KdNode::partition (default 15)
@@ -107,7 +112,7 @@
  * This is the type used for the test. Change the intrisic type in
  * this typedef to test the k-d tree with different intrisic types.
  */
-typedef int64_t kdKey_t;
+typedef int64_t kdKey_t; // Add required #include and using to kdTreeNode.h
 
 /*
   * Calculate the mean and standard deviation of the elements of a vector.
@@ -219,13 +224,9 @@ int main(int argc, char** argv) {
   }
 
   // Declare and initialize the coordinates and oneCoordinte vectors.
-  auto beginTime = steady_clock::now();
   extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
   vector<vector<kdKey_t>> coordinates(numPoints + extraPoints, vector<kdKey_t>(numDimensions));
   vector<kdKey_t> oneCoordinate(numPoints);
-  auto endTime = steady_clock::now();
-  auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-  auto createTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
   // Calculate a delta coordinate by dividing the positive range of int64_t
   // by the number of points and truncating the quotient. Because the positive
@@ -236,14 +237,10 @@ int main(int argc, char** argv) {
   // Calculate a padding coordinate to center the coordinates about zero.
   signed_size_t deltaCoordinate = LLONG_MAX / numPoints;
   size_t padCoordinate = (ULLONG_MAX - (numPoints * deltaCoordinate)) / 2;
-  cout << endl << "deltaCoordinate = " << deltaCoordinate << endl;
-  cout << "padCoordinate = " << padCoordinate << endl;
-
 
   // Initialize each tuple excluding the extra points. Equally space each coordinate
   // across the range of centered coordinates.
   kdKey_t beginCoordinate = LLONG_MIN + padCoordinate;
-  cout << "beginCoordinate = " << beginCoordinate << endl;
   kdKey_t thisCoordinate = beginCoordinate;
   kdKey_t endCoordinate = 0;
   for (signed_size_t i = 0; i < numPoints; ++i) {
@@ -251,7 +248,17 @@ int main(int argc, char** argv) {
     endCoordinate = thisCoordinate;
     thisCoordinate += deltaCoordinate;
   }
+
+  // These two coordinates indicate whether integer overlow occurs for region search.
+  size_t maxCoordinate = static_cast<size_t>(endCoordinate) * 2;
+  size_t minCoordinate = static_cast<size_t>(-beginCoordinate) * 2;
+
+  cout << endl << "deltaCoordinate = " << deltaCoordinate << endl;
+  cout << "padCoordinate = " << padCoordinate << endl;
+  cout << "beginCoordinate = " << beginCoordinate << endl;
   cout << "endCoordinate = " << endCoordinate << endl;
+  cout << "minCoordinate = -" << minCoordinate << endl;
+  cout << "maxCoordinate = " << maxCoordinate << endl;
 
   // Calculate the number of child threads to be the number of threads minus 1, then
   // calculate the maximum tree depth at which to launch a child thread.  Truncate
@@ -284,8 +291,6 @@ int main(int argc, char** argv) {
        << maximumSubmitDepth << endl << endl;
 
   // Allocate vectors to store the execution times for k-d tree creation.
-  vector<double> shuffleTime(iterations);
-  vector<double> copyTime(iterations);
   vector<double> allocateTime(iterations);
   vector<double> sortTime(iterations);
   vector<double> removeTime(iterations);
@@ -293,7 +298,6 @@ int main(int argc, char** argv) {
   vector<double> verifyTime(iterations);
   vector<double> deallocateTime(iterations);
   vector<double> kdTotalTime(iterations);
-  vector<double> totalTime(iterations);
 
   // Iterate the creation of the k-d tree to improve statistics.
   signed_size_t numberOfNodes = 0;
@@ -302,16 +306,12 @@ int main(int argc, char** argv) {
   for (size_t k = 0; k < iterations; ++k) {
 
     // Shuffle the coordinates vector independently for each dimension.
-    auto beginTime = steady_clock::now();
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       shuffle(oneCoordinate.begin(), oneCoordinate.end(), g);
       for (signed_size_t i = 0; i < numPoints; ++i) {
         coordinates[i][j] = oneCoordinate[i];
       }
     }
-    auto endTime = steady_clock::now();
-    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    shuffleTime[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     // Reflect tuples across coordinates[numPoints - 1] to initialize the extra points.
     for (signed_size_t i = 1; i <= extraPoints; ++i) {
@@ -324,9 +324,7 @@ int main(int argc, char** argv) {
     root = KdTree<kdKey_t>::createKdTree(coordinates, maximumSubmitDepth, numberOfNodes,
                                          allocateTime[k], sortTime[k], removeTime[k], kdTime[k],
                                          verifyTime[k], deallocateTime[k]);
-    totalTime[k] = sortTime[k] + removeTime[k] + kdTime[k] + verifyTime[k] + shuffleTime[k]
-                 + allocateTime[k] + deallocateTime[k] + copyTime[k];
-    kdTotalTime[k] = sortTime[k] + removeTime[k] + kdTime[k] + verifyTime[k];
+    kdTotalTime[k] =  allocateTime[k] + sortTime[k] + removeTime[k] + kdTime[k] + verifyTime[k] + deallocateTime[k];
 
     // Verify that the k-d tree contains the correct number of nodes.
     if (numberOfNodes != numPoints) {
@@ -340,36 +338,69 @@ int main(int argc, char** argv) {
     // recursively deletes the k-d tree, including all instances of KdNode
     // and tuples arrays that were not deleted by KdNode::removeDuplicates.
     if (k < iterations - 1) {
-      beginTime = steady_clock::now();
+      auto beginTime = steady_clock::now();
       delete root;
-      endTime = steady_clock::now();
-      duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+      auto endTime = steady_clock::now();
+      auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
       deallocateTime[k] += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
     }
     cout << "finished iteration " << (k + 1) << endl;
   }
 
-  // Report the k-d tree creation statistics including the execution times.
+  // Allocate vectors to store execution times for k-d tree search.
+  size_t searchIterations = min(iterations, static_cast<size_t>(numberOfNodes));
+  vector<double> regionTime(searchIterations);
+  vector<double> neighborTime(searchIterations);
+
+  // Search the k-d tree via region search for the KdNodes that lie within a hyper-cube
+  // that is centered at the first searchIterations (x, y, z, w...) coordinates and that
+  // is (endCoordinate - beginCoordinate) wide in each dimension.
+
+  vector<kdKey_t> query(numDimensions);
+  vector<kdKey_t> queryLower(numDimensions);
+  vector<kdKey_t> queryUpper(numDimensions);
+  list<KdNode<kdKey_t>*> regionList;
+  for (size_t i = 0; i < searchIterations; ++i) {
+    for (signed_size_t j = 0; j < numDimensions; ++j) {
+        query[j] = coordinates[i][j];
+        queryLower[j] = query[j] + (beginCoordinate / searchDivisor);
+        queryUpper[j] = query[j] + (endCoordinate / searchDivisor);
+    }
+    regionList.clear();
+    auto beginTime = steady_clock::now();
+    root->searchRegion(regionList, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    regionTime[i] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+  }
+
+  // It is impossible to find more nearest neighbors than there are points.
+  numNeighbors = min(numNeighbors, numPoints + extraPoints + 1);
+
+  // Search the k-d tree for up to numNeighbors nearest neighbors to the
+  // first searchIterations (x, y, z, w...) coordinates.
+  forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
+  for (size_t i = 0; i < searchIterations; ++i) {
+    for (signed_size_t j = 0; j < numDimensions; ++j) {
+        query[j] = coordinates[i][j];
+    }
+    neighborList.clear();
+    auto beginTime = steady_clock::now();
+    root->findNearestNeighbors(neighborList, query, numNeighbors, coordinates.size());
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    neighborTime[i] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+  }
+
+  // Report the k-d tree statistics including creation and search execution times.
   cout << endl << "Number of nodes = " << numberOfNodes << endl << endl;
 
-  auto timePair = calcMeanStd(totalTime);
-  cout << "totalTime = " << fixed << setprecision(2) << timePair.first
+  auto timePair = calcMeanStd(kdTotalTime);
+  cout << "kdTotalTime = " << fixed << setprecision(2) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
   timePair = calcMeanStd(allocateTime);
   cout << "allocateTime = " << fixed << setprecision(2) << timePair.first
-       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
-
-  timePair = calcMeanStd(deallocateTime);
-  cout << "deallocateTime = " << fixed << setprecision(2) << timePair.first
-       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl << endl;
-
-  timePair = calcMeanStd(kdTotalTime);
-  cout << "kdTotalTime = " << fixed << setprecision(2) << timePair.first
-       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
-
-  timePair = calcMeanStd(kdTime);
-  cout << "kdTime = " << fixed << setprecision(2) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
   timePair = calcMeanStd(sortTime);
@@ -380,80 +411,79 @@ int main(int argc, char** argv) {
   cout << "removeTime = " << fixed << setprecision(2) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
-  timePair = calcMeanStd(verifyTime);
-  cout << "verifyTime = " << fixed << setprecision(2) << timePair.first
-       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl << endl;
-
-  timePair = calcMeanStd(shuffleTime);
-  cout << "shuffleTime = " << fixed << setprecision(2) << timePair.first
+  timePair = calcMeanStd(kdTime);
+  cout << "kdBuildTime = " << fixed << setprecision(2) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
-  timePair = calcMeanStd(copyTime);
-  cout << "copyTime = " << fixed << setprecision(2) << timePair.first
+  timePair = calcMeanStd(verifyTime);
+  cout << "verifyTime = " << fixed << setprecision(2) << timePair.first
+       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+
+  timePair = calcMeanStd(deallocateTime);
+  cout << "deallocateTime = " << fixed << setprecision(2) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl << endl;
 
-  // Search the k-d tree via region search for the KdNodes that lie within a hyper-cube that is centered
-  // near the origin and that extends +/- the search multiple times the delta coordinate.
+  timePair = calcMeanStd(regionTime);
+  cout << "regionTime = " << fixed << setprecision(4) << timePair.first
+       << setprecision(6) << "  std dev = " << timePair.second << " seconds" << endl;
 
-  vector<kdKey_t> query(numDimensions);
-  vector<kdKey_t> queryLower(numDimensions);
-  vector<kdKey_t> queryUpper(numDimensions);
-  for (signed_size_t i = 0; i < numDimensions; ++i) {
-    query[i] = i;
-    queryLower[i] = query[i] + (beginCoordinate / searchDivisor);
-    queryUpper[i] = query[i] + (endCoordinate / searchDivisor);
-  }
-  kdKey_t queryRange = (endCoordinate - beginCoordinate) / searchDivisor;
-  beginTime = steady_clock::now();
-  list<KdNode<kdKey_t>*> regionFast;
-  root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
-  endTime = steady_clock::now();
-  duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-  double const fastRegionTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+  timePair = calcMeanStd(neighborTime);
+  cout << "neighborTime = " << fixed << setprecision(6) << timePair.first
+       << setprecision(7) << "  std dev = " << timePair.second << " seconds" << endl << endl;
 
-  cout << "fast region time = " << fixed << setprecision(6) << fastRegionTime << " seconds" << endl << endl;
-
-  cout << regionFast.size() << " nodes within " << queryRange << " units of ";
-  root->printTuple(query);
-  cout << " in all dimensions." << endl << endl;
-  cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " fast region-search k-d nodes within a "
-       << queryRange << "-unit search distance follows:" << endl << endl;
-  auto printRegionFast = root->sortByDistance(regionFast, query, maximumNumberOfNodesToPrint);
-  root->printTuples(printRegionFast, maximumNumberOfNodesToPrint, numDimensions);
-  cout << endl;
-
-  // Verify that no duplicate KdNodes exist on the list returned from region search.
-  auto itr1 = regionFast.begin();
-  auto itr2 = itr1;
-  ++itr2;
-  for ( ; itr2 != regionFast.end(); ++itr1, ++itr2) {
-    if (*itr1 == *itr2) {
-      throw runtime_error("\n\nduplicate KdNode* on region-search list\n");
-    }
-  }
-
-  // Search the k-d tree via brute force for the KdNodes that lie within a hyper-cube centered near the origin.
+  // Search the k-d tree via region search and brute force for the KdNodes
+  // that lie within a hyper-cube centered near the origin.
   if (bruteForceRegion) {
-    beginTime = steady_clock::now();
+    // Search the k-d tree via region search for the KdNodes that lie within a hyper-cube that is centered
+    // near the origin and that extends +/- the search multiple times the delta coordinate.
+    for (signed_size_t i = 0; i < numDimensions; ++i) {
+      query[i] = i;
+      queryLower[i] = query[i] + (beginCoordinate / searchDivisor);
+      queryUpper[i] = query[i] + (endCoordinate / searchDivisor);
+    }
+    kdKey_t queryRange = (endCoordinate - beginCoordinate) / searchDivisor / 2;
+    list<KdNode<kdKey_t>*> regionFast;
+    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
+
+    cout << regionFast.size() << " nodes within " << queryRange << " units of ";
+    root->printTuple(query);
+    cout << " in all dimensions." << endl << endl;
+    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " tree region-search k-d nodes within a "
+        << queryRange << "-unit search distance follows:" << endl << endl;
+    auto printRegionFast = root->sortByDistance(regionFast, query, maximumNumberOfNodesToPrint);
+    root->printTuples(printRegionFast, maximumNumberOfNodesToPrint, numDimensions);
+    cout << endl;
+
+    // Verify that no duplicate KdNodes exist on the list returned from region search.
+    auto itr1 = regionFast.begin();
+    auto itr2 = itr1;
+    ++itr2;
+    for ( ; itr2 != regionFast.end(); ++itr1, ++itr2) {
+      if (*itr1 == *itr2) {
+        throw runtime_error("\n\nduplicate KdNode* on region-search list\n");
+      }
+    }
+
+    auto beginTime = steady_clock::now();
     list<KdNode<kdKey_t>*> regionSlow;
     root->bruteRegion(regionSlow, queryLower, queryUpper);
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     double const slowRegionTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-    cout << "slow region time = " << fixed << setprecision(6) << slowRegionTime << " seconds" << endl << endl;
+    cout << "brute-force region time = " << fixed << setprecision(6) << slowRegionTime << " seconds" << endl << endl;
 
     cout << regionSlow.size() << " nodes within " << queryRange << " units of ";
     root->printTuple(query);
     cout << " in all dimensions." << endl << endl;
-    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " slow region-search k-d nodes within a "
+    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " brute region-search k-d nodes within a "
          << queryRange << "-unit search distance follows:" << endl << endl;
     auto printRegionSlow = root->sortByDistance(regionFast, query, maximumNumberOfNodesToPrint);
     root->printTuples(printRegionSlow, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
 
-    // Print the fast and slow distances.
-    cout << "fast and slow closest region-search distances follow in increasing order:" << endl << endl;
+    // Print the tree and brute distances.
+    cout << "tree and brute closest region-search distances follow in increasing order:" << endl << endl;
     auto itf = printRegionFast.begin();
     auto its = printRegionSlow.begin();
     for ( ; itf != printRegionFast.end(); ++itf, ++its) {
@@ -467,7 +497,7 @@ int main(int argc, char** argv) {
     // algorithms do not prepend KdNode* to their lists in the same order.
     regionFast.sort();
     regionSlow.sort();
-     auto itrf = regionFast.begin();
+    auto itrf = regionFast.begin();
     for (auto itrs = regionSlow.begin(); itrs != regionSlow.end(); ++itrf, ++itrs) {
       if (*itrf != *itrs) {
         throw runtime_error("\n\nnon-identical region-search and brute-force lists\n");
@@ -475,38 +505,33 @@ int main(int argc, char** argv) {
     }
   }
 
-  // It is impossible to find more nearest neighbors than there are points.
-  numNeighbors = min(numNeighbors, numPoints + extraPoints + 1);
-
-  // Search the k-d tree for up to numNeighbors nearest neighbors to the query tuple.
-  beginTime = steady_clock::now();
-  forward_list< pair<double, KdNode<kdKey_t>*> > neighborsFast;
-  root->findNearestNeighbors(neighborsFast, query, numNeighbors, coordinates.size());
-  endTime = steady_clock::now();
-  duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-  double const fastNeighborTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-  cout << "fast neighbor time = " << fixed << setprecision(6) << fastNeighborTime << " seconds" << endl << endl;
-  cout << "fast neighbor list size = " << distance(neighborsFast.begin(), neighborsFast.end()) << endl << endl;
-
-  cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " fast neighbor-search k-d nodes follows:" << endl << endl;
-  root->printTuples(neighborsFast, maximumNumberOfNodesToPrint, numDimensions);
-  cout << endl;
-
-  // Find nearest neighbors via brute force if requested.
+  // Find nearest neighbors via nearest-neighbor search and brute force if requested.
   if (bruteForceSearch) {
-    beginTime = steady_clock::now();
+    // Search the k-d tree for up to numNeighbors nearest neighbors to the query tuple.
+    for (signed_size_t i = 0; i < numDimensions; ++i) {
+      query[i] = i;
+    }
+    forward_list< pair<double, KdNode<kdKey_t>*> > neighborsFast;
+    root->findNearestNeighbors(neighborsFast, query, numNeighbors, coordinates.size());
+
+    cout << "tree nearest-neighbor list size = " << distance(neighborsFast.begin(), neighborsFast.end()) << endl << endl;
+
+    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " tree neighbor-search k-d nodes follows:" << endl << endl;
+    root->printTuples(neighborsFast, maximumNumberOfNodesToPrint, numDimensions);
+    cout << endl;
+
+    auto beginTime = steady_clock::now();
     forward_list< pair<double, KdNode<kdKey_t>*> > neighborsSlow;
     // Find only the number of nearest neighbors returned by findNearestNeighbors above.
     root->bruteNearestNeighbors(neighborsSlow, query, distance(neighborsFast.begin(), neighborsFast.end()));
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     double const slowNeighborTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-    cout << "slow neighbor time = " << fixed << setprecision(6) << slowNeighborTime << " seconds" << endl << endl;
-    cout << "slow neighbor list size = " << distance(neighborsSlow.begin(), neighborsSlow.end()) << endl << endl;
+    cout << "brute nearest-neighbor time = " << fixed << setprecision(6) << slowNeighborTime << " seconds" << endl << endl;
+    cout << "brute neighbor list size = " << distance(neighborsSlow.begin(), neighborsSlow.end()) << endl << endl;
 
-    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " slow neighbor-search k-d nodes follows:" << endl << endl;
+    cout << "List of the nearest <= " << maximumNumberOfNodesToPrint << " brute neighbor-search k-d nodes follows:" << endl << endl;
     root->printTuples(neighborsSlow, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
 
@@ -514,8 +539,8 @@ int main(int argc, char** argv) {
     // found by k-d tree search and by brute force.
     root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
 
-    // Print the fast and slow distances.
-    cout << "fast and slow closest nearest-neighbor distances follow in increasing order:" << endl << endl;
+    // Print the tree and brute distances.
+    cout << "tree and brute closest nearest-neighbor distances follow in increasing order:" << endl << endl;
     auto itf = neighborsFast.begin();
     auto its = neighborsSlow.begin();
     for ( ; itf != neighborsFast.end(); ++itf, ++its) {
@@ -528,12 +553,12 @@ int main(int argc, char** argv) {
   // Optionally construct a nearest neighbor vector and a reverse nearest neighbors vector.
   // Each vector element contains a list that is initialized to an empty list.
   if (reverseNearestNeighbors) {
-    beginTime = steady_clock::now();
+    auto beginTime = steady_clock::now();
     vector< forward_list< pair<double, KdNode<kdKey_t>*> > > nn(coordinates.size());
     vector< forward_list< pair<double, KdNode<kdKey_t>*> > > rnn(coordinates.size());
     vector<mutex> mutexes(coordinates.size());
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     double const vectorTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     cout << "vector initialization  time = " << fixed << setprecision(2) << vectorTime << " seconds" << endl << endl;
@@ -577,22 +602,11 @@ int main(int argc, char** argv) {
   // Delete the root that recursively deletes the k-d tree, including all
   // instances of KdNode and tuples arrays that were not deleted by the
   // KdNode::removeDuplicates function.
-  beginTime = steady_clock::now();
+  auto beginTime = steady_clock::now();
   delete root;
-  endTime = steady_clock::now();
-  duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+  auto endTime = steady_clock::now();
+  auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
   deallocateTime[iterations - 1] += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-  // Clear the coordinates and oneCoordinate vector in order to measure their deallocation times.
-  beginTime = steady_clock::now();
-  coordinates.clear();
-  oneCoordinate.clear();
-  endTime = steady_clock::now();
-  duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-  double const deleteTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-  cout << "createTime = " << fixed << setprecision(6) << createTime << " seconds" << endl;
-  cout << "deleteTime = " << fixed << setprecision(6) << deleteTime << " seconds" << endl << endl;
 
   return 0;
 }

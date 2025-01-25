@@ -109,21 +109,27 @@ private:
   K* tuple;
   KdNode<K>* ltChild;
   KdNode<K>* gtChild;
+
 #ifdef REVERSE_NEAREST_NEIGHBORS
   size_t index;
 #endif
 
-public:
-  KdNode() {
-    ltChild = gtChild = nullptr;
-  }
-
+  // If PREALLOCATE is defined, the default ~KdNode destructor
+  // is used, which implies that no KdNode member field can be
+  // a pointer because a pointer would require explicit delete.
+#ifndef PREALLOCATE
 public:
   ~KdNode() {
+
+    // Because tuple is not contained by the KdTree::tuples
+    // vector, delete it.
     delete[] tuple;
+
+    // Delete the child nodes, which performs recursive deletion.
     delete ltChild;
     delete gtChild;
   }
+#endif
 
 private:
   K* getTuple() {
@@ -162,42 +168,67 @@ private:
         // Keep the jth element of the reference array.
         reference[++end] = reference[j];
       } else {
-        // Skip over the jth element of the reference array and delete the tuple.
-        // A pointer to any tuple not skipped is copied from the reference array
-        // to the kdNodes vector; hence, this tuple will be deleted by the ~KdNode
-        // destructor. So there will be no need to delete tuples via their
-        // pointers in this reference array or any other references array.
+        // If PREALLOCATE is undefined, skip over the jth element of the
+        // references array and delete the tuple. A pointer to any tuple
+        // not skipped will subsequently be copied from the references array
+        // to the kdNodes vector; hence, this tuple will be deleted by the
+        // ~KdNode destructor. So there will be no need to delete tuples via
+        // their pointers in this or any other references array.
+        //
+        // If PREALLOCATE is defined, skip over the jth element of the
+        // references array but do not delete the tuple because all tuples
+        // will be deleted en masse by the ~KdTree destructor.
+#ifndef PREALLOCATE
         delete[] reference[j];
+#endif
       }
     }
     return end;
   }
 
   /*
-   * The getKdNode function gets a KdNode from the kdNodes array and assigns the tuple field.
+   * The getKdNode function gets a KdNode from the kdNodes vector and assigns the tuple field.
    * It also assigns to the index field the index of the KdNode within the kdNodes array.
    *
    * Calling parameters:
    *
    * reference - a K** that represents one of the reference arrays
-   * kdNodes - a vector<KdNode*> that contains pre-allocated KdNodes
+   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined
+   *         - a vector<KdNode<K>*> if PREALLOCATE is undefined
    * k - the index into both the reference and the kdNodes arrays
    *
    * returns: a KdNode pointer to the KdNode to which the tuple has been assigned
    */
 private:
+#ifndef PREALLOCATE
   inline
   static KdNode<K>* getKdNode(K** const reference,
                               vector<KdNode<K>*> const& kdNodes,
                               signed_size_t const k) {
     
-    KdNode<K>* kdNode = kdNodes[k];
-    kdNode->tuple = reference[k];
+    kdNodes[k]->tuple = reference[k];
+
 #ifdef REVERSE_NEAREST_NEIGHBORS
-    kdNode->index = k;
+    kdNodes[k]->index = k;
 #endif
-    return kdNode;
+
+    return kdNodes[k];
   }
+#else
+  inline
+  static KdNode<K>* getKdNode(K** const reference,
+                              vector<KdNode<K>>* const kdNodes,
+                              signed_size_t const k) {
+    
+    (*kdNodes)[k].tuple = reference[k];
+
+#ifdef REVERSE_NEAREST_NEIGHBORS
+    (*kdNodes)[k].index = k;
+#endif
+
+    return &(*kdNodes)[k];
+  }
+#endif
 
   /*
    * Create a permutation vector.
@@ -1312,12 +1343,12 @@ private:
     for (size_t i = 0; i < rnn.size(); ++i) {
       // Get the KdNode that is a nearest neighbor to all KdNodes on the list and
       // verify that it is indeed a nearest neighbor to each KdNode on the list.
-      // Use the rnnList reference to improve readability without copying the list.
+      // Use an rnnList reference to avoid copying the list.
       auto& rnnList = rnn[i];
       for (auto rnnIt = rnnList.begin(); rnnIt != rnnList.end(); ++rnnIt) {
         // Get the nearest neighbor list for the KdNode from the nearest neighbors vector
-        // and verify that the list contains the KdNode's tuple. Use the nnList reference to
-        // improve readability without copying the list.
+        // and verify that the list contains the KdNode's tuple.
+        // Use an nnList reference to avoid copying the list.
         bool match = false;
         auto& nnList = nn[rnnIt->second->index];
         for (auto nnIt = nnList.begin(); nnIt != nnList.end(); ++nnIt) {

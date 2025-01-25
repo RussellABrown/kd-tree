@@ -111,42 +111,98 @@ class MergeSort;
 template <typename K, typename V>
 class KdNode {
 private:
-
-#ifdef DIMENSIONS
-  K tuple[static_cast<size_t>(DIMENSIONS)];
-#else
-  K* tuple;
-#endif
-
   KdNode<K,V>* ltChild;
   KdNode<K,V>* gtChild;
   KdNode<K,V>* duplicates;
   V value;
+
 #ifdef REVERSE_NEAREST_NEIGHBORS
   size_t index;
 #endif
 
+  // If tuple is not a member array of KdNode,
+  // the KdNode constructor will point tuple to
+  // an element of the preallocated tuples vector.
+  // It is essential that the tuple member field be the final
+  // member field of the KdNode class so that the preallocation
+  // strategy used in KdTree::createKdTree work correctly for
+  // the case of PREALLOCATE defined and DIMENSIONS undefined.
+  // According to the below URL, tuple will be the final member
+  // field if all member fields have the same access control,
+  // which in this case is private access control.
+  //
+  //https://stackoverflow.com/questions/47592782/is-order-in-memory-guaranteed-for-class-private-members-in-c
+  //
+  // If neither PREALLOCATE nor DIMENSIONS is defined, then
+  // the tuple member field is a pointer to a tuple that is
+  // allocated separately from the KdNode instance.
+  //
+  // If both PREALLOCATE and DIMENSIONS is defined, then
+  // the tuple member field is an array that contains
+  // DIMENSIONS elements, where DIMENSIONS is defined as
+  // the constant k via '-D DIMENSIONS=k' via compilation.
+  //
+  // If PREALLOCATE is defined and DIMENSIONS is undefined,
+  // then the tuple member field is an array that contains
+  // one element. In this case dimensions-1 elements are
+  // preallocated immediately following the KdNode instance
+  // by KdNode::createKdTree, where the value of dimensions
+  // is not specified via compilation. In this manner, it is
+  // possible to access the tuple member field as if it were
+  // a dynamically sized array.
+#ifdef PREALLOCATE
+#ifdef DIMENSIONS
+  K tuple[static_cast<size_t>(DIMENSIONS)];
+#else
+  K tuple[1];
+#endif
+#else
+  K* tuple;
+#endif
+
 public:
-  KdNode(pair<vector<K>,V> const& p,
-         size_t const i) {
-    
-#ifndef DIMENSIONS
-    tuple = new K[p.first.size()];
-#endif
-    for (size_t i = 0; i < p.first.size(); ++i) {
-      tuple[i] = p.first[i];
-    }
-    value = p.second;
-#ifdef REVERSE_NEAREST_NEIGHBORS
-    index = i;
-#endif
+  // This KdNode constructor with no calling parameters
+  // is required by KdNode::createKdTree because the below
+  // KdNode constructor with calling parameters overrides
+  //the default no-parameter KdNode constructor. 
+  KdNode() {
     ltChild = gtChild = duplicates = nullptr;
   }
 
 public:
+  KdNode(vector<pair<vector<K>,V>> const& p,
+         size_t const i) {
+
+    size_t numDimensions = p[0].first.size();
+
+    // If tuple is not a member array of KdNode,
+    // allocate an array that will be deallocated
+    // by the ~KdNode destructor.
+#ifndef PREALLOCATE
+    tuple = new K[numDimensions];
+#endif
+
+    // Copy the (x, y, z, w...) coordinates into tuple.
+    for (size_t j = 0; j < numDimensions; ++j) {
+      tuple[j] = p[i].first[j];
+    }
+
+#ifdef REVERSE_NEAREST_NEIGHBORS
+    index = i;
+#endif
+
+    value = p[i].second;
+    ltChild = gtChild = duplicates = nullptr;
+  }
+
+  // If PREALLOCATE is defined, the default ~KdNode destructor
+  // is used, which implies that no KdNode member field can be
+  // a pointer because a pointer would require explicit delete.
+#ifndef PREALLOCATE
+public:
   ~KdNode() {
     
-    // Delete each KdNode from the duplicates list.
+    // Delete each KdNode on the duplicates list.
     auto nextPtr = this->duplicates;
     while (nextPtr != nullptr) {
       auto tempPtr = nextPtr;
@@ -154,12 +210,15 @@ public:
       tempPtr->duplicates = nullptr; // Prevent recursive deletion.
       delete tempPtr;
     }
-#ifndef DIMENSIONS
+
+    // Because tuple is not a member array of KdNode, deallocate it.
     delete[] tuple;
-#endif
+
+    // Delete the child nodes, which performs recursive deletion.
     delete ltChild;
     delete gtChild;
   }
+#endif
 
 private:
   K const* getTuple() {
@@ -1301,29 +1360,29 @@ private:
    *
    * nn - the nearest neighbors vector
    * rnn - the reverse nearest neighbors vector
-   * numberOfNodes - the number of nodes in the k-d tree
-  *
+   * size - the number of KdNode instances prior to calling KdMapNode::removeDuplicates
+   *
    * Although this function does not directly access the k-d tree, it requires the persistence
    * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
    */
   void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
                               vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
-                              signed_size_t const numberOfNodes) {
+                              size_t const size) {
 
     // Create a kdNodes vector because the createKdTree function doesn't return it.
-    vector<KdNode<K,V>*> kdNodes(numberOfNodes);
+    vector<KdNode<K,V>*> kdNodes(size);
     populateKdNodes(kdNodes);
 
     // Iterate through the reverse nearest neighbors vector and verify the correctness of that list.
     for (size_t i = 0; i < rnn.size(); ++i) {
       // Get the KdNode that is a nearest neighbor to all KdNodes on the list and
       // verify that it is indeed a nearest neighbor to each KdNode on the list.
-      // Use the rnnList reference to improve readability without copying the list.
+      // Use an rnnList reference to avoid copying the list.
       auto& rnnList = rnn[i];
       for (auto rnnIt = rnnList.begin(); rnnIt != rnnList.end(); ++rnnIt) {
         // Get the nearest neighbor list for the KdNode from the nearest neighbors vector
-        // and verify that the list contains the KdNode. Use the nnList reference to
-        // improve readability without copying the list.
+        // and verify that the list contains the KdNode.
+        // Use an nnList reference to avoid copying the list.
         bool match = false;
         auto& nnList = nn[rnnIt->second->index];
         for (auto nnIt = nnList.begin(); nnIt != nnList.end(); ++nnIt) {

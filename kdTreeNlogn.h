@@ -28,6 +28,39 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * The following compilation defines are relevant.
+ *
+ * -D PREALLOCATE - If defined, all instances of KdNodes and all tuple arrays are
+ *                  allocated en masse within vectors instead of being allocated
+ *                  individually. This decreases the time required to allocate and
+ *                  deallocate the KdNode instances and tuple arrays.
+ * 
+ * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
+ *
+ * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
+ *                              in the KdNode::mergeSort* functions (default 15)
+ * 
+ * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
+ *                                list in response to the -r command-line option.
+ *
+ * -D MEDIAN_OF_MEDIANS_CUTOFF=n - A cutoff for switching from median of medians to insertion sort
+ *                                 in KdNode::partition (default 15)
+ * 
+ * -D MEDIAN_CUTOFF=n - A cutoff for switching from to 2 threads to calculate the median
+ *                      in KdNode::partition (default 16384)
+ * 
+ * -D INDEX_CUTOFF=n - A cutoff for switching from to 2 threads to find the index of
+ *                     the calculated median in KdNode::partition (default 512)
+ * 
+ * -D DUAL_THREAD_MEDIAN - Calculate the medians with two threads.
+ * 
+ * -D DUAL_THREAD_INDEX - Find the index of the median of medians with two threads.
+ * 
+ * -D BIDIRECTIONAL_PARTITION - Partition an array about the median of medians proceeding
+ *                              from both ends of the array instead of only the beginning.
+ */
+
 #ifndef KD_TREE_NLOGN_H
 #define KD_TREE_NLOGN_H
 
@@ -54,19 +87,24 @@ class KdTree {
 private:
   KdNode<K>* root = nullptr;
 
-public:
-  KdTree(KdNode<K>* node) {
-    root = node;
-  }
+#ifdef PREALLOCATE
+  vector<KdNode<K>>* kdNodes;
+  vector<K>* tuples;
+#endif
 
 public:
   ~KdTree() {
-    delete root;
-  }
 
-public:
-  K* getTuple() {
-    return this->tuple;
+    // If the KdNode instances and the tuples contained by preallocated
+    // vectors, delete them; otherwise, delete the root KdNode so that
+    // the ~KdNode destructor will recursively delete all tuple arrays.
+#ifdef PREALLOCATE
+    delete kdNodes;
+    delete tuples;
+#else
+    delete root;
+#endif
+
   }
 
   /*
@@ -654,7 +692,8 @@ private:
    * reference - a K** of references to recursively partition via its K* (x, y, z, w...) tuples
    * temporary - a K** scratch array into which to copy references
    * permutation - a vector<signed_size_t> that indications permutation of the partition coordinate
-   * kdNodes - a vector<KdNode*> that contains pre-allocated KdNodes
+   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined
+   *           a vector<KdNode<K>*> if PREALLOCATE is undefined
    * start - start element of the reference array
    * end - end element of the reference array
    * size - the size of the reference array
@@ -668,7 +707,11 @@ private:
   static KdNode<K>* buildKdTree(K** const reference,
                                 K** const temporary,
                                 vector<signed_size_t> const& permutation,
+#ifndef PREALLOCATE
                                 vector<KdNode<K>*> const& kdNodes,
+#else
+                                vector<KdNode<K>>* const kdNodes,
+#endif
                                 signed_size_t const start,
                                 signed_size_t const end,
                                 signed_size_t const size,
@@ -847,7 +890,8 @@ private:
    * reference - a K** of references sorted by its K* (x, y, z, w...) tuples
    * temporary - a K** scratch array into which to copy references
    * permutation - a vector<signed_size_t> that indications permutation of the partition coordinate
-   * kdNodes - a vector<KdNode*> that contains pre-allocated KdNodes
+   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined
+   *           a vector<KdNode<K>*> if PREALLOCATE is undefined
    * start - start element of the reference array
    * end - end element of the reference array
    * size - the size of the reference array
@@ -860,7 +904,11 @@ private:
   static KdNode<K>* buildKdTreePresorted(K** const reference,
                                          K** const temporary,
                                          vector<signed_size_t> const& permutation,
+#ifndef PREALLOCATE
                                          vector<KdNode<K>*> const& kdNodes,
+#else
+                                         vector<KdNode<K>>* const kdNodes,
+#endif
                                          signed_size_t const start,
                                          signed_size_t const end,
                                          signed_size_t const size,
@@ -987,6 +1035,9 @@ public:
                                  double& verifyTime,
                                  double& deallocateTime) {
 
+    // Create a KdTree instance.
+    auto tree = new KdTree();
+
     // Allocate two references arrays.
     auto beginTime = steady_clock::now();
     size_t numDimensions = coordinates[0].size();
@@ -995,15 +1046,30 @@ public:
       references[i] = new K*[coordinates.size()];
     }
 
-    // Allocate tuples arrays for the first references array.
-    // These tuples arrays will be deallocated by either the
-    // KdNode::removeDuplicates function or the ~KdTree destructor.
+#ifndef PREALLOCATE
+    // Allocate tuple arrays for the first references array.
+    // Each tuple array will be deallocated by either the
+    // KdNode::removeDuplicates function or the ~KdNode destructor.
+    // Copy (x, y, z, w...) coordinates to each tuple array.
     for (size_t i = 0; i < coordinates.size(); ++i) {
       references[0][i] = new K[numDimensions];
       for (size_t j = 0; j < numDimensions; ++j) {
         references[0][i][j] = coordinates[i][j];
       }
     }
+#else
+    // Allocate a tuple vector that comprises all tuple arrays and
+    // assign individual tuple arrays to the first references array.
+    // This vector will be deallocated by the ~KdTree destructor.
+    // Copy (x, y, z, w...) coordinates to each tuple array.
+    tree->tuples = new vector<K>(numDimensions * coordinates.size());
+    for (size_t i = 0; i < coordinates.size(); ++i) {
+      references[0][i] = &(*(tree->tuples)).data()[numDimensions * i];
+      for (size_t j = 0; j < numDimensions; ++j) {
+        references[0][i][j] = coordinates[i][j];
+      }
+    }
+#endif
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -1027,12 +1093,20 @@ public:
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     removeTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-    // Allocate the kdNodes vector but only for references that have not been removed.
     beginTime = steady_clock::now();
+#ifndef PREALLOCATE
+    // Allocate the kdNodes vector of pointers to KdNode instances
+    // but only for references that have not been removed.
+    // Allocate a KdNode instance for each entry in the kdNodes vector.
     vector<KdNode<K>*> kdNodes(end + 1);
     for (size_t i = 0; i < kdNodes.size(); ++i) {
       kdNodes[i] = new KdNode<K>();
     }
+#else
+    // Allocate a vector of KdNode instances but only
+    // for references that have not been removed.
+    tree->kdNodes = new vector<KdNode<K>>(end + 1);
+#endif
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     allocateTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -1047,15 +1121,20 @@ public:
     KdNode<K>::createPermutation(permutation, numDimensions, coordinates.size());
 
     // Build the k-d tree with multiple threads if possible.
-    auto const root = buildKdTreePresorted(references[0], references[1], permutation, kdNodes, 0, end,
-                                           coordinates.size(), numDimensions, maximumSubmitDepth);
+#ifndef PREALLOCATE
+    tree->root = buildKdTreePresorted(references[0], references[1], permutation, kdNodes, 0, end,
+                                      coordinates.size(), numDimensions, maximumSubmitDepth);
+#else
+    tree->root = buildKdTreePresorted(references[0], references[1], permutation, tree->kdNodes, 0, end,
+                                      coordinates.size(), numDimensions, maximumSubmitDepth);
+#endif
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     // Verify the k-d tree and report the number of kdNodes.
     beginTime = steady_clock::now();
-    numberOfNodes = root->verifyKdTree(permutation, numDimensions, maximumSubmitDepth, 0);
+    numberOfNodes = tree->root->verifyKdTree(permutation, numDimensions, maximumSubmitDepth, 0);
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     verifyTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -1067,16 +1146,18 @@ public:
     }
     delete[] references;
 
-    // Clear the kdNodes vector in order to measure its deallocation time.
-    // Do not deallocate the KdNode instances to which it points because
-    // the will be deallocated by the ~KdTree destructor.
+    // If PREALLOCATE is undefined, clear the kdNodes vector in order to measure its
+    // deallocation time. Do not deallocate the KdNode instances to which it points
+    // because they will be deallocated recursively by the ~KdNode destructor.
+#ifndef PREALLOCATE
     kdNodes.clear();
+#endif
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     // Return the pointer to the root of the k-d tree.
-    return new KdTree(root);
+    return tree;
   }
 
   /*
