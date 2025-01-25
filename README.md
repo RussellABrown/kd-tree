@@ -8,9 +8,9 @@ The Journal of Computer Graphics Techniques (JCGT) article contains a detailed d
 
 In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the arXiv article includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following the publication of those algorithms in the JCGT article.
 
-The test_kdtree.cpp file and associated .h files build and test a k-d tree (in fact, a set) via either the O(kn log n) or the O(n log n) algorithm.
+The test_kdtree.cpp file and associated .h files build and test a k-d tree, which implements a set, via either the O(kn log n) or the O(n log n) algorithm.
 
-The test_kdmap.cpp file and associated .h files build and test a k-d tree-based map via either the O(kn log n) or the O(n log n) algorithm.
+The test_kdmap.cpp file and associated .h files build and test a k-d tree-based key-to-multiple-value map via either the O(kn log n) or the O(n log n) algorithm.
 
 The '-D NLOGN' compilation define specifies the O(n log n) algorithm; otherwise, the O(kn log n) algorithm is used.
 
