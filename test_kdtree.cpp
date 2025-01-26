@@ -320,7 +320,7 @@ int main(int argc, char** argv) {
       }
     }
 
-    // Create the k-d tree and modify the kdNodes vector.
+    // Create the k-d tree and record the execution times.
     root = KdTree<kdKey_t>::createKdTree(coordinates, maximumSubmitDepth, numberOfNodes,
                                          allocateTime[k], sortTime[k], removeTime[k], kdTime[k],
                                          verifyTime[k], deallocateTime[k]);
