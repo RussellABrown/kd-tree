@@ -38,6 +38,9 @@
  * -D NLOGN - Select the O(n log n) algorithm instead of the O(kn log n) algorithm.
  * 
  * The following compilation defines apply to both O(n log n) and O(kn log n) algorithms.
+ * 
+ * -D TREE - If defined, a k-d tree is created to implement a set instead of creating
+ *           a key-to-multiple-value map.
  *
  * -D PREALLOCATE - If defined, all instances of KdNodes are allocated within a vector
  *                  instead of being allocated individually. This decreases the time
@@ -132,7 +135,9 @@
  * these typedefs to test the k-d tree with different intrisic types.
  */
 typedef int64_t kdKey_t;  // Add required #include and using to kdMapNode.h
+#ifndef TREE
 typedef string kdValue_t; // Add required #include and using to kdMapNode.h
+#endif
 
 /*
   * Calculate the mean and standard deviation of the elements of a vector.
@@ -254,14 +259,19 @@ int main(int argc, char** argv) {
   // Declare and initialize the coordinates and oneCoordinte vectors. Each element
   // of the coordinates vector is a pair wherein first is a vector of (x, y, z, w...)
   // coordinates and second is the string representation of an integer.
+  vector<kdKey_t> oneCoordinate(numPoints);
   extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
+
+#ifdef TREE
+  vector<vector<kdKey_t>> coordinates(numPoints + extraPoints, vector<kdKey_t>(numDimensions));
+#else
   vector<pair<vector<kdKey_t>, kdValue_t>> coordinates(numPoints + extraPoints);
   for (size_t i = 0; i < coordinates.size(); ++i) {
     ostringstream buffer;
     buffer << i;
     coordinates[i] = make_pair<vector<kdKey_t>, kdValue_t>(vector<kdKey_t>(numDimensions), buffer.str());
   }
-  vector<kdKey_t> oneCoordinate(numPoints);
+#endif
 
   // Calculate a delta coordinate by dividing the positive range of int64_t
   // by the number of points and truncating the quotient. Because the positive
@@ -335,8 +345,14 @@ int main(int argc, char** argv) {
   vector<double> kdTotalTime(iterations);
 
   // Iterate the creation of the k-d tree to improve statistics.
-  signed_size_t numberOfNodes = 0;
+
+#ifdef TREE
+  KdTree<kdKey_t>* root = nullptr;
+#else
   KdTree<kdKey_t,kdValue_t>* root = nullptr;
+#endif
+
+  signed_size_t numberOfNodes = 0;
   std::mt19937_64 g(std::mt19937_64::default_seed);
   for (size_t k = 0; k < iterations; ++k) {
 
@@ -344,21 +360,36 @@ int main(int argc, char** argv) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       shuffle(oneCoordinate.begin(), oneCoordinate.end(), g);
       for (signed_size_t i = 0; i < numPoints; ++i) {
+#ifdef TREE
+        coordinates[i][j] = oneCoordinate[i];
+#else
         coordinates[i].first[j] = oneCoordinate[i];
+#endif
       }
     }
 
     // Reflect tuples across coordinates[numPoints - 1] to initialize the extra points.
     for (signed_size_t i = 1; i <= extraPoints; ++i) {
       for (signed_size_t j = 0; j < numDimensions; ++j) {
+#ifdef TREE
+        coordinates[numPoints - 1 + i][j] = coordinates[numPoints - 1 - i][j];
+#else
         coordinates[numPoints - 1 + i].first[j] = coordinates[numPoints - 1 - i].first[j];
+#endif
       }
     }
 
-    // Create the k-d tree and modify the kdNodes vector.
+    // Create the k-d tree and record the execution times.
+#ifdef TREE
+    root = KdTree<kdKey_t>::createKdTree(coordinates, maximumSubmitDepth, numberOfNodes,
+                                         allocateTime[k], sortTime[k], removeTime[k], kdTime[k],
+                                         verifyTime[k], deallocateTime[k]);
+#else
     root = KdTree<kdKey_t, kdValue_t>::createKdTree(coordinates, maximumSubmitDepth, numberOfNodes,
                                                     allocateTime[k], sortTime[k], removeTime[k], kdTime[k],
                                                     verifyTime[k], deallocateTime[k]);
+#endif
+
     kdTotalTime[k] =  allocateTime[k] + sortTime[k] + removeTime[k] + kdTime[k] + verifyTime[k] + deallocateTime[k];
 
     // Verify that the k-d tree contains the correct number of nodes.
@@ -394,10 +425,21 @@ int main(int argc, char** argv) {
   vector<kdKey_t> query(numDimensions);
   vector<kdKey_t> queryLower(numDimensions);
   vector<kdKey_t> queryUpper(numDimensions);
+
+#ifdef TREE
+  list<KdNode<kdKey_t>*> regionList;
+#else
   list<KdNode<kdKey_t,kdValue_t>*> regionList;
+#endif
+
   for (size_t i = 0; i < searchIterations; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
+
+#ifdef TREE
+        query[j] = coordinates[i][j];
+#else
         query[j] = coordinates[i].first[j];
+#endif
         queryLower[j] = query[j] + (beginCoordinate / searchDivisor);
         queryUpper[j] = query[j] + (endCoordinate / searchDivisor);
     }
@@ -414,10 +456,20 @@ int main(int argc, char** argv) {
 
   // Search the k-d tree for up to numNeighbors nearest neighbors to the
   // first searchIterations (x, y, z, w...) coordinates.
+#ifdef TREE
+  forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
+#else
   forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborList;
+#endif
+
   for (size_t i = 0; i < searchIterations; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
+
+#ifdef TREE
+        query[j] = coordinates[i][j];
+#else
         query[j] = coordinates[i].first[j];
+#endif
     }
     neighborList.clear();
     auto beginTime = steady_clock::now();
@@ -477,9 +529,14 @@ int main(int argc, char** argv) {
       queryUpper[i] = query[i] + (endCoordinate / searchDivisor);
     }
     kdKey_t queryRange = (endCoordinate - beginCoordinate) / searchDivisor / 2;
-    list<KdNode<kdKey_t,kdValue_t>*> regionFast;
-    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
 
+#ifdef TREE
+    list<KdNode<kdKey_t>*> regionFast;
+#else
+    list<KdNode<kdKey_t,kdValue_t>*> regionFast;
+#endif
+
+    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
     cout << regionFast.size() << " nodes within " << queryRange << " units of ";
     root->printTuple(query);
     cout << " in all dimensions." << endl << endl;
@@ -499,8 +556,13 @@ int main(int argc, char** argv) {
       }
     }
 
-    auto beginTime = steady_clock::now();
+#ifdef TREE
+    list<KdNode<kdKey_t>*> regionSlow;
+#else
     list<KdNode<kdKey_t,kdValue_t>*> regionSlow;
+#endif
+
+    auto beginTime = steady_clock::now();
     root->bruteRegion(regionSlow, queryLower, queryUpper);
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
@@ -546,7 +608,13 @@ int main(int argc, char** argv) {
     for (signed_size_t i = 0; i < numDimensions; ++i) {
       query[i] = i;
     }
+
+#ifdef TREE
+    forward_list< pair<double, KdNode<kdKey_t>*> > neighborsFast;
+#else
     forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborsFast;
+#endif
+
     root->findNearestNeighbors(neighborsFast, query, numNeighbors, coordinates.size());
 
     cout << "tree nearest-neighbor list size = " << distance(neighborsFast.begin(), neighborsFast.end()) << endl << endl;
@@ -555,9 +623,14 @@ int main(int argc, char** argv) {
     root->printTuples(neighborsFast, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
 
-    auto beginTime = steady_clock::now();
+#ifdef TREE
+    forward_list< pair<double, KdNode<kdKey_t>*> > neighborsSlow;
+#else
     forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborsSlow;
+#endif
+
     // Find only the number of nearest neighbors returned by findNearestNeighbors above.
+    auto beginTime = steady_clock::now();
     root->bruteNearestNeighbors(neighborsSlow, query, distance(neighborsFast.begin(), neighborsFast.end()));
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
@@ -589,8 +662,15 @@ int main(int argc, char** argv) {
   // Each vector element contains a list that is initialized to an empty list.
   if (reverseNearestNeighbors) {
     auto beginTime = steady_clock::now();
+
+#ifdef TREE
+    vector< forward_list< pair<double, KdNode<kdKey_t>*> > > nn(coordinates.size());
+    vector< forward_list< pair<double, KdNode<kdKey_t>*> > > rnn(coordinates.size());
+#else
     vector< forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > > nn(coordinates.size());
     vector< forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > > rnn(coordinates.size());
+#endif
+
     vector<mutex> mutexes(coordinates.size());
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);

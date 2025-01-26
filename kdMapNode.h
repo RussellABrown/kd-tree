@@ -108,13 +108,16 @@ template<typename, typename>
 class MergeSort;
 
 /* One node of a k-d tree where K is key type and V is value type */
-template <typename K, typename V>
+template <typename K, typename V=int> // V is a dummy template parameter if TREE is defined.
 class KdNode {
 private:
   KdNode<K,V>* ltChild;
   KdNode<K,V>* gtChild;
+
+#ifndef TREE
   KdNode<K,V>* duplicates;
   V value;
+#endif
 
 #ifdef REVERSE_NEAREST_NEIGHBORS
   size_t index;
@@ -166,9 +169,40 @@ public:
   // KdNode constructor with calling parameters overrides
   //the default no-parameter KdNode constructor. 
   KdNode() {
-    ltChild = gtChild = duplicates = nullptr;
+
+#ifndef TREE
+    duplicates = nullptr;
+#endif
+
+    ltChild = gtChild = nullptr;
   }
 
+#ifdef TREE
+public:
+  KdNode(vector<vector<K>> const& p,
+         size_t const i) {
+
+    size_t numDimensions = p[0].size();
+
+    // If tuple is not a member array of KdNode,
+    // allocate an array that will be deallocated
+    // by the ~KdNode destructor.
+#ifndef PREALLOCATE
+    tuple = new K[numDimensions];
+#endif
+
+    // Copy the (x, y, z, w...) coordinates into tuple.
+    for (size_t j = 0; j < numDimensions; ++j) {
+      tuple[j] = p[i][j];
+    }
+
+#ifdef REVERSE_NEAREST_NEIGHBORS
+    index = i;
+#endif
+
+    ltChild = gtChild = nullptr;
+  }
+#else // TREE
 public:
   KdNode(vector<pair<vector<K>,V>> const& p,
          size_t const i) {
@@ -194,6 +228,7 @@ public:
     value = p[i].second;
     ltChild = gtChild = duplicates = nullptr;
   }
+#endif // TREE
 
   // If PREALLOCATE is defined, the default ~KdNode destructor
   // is used, which implies that no KdNode member field can be
@@ -202,6 +237,7 @@ public:
 public:
   ~KdNode() {
     
+#ifndef TREE
     // Delete each KdNode on the duplicates list.
     auto nextPtr = this->duplicates;
     while (nextPtr != nullptr) {
@@ -210,6 +246,7 @@ public:
       tempPtr->duplicates = nullptr; // Prevent recursive deletion.
       delete tempPtr;
     }
+#endif
 
     // Because tuple is not a member array of KdNode, deallocate it.
     delete[] tuple;
@@ -251,14 +288,22 @@ private:
         buffer << "\n\nmerge sort failure: superKeyCompare(ref[" << j << "], ref["
                << end << "], " << i << ") = " << compare << "in removeDuplicates\n";
         throw runtime_error(buffer.str());
-      }
-      else if (compare > 0) {
+      } else if (compare > 0) {
         // Keep the jth element of the kdNodes array.
         kdNodes[++end] = kdNodes[j];
       } else {
+#ifdef TREE
+#ifndef PREALLOCATE
+        // Discard the jth element of the kdNodes array and delete it
+        // because it will not be added to the k-d tree and hence it
+        // will not be deleted by the ~KdNode destructor.
+        delete kdNodes[j];
+#endif
+#else
         // Discard the jth element of the kdNodes array and prepend it to the duplicates list.
         kdNodes[j]->duplicates = kdNodes[end]->duplicates;
         kdNodes[end]->duplicates = kdNodes[j];
+#endif
       }
     }
     

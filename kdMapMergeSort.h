@@ -45,7 +45,7 @@ template <typename, typename>
 class KdTree;
 
 /* The merge sort functions */
-template <typename K, typename V>
+template <typename K, typename V=int> // V is a dummy template parameter if TREE is defined.
 class MergeSort {
 
   /*

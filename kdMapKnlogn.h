@@ -31,6 +31,9 @@
 /*
  * The following compilation defines are relevant.
  *
+ * -D TREE - If defined, a k-d tree is created to implement a set instead of creating
+ *           a key-to-multiple-value map.
+ *
  * -D PREALLOCATE - If defined, all instances of KdNodes are allocated within a vector
  *                  instead of being allocated individually. This decreases the time
  *                  required to allocate and deallocate the KdNode instances.
@@ -69,7 +72,7 @@
 #include "kdMapNode.h"
 
 /* The KdTree class defines the k-d tree API. */
-template <typename K, typename V>
+template <typename K, typename V=int> // V is a dummy template parameter if TREE is defined.
 class KdTree {
 private:
   KdNode<K,V>* root = nullptr;
@@ -402,7 +405,8 @@ private:
    *
    * Calling parameters:
    *
-   * coordinates - a vector of pairs that store the (x, y, z, w...) coordinates and their associated values
+   * coordinates - if TREE is defined, a vector of (x, y, z, w...) coordinates and their associated values
+   *               if TREE is undefined, a vector of pairs that store the coordinates and their associated values
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
    * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times returned by reference
@@ -410,7 +414,12 @@ private:
    * returns: a KdNode pointer to the root of the k-d tree
    */
 public:
-  static KdTree<K,V>* createKdTree(vector<pair<vector<K>,V>> const& coordinates,
+  static KdTree<K,V>* createKdTree(
+#ifdef TREE
+                                   vector<vector<K>> const& coordinates,
+#else
+                                   vector<pair<vector<K>,V>> const& coordinates,
+#endif
                                    signed_size_t const maximumSubmitDepth,
                                    signed_size_t& numberOfNodes,
                                    double& allocateTime,
@@ -418,14 +427,20 @@ public:
                                    double& removeTime,
                                    double& kdTime,
                                    double& verifyTime,
-                                   double& deallocateTime) {
+                                   double& deallocateTime
+                                  ) {
 
     // Create a KdTree instance.
     auto tree = new KdTree();
 
     // Allocate the references arrays including one additional array.
-    auto beginTime = steady_clock::now();
+#ifdef TREE
+    size_t numDimensions = coordinates[0].size();
+#else
     size_t numDimensions = coordinates[0].first.size();
+#endif
+
+    auto beginTime = steady_clock::now();
     KdNode<K,V>*** references = new KdNode<K,V>**[numDimensions + 1];
     for (size_t i = 0; i < numDimensions + 1; ++i) {
       references[i] = new KdNode<K,V>*[coordinates.size()];

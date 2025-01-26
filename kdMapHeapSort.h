@@ -29,7 +29,7 @@
  */
 
 #ifndef KD_MAP_HEAP_SORT_H
-#define KD_MAP_HEAP_sORT_H
+#define KD_MAP_HEAP_SORT_H
 
 /* A forward reference to the KdNode friend class */
 template <typename, typename>
@@ -50,7 +50,7 @@ class KdNode;
  * For a discussion of heap sort and a priority queue implemented via a heap, see Section 2.4 "Priority Queues"
  * pp. 308-335 in "Algorithms Fourth Edition" by Robert Sedgewick and Kevin Wayne, Addison-Wesley, 2011.
  */
-template <typename K, typename V>
+template <typename K, typename V=int> // V is a dummy template parameter if TREE is defined.
 class NearestNeighborHeap {
 private:
   vector<K> query; // query point for which nearest neighbors will be found
