@@ -18,7 +18,7 @@ The '-D PREALLOCATE' compilation define causes temporary data structures that ar
 
 For test_kdmap.cpp, the '-D DIMENSIONS=k' compilation define specifies the number of dimensions k. This define is useful only if the '-D PREALLOCATE' define fails to compile correctly and is ignored unless '-D PREALLOCATE' is specified as well. It improves performance similarly to '-D PREALLOCATE' but requires that the number of dimensions be specified at compile time instead of run time, so it results in less flexibility than '-D PREALLOCATE'.
 
-Alfor for test_kdmap.cpp,the '-D TREE' compilation define causes a k-d tree to be built instead of a k-d tree-based key-to-multiple-value map.
+Also for for test_kdmap.cpp,the '-D TREE' compilation define causes a k-d tree to be built instead of a k-d tree-based key-to-multiple-value map.
 
 See the test_kdtree.cpp and test_kdmap.cpp files for discussion of other compilation defines.
 
