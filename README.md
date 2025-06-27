@@ -14,6 +14,8 @@ The test_kdmap.cpp file and associated .h files build and test a k-d tree-based 
 
 The '-D NLOGN' compilation define specifies the O(n log n) algorithm; otherwise, the O(kn log n) algorithm is used.
 
+The '-D YUCAO' compilation define specifies the O(kn log n) + O(n log n) algorithm for the k-d tree (not the k-d tree-based map) unless NLOGN is defined.
+
 The '-D PREALLOCATE' compilation define causes temporary data structures that are required to build the k-d tree to be allocated and deallocated en masse, which improves performance relative to allocating and deallocating those data structures piecemeal, i.e., one k-d node at a time.
 
 For test_kdmap.cpp, the '-D DIMENSIONS=k' compilation define specifies the number of dimensions k. This define is useful only if the '-D PREALLOCATE' define fails to compile correctly and is ignored unless '-D PREALLOCATE' is specified as well. It improves performance similarly to '-D PREALLOCATE' but requires that the number of dimensions be specified at compile time instead of run time, so it results in less flexibility than '-D PREALLOCATE'.
@@ -24,7 +26,8 @@ See the test_kdtree.cpp and test_kdmap.cpp files for discussion of other compila
 
 The command-line options that control execution of the main() function to build and search the k-d tree are as follows:
 
--i The number of iterations of k-d tree creation; more iterations enable more reliable measurement of execution times                                                    
+-i The number of iterations of k-d tree creation; more iterations enable more reliable measurement of execution times
+
 -n The number of randomly generated points used to build the k-d tree
 
 -m The number of nearest neighbors kept on the priority queue created when searching the k-d tree for nearest neighbors
