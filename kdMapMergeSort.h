@@ -36,6 +36,11 @@
 #define INSERTION_SORT_CUTOFF 15
 #endif
 
+/* A cutoff for switching from 1 to 2 threads to merge reference arrays in KdNode::mergeSort* */
+#ifndef MERGE_CUTOFF
+#define MERGE_CUTOFF 4096
+#endif
+
 /* Forward references to KdNode and KdTree friend classes */
 
 template <typename, typename>
@@ -185,30 +190,44 @@ private:
           throw runtime_error("\n\ncaught exception for sort future in mergeSortReferenceAscending\n");
         }
 
-        // Compare the results in the temporary array in ascending order with a child thread
-        // and merge them into the lower half of the reference array in ascending order.
-        auto mergeFuture =
-          async(launch::async, [&] {
-                                 for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                   reference[k] =
-                                     (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) <= 0)
-                                     ? temporary[i++] : temporary[j--];
-                                 }
-                               });
+        // Are there sufficient temporary array elements to justify dual-threaded merge?
+        if (high - low + 1 > MERGE_CUTOFF)
+        {
+          // Yes, so compare the results in the temporary array in ascending order with a child thread
+          // and merge them into the lower half of the reference array in ascending order.
+          auto mergeFuture =
+            async(launch::async, [&] {
+                                  for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+                                    reference[k] =
+                                      (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) <= 0)
+                                      ? temporary[i++] : temporary[j--];
+                                  }
+                                });
 
-        // And simultaneously compare the results in the temporary array in descending order with the
-        // current thread and merge them into the upper half of the reference array in ascending order.
-        for (signed_size_t i = mid, j = mid + 1, k = high; k > mid; --k) {
-          reference[k] =
-            (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) > 0) ? temporary[i--] : temporary[j++];
-        }
+          // And simultaneously compare the results in the temporary array in descending order with the
+          // current thread and merge them into the upper half of the reference array in ascending order.
+          for (signed_size_t i = mid, j = mid + 1, k = high; k > mid; --k) {
+            reference[k] =
+              (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) > 0) ? temporary[i--] : temporary[j++];
+          }
 
-        // Wait for the child thread to finish execution.
-        try {
-          mergeFuture.get();
+          // Wait for the child thread to finish execution.
+          try {
+            mergeFuture.get();
+          }
+          catch (exception const& e) {
+            throw runtime_error("\n\ncaught exception for merge future in mergeSortReferenceAscending\n");
+          }
         }
-        catch (exception const& e) {
-          throw runtime_error("\n\ncaught exception for merge future in mergeSortReferenceAscending\n");
+        else
+        {
+          // No, there are insufficient temporary array elements to justify dual-threaded merge,
+          // so compare the results in the temporary array in ascending order and merge them into
+          // the reference array in ascending order.
+          for (signed_size_t i = low, j = high, k = low; k <= high; ++k) {
+            reference[k] =
+              (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) < 0) ? temporary[i++] : temporary[j--];
+          }
         }
       }
 
@@ -299,30 +318,44 @@ private:
           throw runtime_error("\n\ncaught exception for sort future in mergeSortReferenceDescending\n");
         }
 
-        // Compare the results in the temporary array in ascending order with a child thread
-        // and merge them into the lower half of the reference array in descending order.
-        auto mergeFuture =
-          async(launch::async, [&] {
-                                 for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                   reference[k] =
-                                     (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) >= 0)
-                                     ? temporary[i++] : temporary[j--];
-                                 }
-                               });
+        // Are there sufficient temporary array elements to justify dual-threaded merge?
+        if (high - low + 1 > MERGE_CUTOFF)
+        {
+          // Yes, so compare the results in the temporary array in ascending order with a child thread
+          // and merge them into the lower half of the reference array in descending order.
+          auto mergeFuture =
+            async(launch::async, [&] {
+                                  for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+                                    reference[k] =
+                                      (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) >= 0)
+                                      ? temporary[i++] : temporary[j--];
+                                  }
+                                });
 
-        // And simultaneously compare the results in the temporary array in descending order with the
-        // current thread and merge them into the upper half of the reference array in descending order.
-        for (signed_size_t i = mid, j = mid + 1, k = high; k > mid; --k) {
-          reference[k] =
-            (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) < 0) ? temporary[i--] : temporary[j++];
-        }
+          // And simultaneously compare the results in the temporary array in descending order with the
+          // current thread and merge them into the upper half of the reference array in descending order.
+          for (signed_size_t i = mid, j = mid + 1, k = high; k > mid; --k) {
+            reference[k] =
+              (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) < 0) ? temporary[i--] : temporary[j++];
+          }
 
-        // Wait for the child thread to finish execution.
-        try {
-          mergeFuture.get();
+          // Wait for the child thread to finish execution.
+          try {
+            mergeFuture.get();
+          }
+          catch (exception const& e) {
+            throw runtime_error("\n\ncaught exception for merge future in mergeSortReferenceDescending\n");
+          }
         }
-        catch (exception const& e) {
-          throw runtime_error("\n\ncaught exception for merge future in mergeSortReferenceDescending\n");
+        else
+        {
+          // No, there are insufficient temporary array elements to justify dual-threaded merge,
+          // so compare the results in the temporary array in ascending order and merge them into
+          // the reference array in descending order.
+          for (signed_size_t i = low, j = high, k = low; k <= high; ++k) {
+            reference[k] =
+              (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) > 0) ? temporary[i++] : temporary[j--];
+          }
         }
       }
 
@@ -413,30 +446,44 @@ private:
           throw runtime_error("\n\ncaught exception for sort future in mergeSortTemporaryAscending\n");
         }
 
-        // Compare the results in the reference array in ascending order with a child thread
-        // and merge them into the lower half of the temporary array in ascending order.
-        auto mergeFuture =
-          async(launch::async, [&] {
-                                 for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                   temporary[k] =
-                                     (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) <= 0)
-                                     ? reference[i++] : reference[j--];
-                                 }
-                               });
+        // Are there sufficient reference array elements to justify dual-threaded merge?
+        if (high - low + 1 > MERGE_CUTOFF)
+        {
+          // Yes, so compare the results in the reference array in ascending order with a child thread
+          // and merge them into the lower half of the temporary array in ascending order.
+          auto mergeFuture =
+            async(launch::async, [&] {
+                                  for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+                                    temporary[k] =
+                                      (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) <= 0)
+                                      ? reference[i++] : reference[j--];
+                                  }
+                                });
 
-        // And simultaneously compare the results in the reference array in descending order with the
-        // current thread and merge them into the upper half of the temporary array in ascending order.
-        for (signed_size_t i = mid, j = mid + 1, k = high; k > mid; --k) {
-          temporary[k] =
-            (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) > 0) ? reference[i--] : reference[j++];
-        }
+          // And simultaneously compare the results in the reference array in descending order with the
+          // current thread and merge them into the upper half of the temporary array in ascending order.
+          for (signed_size_t i = mid, j = mid + 1, k = high; k > mid; --k) {
+            temporary[k] =
+              (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) > 0) ? reference[i--] : reference[j++];
+          }
 
-        // Wait for the child thread to finish execution.
-        try {
-          mergeFuture.get();
+          // Wait for the child thread to finish execution.
+          try {
+            mergeFuture.get();
+          }
+          catch (exception const& e) {
+            throw runtime_error("\n\ncaught exception for merge future in mergeSortTemporaryAscending\n");
+          }
         }
-        catch (exception const& e) {
-          throw runtime_error("\n\ncaught exception for merge future in mergeSortTemporaryAscending\n");
+        else
+        {
+          // No, there are insufficient reference array elements to justify dual-threaded merge,
+          // so compare the results in the reference array in ascending order and merge them into
+          // the temporary array in ascending order.
+          for (signed_size_t i = low, j = high, k = low; k <= high; ++k) {
+            temporary[k] =
+              (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) < 0) ? reference[i++] : reference[j--];
+          }
         }
       }
 
@@ -533,30 +580,44 @@ private:
           throw runtime_error("\n\ncaught exception for sort future in mergeSortTemporaryDescending\n");
         }
 
-        // Compare the results in the reference array in ascending order with a child thread
-        // and merge them into the lower half of the temporary array in descending order.
-        auto mergeFuture =
-          async(launch::async, [&] {
-                                 for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                   temporary[k] =
-                                     (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) >= 0)
-                                     ? reference[i++] : reference[j--];
-                                 }
-                               });
+        // Are there sufficient reference array elements to justify dual-threaded merge?
+        if (high - low + 1 > MERGE_CUTOFF)
+        {
+          // Yes, so compare the results in the reference array in ascending order with a child thread
+          // and merge them into the lower half of the temporary array in descending order.
+          auto mergeFuture =
+            async(launch::async, [&] {
+                                  for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+                                    temporary[k] =
+                                      (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) >= 0)
+                                      ? reference[i++] : reference[j--];
+                                  }
+                                });
 
-        // And simultaneously compare the results in the reference array in descending order with the
-        // current thread and merge them into the upper half of the temporary array in descending order.
-        for (signed_size_t i = mid, j = mid + 1, k = high; k > mid; --k) {
-          temporary[k] =
-            (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) < 0) ? reference[i--] : reference[j++];
-        }
+          // And simultaneously compare the results in the reference array in descending order with the
+          // current thread and merge them into the upper half of the temporary array in descending order.
+          for (signed_size_t i = mid, j = mid + 1, k = high; k > mid; --k) {
+            temporary[k] =
+              (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) < 0) ? reference[i--] : reference[j++];
+          }
 
-        // Wait for the child thread to finish execution.
-        try {
-          mergeFuture.get();
+          // Wait for the child thread to finish execution.
+          try {
+            mergeFuture.get();
+          }
+          catch (exception const& e) {
+            throw runtime_error("\n\ncaught exception for merge future in mergeSortTemporaryDescending\n");
+          }
         }
-        catch (exception const& e) {
-          throw runtime_error("\n\ncaught exception for merge future in mergeSortTemporaryDescending\n");
+        else
+        {
+          // No, there are insufficient reference array elements to justify dual-threaded merge,
+          // sp compare the results in the reference array in ascending order and merge them into
+          // the temporary array in descending order.
+          for (signed_size_t i = low, j = high, k = low; k <= high; ++k) {
+            temporary[k] =
+              (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) > 0) ? reference[i++] : reference[j--];
+          }
         }
       }
 

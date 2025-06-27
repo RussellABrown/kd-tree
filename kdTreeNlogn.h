@@ -41,21 +41,17 @@
  * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
  *                              in the KdNode::mergeSort* functions (default 15)
  * 
- * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
- *                                list in response to the -r command-line option.
+ * -D MERGE_CUTOFF=n - A cutoff for switching from 1 to 2 threads to merge reference
+ *                     arrays in the KdNode::mergeSort* functions (default 4096)
  *
  * -D MEDIAN_OF_MEDIANS_CUTOFF=n - A cutoff for switching from median of medians to insertion sort
- *                                 in KdNode::partition (default 15)
+ *                                 in KdTree::partition (default 15)
  * 
- * -D MEDIAN_CUTOFF=n - A cutoff for switching from to 2 threads to calculate the median
- *                      in KdNode::partition (default 16384)
+ * -D MEDIAN_CUTOFF=n - A cutoff for switching from 1 to 2 threads to calculate the median
+ *                      in the KdTree::partition function (default 16384)
  * 
- * -D INDEX_CUTOFF=n - A cutoff for switching from to 2 threads to find the index of
- *                     the calculated median in KdNode::partition (default 512)
- * 
- * -D DUAL_THREAD_MEDIAN - Calculate the medians with two threads.
- * 
- * -D DUAL_THREAD_INDEX - Find the index of the median of medians with two threads.
+ * -D INDEX_CUTOFF=n - A cutoff for switching from 1 to 2 threads to find the index of
+ *                     the calculated median in KdTree::partition (default 16384)
  * 
  * -D BIDIRECTIONAL_PARTITION - Partition an array about the median of medians proceeding
  *                              from both ends of the array instead of only the beginning.
@@ -76,9 +72,9 @@
 #define MEDIAN_CUTOFF 16384
 #endif
 
-/* A cutoff for switching from 1 to 2 threads to find the index of the calculated median in KdNode::partition */
+/* A cutoff for switching from 1 to 2 threads to find the index of the median in KdNode::partition */
 #ifndef INDEX_CUTOFF
-#define INDEX_CUTOFF = 512
+#define INDEX_CUTOFF 1073741824 // =2^30 to disable switching to 2 threads
 #endif
 
 /* The KdTree class defines the k-d tree API. */
@@ -404,15 +400,8 @@ private:
     signed_size_t m = n / GROUP_SIZE;
     signed_size_t startOfGroup;
 
-#ifdef DUAL_THREAD_MEDIAN
-    // Is more than one thread available to calculate the medians and are
+    // Is more than one thread available to calculate the medians, and are
     // there sufficient medians to justify multi-threaded processing?
-    //
-    // NOTE, however, that NO value of MEDIAN_CUTOFF appears to improve
-    // the performance of two threads relative to that of one thread.
-    // Hence, the cost of spawning a child thread appears to exceed any
-    // improvement in the performance of calculating the medians that
-    // may be achieved via two threads.
     if (twoThreads && m > MEDIAN_CUTOFF) {
 
       // Yes, calculate the relative index of the middle median.
@@ -463,7 +452,6 @@ private:
       }
     }
     else
-#endif
     {
       // No, only one thread is available, so calculate all medians with the current thread.
       startOfGroup = 0;
@@ -556,15 +544,8 @@ private:
     //
     // Is more than one thread available to find the index of the median of medians
     // and are there sufficient array elements to justify dual-threaded processing?
-    //
-    // NOTE, however, that NO value of INDEX_CUTOFF appears to improve
-    // the performance of two threads relative to that of one thread.
-    // Hence, the cost of spawning a child thread appears to exceed any
-    // improvement in the performance of finding the index of the median
-    // of medians that may be achieved via two threads.
-#ifdef DUAL_THREAD_INDEX
-    if (twoThreads && n > INDEX_CUTOFF) {
-
+    if (twoThreads && n > INDEX_CUTOFF)
+    {
       // Yes, more than one thread is available, so calculate the relative index of the middle element.
       signed_size_t const middle = (n + 1) >> 1;
 
@@ -592,13 +573,13 @@ private:
         indexFuture.get();
       }
       catch (exception const& e) {
-        throw runtime_error"\n\ncaught exception for index future in partition\n");
+        throw runtime_error("\n\ncaught exception for index future in partition\n");
       }
     }
     else
-#endif
     {
-      // No, only one thread is available to find the index of the median of medians.
+      // No, there are insufficient array elements to justify dual-threadedd processing,
+      // so use only one thread to find the index of the median of medians.
       for (signed_size_t i = 0; i < n - 1; ++i) {
         if (a[start + i] == medianOfMedians) {
           swap(a, start + i, start + n - 1);

@@ -74,10 +74,6 @@
  * -D INDEX_CUTOFF=n - A cutoff for switching from to 2 threads to find the index of
  *                     the calculated median in KdNode::partition (default 512)
  * 
- * -D DUAL_THREAD_MEDIAN - Calculate the medians with two threads.
- * 
- * -D DUAL_THREAD_INDEX - Find the index of the median of medians with two threads.
- * 
  * -D BIDIRECTIONAL_PARTITION - Partition an array about the median of medians proceeding
  *                              from both ends of the array instead of only the beginning.
  */
@@ -99,7 +95,7 @@
 
 /* A cutoff for switching from 1 to 2 threads to find the index of the calculated median in KdNode::partition */
 #ifndef INDEX_CUTOFF
-#define INDEX_CUTOFF = 512
+#define INDEX_CUTOFF 1073741824 // =2^30 to disable switching to 2 threads
 #endif
 
 /* The KdTree class defines the k-d tree API. */
@@ -579,15 +575,8 @@ private:
     //
     // Is more than one thread available to find the index of the median of medians
     // and are there sufficient array elements to justify dual-threaded processing?
-    //
-    // NOTE, however, that NO value of INDEX_CUTOFF appears to improve
-    // the performance of two threads relative to that of one thread.
-    // Hence, the cost of spawning a child thread appears to exceed any
-    // improvement in the performance of finding the index of the median
-    // of medians that may be achieved via two threads.
-#ifdef DUAL_THREAD_INDEX
-    if (twoThreads && n > INDEX_CUTOFF) {
-
+    if (twoThreads && n > INDEX_CUTOFF)
+    {
       // Yes, more than one thread is available, so calculate the relative index of the middle element.
       signed_size_t const middle = (n + 1) >> 1;
 
@@ -615,13 +604,13 @@ private:
         indexFuture.get();
       }
       catch (exception const& e) {
-        throw runtime_error"\n\ncaught exception for index future in partition\n");
+        throw runtime_error("\n\ncaught exception for index future in partition\n");
       }
     }
     else
-  #endif
     {
-      // No, only one thread is available to find the index of the median of medians.
+      // No, there are insufficient array elements to justify dual-threadedd processing,
+      // so use only one thread to find the index of the median of medians.
       for (signed_size_t i = 0; i < n - 1; ++i) {
         if (a[start + i] == medianOfMedians) {
           swap(a, start + i, start + n - 1);

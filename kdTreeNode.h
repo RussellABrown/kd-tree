@@ -41,6 +41,7 @@
 #define KD_TREE_NODE_H
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <climits>
 #include <exception>
@@ -62,6 +63,7 @@
 #include <utility>
 #include <vector>
 
+using std::atomic;
 using std::async;
 using std::cout;
 using std::chrono::duration_cast;
@@ -77,6 +79,7 @@ using std::list;
 using std::map;
 using std::lock_guard;
 using std::make_pair;
+using std::memory_order_relaxed;
 using std::min;
 using std::mutex;
 using std::numeric_limits;
@@ -168,6 +171,16 @@ private:
         // Keep the jth element of the reference array.
         reference[++end] = reference[j];
       } else {
+        // If YUCAO is defined, assign the smaller of the tuple[j] and
+        // tuple[end] indices to tuple[end] because tuple[j] will be
+        // skipped. The smaller index ought to lie in the range [0, end]
+        // upon return from this removeDuplicates function.
+#ifdef YUCAO
+        if (reference[end][dim] > reference[j][dim]) {
+          reference[end][dim] = reference[j][dim];
+        }
+#endif
+
         // If PREALLOCATE is undefined, skip over the jth element of the
         // references array and delete the tuple. A pointer to any tuple
         // not skipped will subsequently be copied from the references array

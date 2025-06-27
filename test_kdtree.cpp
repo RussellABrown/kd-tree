@@ -29,7 +29,7 @@
  */
 
 /*
- * Test program for kdTreeKnlogn.h and kdTreeNlogn.h
+ * Test program for kdTreeKnlogn.h, kdTreeNlogn.h, and kdTreeYuCao.h
  *
  * Compile via: g++ -O3 -std=c++11 -pthread -W -D PREALLOCATE test_kdtree.cpp
  *
@@ -37,7 +37,26 @@
  * 
  * -D NLOGN - Select the O(n log n) algorithm instead of the O(kn log n) algorithm.
  * 
- * The following compilation defines apply to both O(n log n) and O(kn log n) algorithms.
+ * -D YUCAO - Select the O(kn log n) presort and O(n log n) k-d tree build algorithms
+ *            if -D NLOGN is not also specified. See the journal article by Yu Cao et al.,
+ *            "A New Method to Construct the KD Tree Based on Presorted Results", Complexity
+ *             Volume 2020, Article ID 8883945, https://doi.org/10.1155/2020/8883945
+ * 
+ * -D DEBUG_PRINT - If -D YUCAO is also specified, provide a simple coordinates vector
+ *                  as specified in Figure 1 of the Yu Cao et al. article and test it
+ *                  via this test_kdTree.cpp file and print various arrays the createKdTree
+ *                  function of kdTreeYuCao.h to facilitate debugging Yu Cao's algorithm. * 
+ * 
+ * The following compilation defines create a k-d tree with more nodes than shown
+ * in Figure 1 of the Yu Cao et al. article.
+ * 
+ * -D YUCAO -D DEBUG_PRINT -D LARGE_TREE
+ * 
+ * The following compilation defines create a k-d tree with an even number of nodes.
+ * 
+ * -D YUCAO -D DEBUG_PRINT-D LARGE_TREE -D EVEN_TREE
+ * 
+ * The following compilation defines apply to the O(n log n), O(kn log n) and Yu Cao algorithms.
  *
  * -D PREALLOCATE - If defined, all instances of KdNodes and all tuple arrays are
  *                  allocated en masse within vectors instead of being allocated
@@ -48,6 +67,9 @@
  *
  * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
  *                              in the KdNode::mergeSort* functions (default 15)
+ * 
+ * -D MERGE_CUTOFF=n - A cutoff for switching from 1 to 2 threads to merge reference
+ *                     arrays in the KdNode::mergeSort* functions (default 4096)
  * 
  * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
  *                                list in response to the -r command-line option.
@@ -61,14 +83,14 @@
  *                      in KdNode::partition (default 16384)
  * 
  * -D INDEX_CUTOFF=n - A cutoff for switching from to 2 threads to find the index of
- *                     the calculated median in KdNode::partition (default 512)
- * 
- * -D DUAL_THREAD_MEDIAN - Calculate the medians with two threads.
- * 
- * -D DUAL_THREAD_INDEX - Find the index of the median of medians with two threads.
+ *                     the calculated median in KdNode::partition (default 16384)
  * 
  * -D BIDIRECTIONAL_PARTITION - Partition an array about the median of medians proceeding
  *                              from both ends of the array instead of only the beginning.
+ *  The following compilation define applies only to the O(kn log n) algorithm.
+ * 
+ * -D PARTITION_CUTOFF=n - A cutoff for switching from 1 to 2 threads to partition
+ *                         reference arrays in KdTree::buildKdTree (default 4096)
  * 
  * Usage:
  *
@@ -105,7 +127,11 @@
 #ifdef NLOGN
 #include "kdTreeNlogn.h"
 #else
+#ifdef YUCAO
+#include "kdTreeYuCao.h"
+#else
 #include "kdTreeKnlogn.h"
+#endif
 #endif
 
 /*
@@ -203,7 +229,9 @@ int main(int argc, char** argv) {
            << "-i The number I of iterations of k-d tree creation" << endl << endl
            << "-n The number N of randomly generated points used to build the k-d tree" << endl << endl
            << "-m The maximum number M of nearest neighbors added to a priority queue" << endl << endl
+#ifndef YUCAO
            << "-x The number X of duplicate points added to test removal of duplicate points" << endl << endl
+#endif
            << "-d The number of dimensions D (aka k) of the k-d tree" << endl << endl
            << "-t The number of threads T used to build and search the k-d tree" << endl << endl
            << "-s The search divisor S used for region search" << endl << endl
@@ -225,8 +253,26 @@ int main(int argc, char** argv) {
 
   // Declare and initialize the coordinates and oneCoordinte vectors.
   extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
-  vector<vector<kdKey_t>> coordinates(numPoints + extraPoints, vector<kdKey_t>(numDimensions));
   vector<kdKey_t> oneCoordinate(numPoints);
+#if !defined (YUCAO) || !defined(DEBUG_PRINT)
+  vector<vector<kdKey_t>> coordinates(numPoints + extraPoints, vector<kdKey_t>(numDimensions));
+#else
+  // Override the coordinates vector with a definition from Yu Cao Figure 1.
+#ifdef LARGE_TREE
+#ifndef EVEN_TREE
+  vector<vector<kdKey_t>> coordinates = { {2,3,4}, {5,4,2}, {9,6,7}, {4,7,9}, {8,1,5}, 
+                                          {7,2,6}, {9,4,1}, {8,3,2}, {9,7,8}, {6,3,2},
+                                          {3,4,5}, {1,6,8}, {9,5,3}, {2,1,3}, {8,7,5} };
+#else
+  vector<vector<kdKey_t>> coordinates = { {2,3,4}, {5,4,2}, {9,6,7}, {4,7,9}, {8,1,5}, 
+                                          {7,2,6}, {9,4,1}, {8,3,2}, {9,7,8}, {6,3,2},
+                                          {3,4,5}, {1,6,8}, {9,5,3}, {2,1,3} };
+#endif
+#else
+  vector<vector<kdKey_t>> coordinates = { {6,1}, {9,4}, {1,2}, {3,5}, {2,8}, {7,9}, {8,3} };
+#endif
+  numDimensions = coordinates[0].size();
+#endif
 
   // Calculate a delta coordinate by dividing the positive range of int64_t
   // by the number of points and truncating the quotient. Because the positive
@@ -306,6 +352,7 @@ int main(int argc, char** argv) {
   for (size_t k = 0; k < iterations; ++k) {
 
     // Shuffle the coordinates vector independently for each dimension.
+#if !defined (YUCAO) || !defined(DEBUG_PRINT)
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       shuffle(oneCoordinate.begin(), oneCoordinate.end(), g);
       for (signed_size_t i = 0; i < numPoints; ++i) {
@@ -319,6 +366,7 @@ int main(int argc, char** argv) {
         coordinates[numPoints - 1 + i][j] = coordinates[numPoints - 1 - i][j];
       }
     }
+#endif
 
     // Create the k-d tree and record the execution times.
     root = KdTree<kdKey_t>::createKdTree(coordinates, maximumSubmitDepth, numberOfNodes,
@@ -326,6 +374,7 @@ int main(int argc, char** argv) {
                                          verifyTime[k], deallocateTime[k]);
     kdTotalTime[k] =  allocateTime[k] + sortTime[k] + removeTime[k] + kdTime[k] + verifyTime[k] + deallocateTime[k];
 
+#if !defined (YUCAO) || !defined(DEBUG_PRINT)
     // Verify that the k-d tree contains the correct number of nodes.
     if (numberOfNodes != numPoints) {
       ostringstream buffer;
@@ -333,6 +382,7 @@ int main(int argc, char** argv) {
              << "  !=  number of points = " << numPoints << endl;
       throw runtime_error(buffer.str());
     }
+#endif
 
     // If this iteration is not the final iteration, delete the root that
     // recursively deletes the k-d tree, including all instances of KdNode
@@ -396,31 +446,31 @@ int main(int argc, char** argv) {
   cout << endl << "Number of nodes = " << numberOfNodes << endl << endl;
 
   auto timePair = calcMeanStd(kdTotalTime);
-  cout << "kdTotalTime = " << fixed << setprecision(2) << timePair.first
+  cout << "kdTotalTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
   timePair = calcMeanStd(allocateTime);
-  cout << "allocateTime = " << fixed << setprecision(2) << timePair.first
+  cout << "allocateTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
   timePair = calcMeanStd(sortTime);
-  cout << "sortTime = " << fixed << setprecision(2) << timePair.first
+  cout << "sortTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
   timePair = calcMeanStd(removeTime);
-  cout << "removeTime = " << fixed << setprecision(2) << timePair.first
+  cout << "removeTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
   timePair = calcMeanStd(kdTime);
-  cout << "kdBuildTime = " << fixed << setprecision(2) << timePair.first
+  cout << "kdBuildTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
   timePair = calcMeanStd(verifyTime);
-  cout << "verifyTime = " << fixed << setprecision(2) << timePair.first
+  cout << "verifyTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
   timePair = calcMeanStd(deallocateTime);
-  cout << "deallocateTime = " << fixed << setprecision(2) << timePair.first
+  cout << "deallocateTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl << endl;
 
   timePair = calcMeanStd(regionTime);

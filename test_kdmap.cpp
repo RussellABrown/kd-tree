@@ -71,6 +71,9 @@
  * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
  *                              in the KdNode::mergeSort* functions (default 15)
  * 
+ * -D MERGE_CUTOFF=n - A cutoff for switching from 1 to 2 threads to merge reference
+ *                     arrays in the KdNode::mergeSort* functions (default 4096)
+ * 
  * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
  *                                list in response to the -r command-line option.
  * 
@@ -85,12 +88,13 @@
  * -D INDEX_CUTOFF=n - A cutoff for switching from to 2 threads to find the index of
  *                     the calculated median in KdNode::partition (default 512)
  * 
- * -D DUAL_THREAD_MEDIAN - Calculate the medians with two threads.
- * 
- * -D DUAL_THREAD_INDEX - Find the index of the median of medians with two threads.
- * 
  * -D BIDIRECTIONAL_PARTITION - Partition an array about the median of medians proceeding
  *                              from both ends of the array instead of only the beginning.
+ * 
+ *  The following compilation define applies only to the O(kn log n) algorithm.
+ * 
+ * -D PARTITION_CUTOFF=n - A cutoff for switching from 1 to 2 threads to partition
+ *                         reference arrays in KdTree::buildKdTree (default 4096)
  * 
  * Usage:
  *

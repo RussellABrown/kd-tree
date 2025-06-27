@@ -29,7 +29,7 @@
  */
 
 #ifndef KD_TREE_HEAP_SORT_H
-#define KD_TREE_HEAP_sORT_H
+#define KD_TREE_HEAP_SORT_H
 
 /* A forward reference to the KdNode friend class */
 template <typename>

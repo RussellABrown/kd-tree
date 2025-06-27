@@ -62,14 +62,22 @@
  *
  * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
  *                              in the KdNode::mergeSort* functions (default 15)
+ * -D MERGE_CUTOFF=n - A cutoff for switching from 1 to 2 threads to merge reference
+ *                     arrays in the KdNode::mergeSort* functions (default 4096)
  * 
- * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors list.
+ * -D PARTITION_CUTOFF=n - A cutoff for switching from 1 to 2 threads to partition
+ *                         reference arrays in KdTree::buildKdTree (default 4096)
  */
 
 #ifndef KD_MAP_KNLOGN_H
 #define KD_MAP_KNLOGN_H
 
 #include "kdMapNode.h"
+
+/* A cutoff for switching from 1 to 2 threads to partition reference arrays in KdTree::buildKdTree */
+#ifndef PARTITION_CUTOFF
+#define PARTITION_CUTOFF 4096
+#endif
 
 /* The KdTree class defines the k-d tree API. */
 template <typename K, typename V=int> // V is a dummy template parameter if TREE is defined.
@@ -303,39 +311,59 @@ private:
 
           // Two threads may be used to partition the reference arrays, analogous to
           // the use of two threads to merge the results for the merge sort algorithm.
-          // Fill one reference array in ascending order with a child thread.
-          auto partitionFuture =
-            async(launch::async, [&] {
-                                   for (signed_size_t lower = start - 1, upper = median, j = start; j <= median; ++j) {
-                                     auto const src_j = src[j];
-                                     auto const compare = MergeSort<K,V>::superKeyCompare(src_j->tuple, point, p, dim);
-                                     if (compare < 0) {
-                                       dst[++lower] = src_j;
-                                     }
-                                     else if (compare > 0) {
-                                       dst[++upper] = src_j;
-                                     }
-                                   }
-                                 });
+          // Are there sufficient array elements to justify multi-threaded processing?
+          if (end - start + 1 > PARTITION_CUTOFF)
+           {
+              // Yes, so fill one reference array in ascending order with a child thread.
+            auto partitionFuture =
+              async(launch::async, [&] {
+                                    for (signed_size_t lower = start - 1, upper = median, j = start; j <= median; ++j) {
+                                      auto const src_j = src[j];
+                                      auto const compare = MergeSort<K,V>::superKeyCompare(src_j->tuple, point, p, dim);
+                                      if (compare < 0) {
+                                        dst[++lower] = src_j;
+                                      }
+                                      else if (compare > 0) {
+                                        dst[++upper] = src_j;
+                                      }
+                                    }
+                                  });
 
-          // Simultaneously fill the same reference array in descending order with the current thread.
-          for (signed_size_t lower = median, upper = end + 1, k = end; k > median; --k) {
-            auto const src_k = src[k];
-            auto const compare = MergeSort<K,V>::superKeyCompare(src_k->tuple, tuple, p, dim);
-            if (compare < 0) {
-              dst[--lower] = src_k;
+            // Simultaneously fill the same reference array in descending order with the current thread.
+            for (signed_size_t lower = median, upper = end + 1, k = end; k > median; --k) {
+              auto const src_k = src[k];
+              auto const compare = MergeSort<K,V>::superKeyCompare(src_k->tuple, tuple, p, dim);
+              if (compare < 0) {
+                dst[--lower] = src_k;
+              }
+              else if (compare > 0) {
+                dst[--upper] = src_k;
+              }
             }
-            else if (compare > 0) {
-              dst[--upper] = src_k;
+
+            // Wait for the child thread to finish execution.
+            try {
+              partitionFuture.get();
+            }
+            catch (exception const& e) {
+              throw runtime_error("\n\ncaught exception for partition future in buildKdTree\n");
             }
           }
-
-          // Wait for the child thread to finish execution.
-          try {
-            partitionFuture.get();
-          }
-          catch (exception const& e) {
-            throw runtime_error("\n\ncaught exception for partition future in buildKdTree\n");
+          else
+          {
+            // No, there are insufficient array elements to justify multi-threaded processing,
+            // so fill the lower and upper halves of one reference array in ascending order
+            // with the current thread.
+            for (signed_size_t j = start, lower = start - 1, upper = median; j <= end; ++j) {
+              auto const src_j = src[j];
+              auto const compare = MergeSort<K,V>::superKeyCompare(src_j->tuple, tuple, p, dim);
+              if (compare < 0) {
+                dst[++lower] = src_j;
+              }
+              else if (compare > 0) {
+                dst[++upper] = src_j;
+              }
+            }
           }
         }
 
