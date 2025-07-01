@@ -87,10 +87,16 @@
  * 
  * -D BIDIRECTIONAL_PARTITION - Partition an array about the median of medians proceeding
  *                              from both ends of the array instead of only the beginning.
+ * 
  *  The following compilation define applies only to the O(kn log n) algorithm.
  * 
  * -D PARTITION_CUTOFF=n - A cutoff for switching from 1 to 2 threads to partition
  *                         reference arrays in KdTree::buildKdTree (default 4096)
+ * 
+ * The following compilation define applies only to the Yu Cao algorithm.
+ * 
+ * -D DUAL_THREAD_YUCAO - Execute the dual-threaded version of the k-d tree-building
+ *                        algorithm depicted in Figure 2 of Yu Cao et al.
  * 
  * Usage:
  *
