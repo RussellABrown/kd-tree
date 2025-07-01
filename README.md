@@ -4,9 +4,15 @@ http://www.jcgt.org/published/0004/01/03/
 
 https://arxiv.org/abs/1410.5420
 
+https://arxiv.org/abs/2506.20687
+
 The Journal of Computer Graphics Techniques (JCGT) article contains a detailed description of an O(kn log n) k-d tree building algorithm and compares the performance of that algorithm to the performance of an O(n log n) algorithm.
 
-In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the arXiv article includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following the publication of those algorithms in the JCGT article.
+In addition to the description of the O(kn log n) algorithm provided by the JCGT article, the first of the two arXiv articles includes an appendix that describes improvements to the O(kn log n) and O(n log n) algorithms that were implemented following publication of those algorithms in the JCGT article.
+
+The second of the two arXiv articles is a review that contrasts the O(kn log n) and O(n log n) algorithms to an algorithm proposed by Yu Cao et al. in the journal article, "A New Method to Construct the KD Tree Based on Presorted Results", Complexity Volume 2020, Article ID 8883945, https://doi.org/10.1155/2020/8883945
+
+Both arXiv articles include C++ implementations of the improvements that followed the publication of those algorithms in the JCGT article and are described as follows.
 
 The test_kdtree.cpp file and associated .h files build and test a k-d tree, which implements a set, via either the O(kn log n) or the O(n log n) algorithm.
 
