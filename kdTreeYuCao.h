@@ -519,7 +519,7 @@ private:
    * coordinates - a vector<vector<K>> that stores the (x, y, z, w...) coordinates
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
-   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times returned by reference
+   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime, unsortTime - execution times
    *
    * returns: a KdTree pointer to the root of the k-d tree
    */
@@ -532,7 +532,8 @@ public:
                                  double& removeTime,
                                  double& kdTime,
                                  double& verifyTime,
-                                 double& deallocateTime) {
+                                 double& deallocateTime,
+                                 double& unsortTime) {
 
     // Create a KdTree instance.
     auto tree = new KdTree();
@@ -752,12 +753,20 @@ public:
     cout << endl;
 #endif
 
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
     // Restore the original, unsorted order of the first reference
     // array into the last reference array, because Yu Cao's algorithm
     // expects unsorted tuples.
+    beginTime = steady_clock::now();
     for (size_t i = 0; i < n; ++i) {
       references[numDimensions][references[0][i][numDimensions]] = references[0][i];
     }
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    unsortTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
 #ifdef DEBUG_PRINT
     cout << "references[2] array" << endl;
@@ -775,7 +784,7 @@ public:
 #endif
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+    kdTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     // Verify the k-d tree and report the number of kdNodes. Begin by
     // creating a 1D permutation vector for use by the verifyKdTree function.

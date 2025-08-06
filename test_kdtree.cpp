@@ -349,6 +349,7 @@ int main(int argc, char** argv) {
   vector<double> kdTime(iterations);
   vector<double> verifyTime(iterations);
   vector<double> deallocateTime(iterations);
+  vector<double> unsortTime(iterations);
   vector<double> kdTotalTime(iterations);
 
   // Iterate the creation of the k-d tree to improve statistics.
@@ -377,8 +378,9 @@ int main(int argc, char** argv) {
     // Create the k-d tree and record the execution times.
     root = KdTree<kdKey_t>::createKdTree(coordinates, maximumSubmitDepth, numberOfNodes,
                                          allocateTime[k], sortTime[k], removeTime[k], kdTime[k],
-                                         verifyTime[k], deallocateTime[k]);
-    kdTotalTime[k] =  allocateTime[k] + sortTime[k] + removeTime[k] + kdTime[k] + verifyTime[k] + deallocateTime[k];
+                                         verifyTime[k], deallocateTime[k], unsortTime[k]);
+    kdTotalTime[k] =
+      allocateTime[k] + sortTime[k] + removeTime[k] + kdTime[k] + verifyTime[k] + deallocateTime[k] + unsortTime[k];
 
 #if !defined (YUCAO) || !defined(DEBUG_PRINT)
     // Verify that the k-d tree contains the correct number of nodes.
@@ -467,10 +469,15 @@ int main(int argc, char** argv) {
   cout << "removeTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
+#if defined(YUCAO) && !defined(NLOGN)
+  timePair = calcMeanStd(unsortTime);
+  cout << "unsortTime = " << fixed << setprecision(4) << timePair.first
+       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+#endif
+
   timePair = calcMeanStd(kdTime);
   cout << "kdBuildTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
-
   timePair = calcMeanStd(verifyTime);
   cout << "verifyTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;

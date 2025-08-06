@@ -1001,7 +1001,7 @@ private:
    * coordinates - a vector<vector<K>> that stores the (x, y, z, w...) coordinates
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
-   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times returned by reference
+   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime, unsortTime - execution times
    *
    * returns: a KdTree pointer to the root of the k-d tree
    */
@@ -1014,7 +1014,8 @@ public:
                                  double& removeTime,
                                  double& kdTime,
                                  double& verifyTime,
-                                 double& deallocateTime) {
+                                 double& deallocateTime,
+                                 double& unsortTime) {
 
     // Create a KdTree instance.
     auto tree = new KdTree();
@@ -1136,6 +1137,9 @@ public:
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // The unsort time is measured only for the Yu Cao algorithm.
+    unsortTime = 0.0;
 
     // Return the pointer to the root of the k-d tree.
     return tree;
