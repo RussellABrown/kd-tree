@@ -776,7 +776,8 @@ public:
     cout << endl;
 #endif
 
-    // Build the k-d tree from the "final" (aka f) vector.
+    // Build the k-d tree from the "final" (aka f) vector and add the execution time to kdTime.
+    beginTime = steady_clock::now();
 #ifndef PREALLOCATE
     tree->root = buildKdTree(f, references[numDimensions], kdNodes, 0, n);
 #else
