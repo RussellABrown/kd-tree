@@ -1,4 +1,14 @@
-The k-d tree-building algorithms are described in the following online articles.
+The dynamic k-d tree building algorithms are described in the following online article.
+
+https://arxiv.org/abs/2509.08148
+
+The dynamic k-d tree building algorithms maintain a balanced k-d tree that resembles an AVL or red-black tree. The dynamic k-d tree self-balances by rebuilding a subtree that becomes unbalanced as a result of insertion or deletion of a k-dimensional tuple. The multi-threaded, static k-d tree-building algorithms rebuild that subtree.
+
+The dynamic k-d tree is implemented as the KdTreeDynamic class that is derived from the KdTree class that implements the static k-d tree. Hence, search algorithms implemented by the KdTree class (such as region search and nearest-neighbor search) may be performed for either a static k-d tree or a dynamic k-d tree. Also, it is possible to build a k-d tree initially via the static algorithms, and thereafter modify that k-d tree via the dynamic algorithms.
+
+The multi-threaded, static k-d tree-building algorithms are described in the following online articles.
+
+The test_kdtreedynamic.cpp file and associated .h files build and test a dynamic k-d tree.
 
 http://www.jcgt.org/published/0004/01/03/
 
@@ -14,9 +24,9 @@ The second of the two arXiv articles is a review that contrasts the O(kn log n) 
 
 Both arXiv articles include C++ implementations of the improvements that followed the publication of those algorithms in the JCGT article and are described as follows.
 
-The test_kdtree.cpp file and associated .h files build and test a k-d tree, which implements a set, via either the O(kn log n) or the O(n log n) algorithm.
+The test_kdtree.cpp file and associated .h files build and test a static k-d tree, which implements a set, via either the O(kn log n) or the O(n log n) algorithm.
 
-The test_kdmap.cpp file and associated .h files build and test a k-d tree-based key-to-multiple-value map via either the O(kn log n) or the O(n log n) algorithm.
+The test_kdmap.cpp file and associated .h files build and test a static k-d tree-based key-to-multiple-value map via either the O(kn log n) or the O(n log n) algorithm.
 
 The '-D NLOGN' compilation define specifies the O(n log n) algorithm; otherwise, the O(kn log n) algorithm is used.
 
