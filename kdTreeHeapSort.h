@@ -31,9 +31,21 @@
 #ifndef KD_TREE_HEAP_SORT_H
 #define KD_TREE_HEAP_SORT_H
 
-/* A forward reference to the KdNode friend class */
+/* Forward references to all classes to support any order of compilation */
+template <typename>
+class KdTreeDynamic;
+
+template <typename>
+class KdTree;
+
 template <typename>
 class KdNode;
+
+template <typename>
+class MergeSort;
+
+template <typename>
+class NearestNeighborHeap;
 
 /*
  * The NearestNeighborHeap class implements a fixed length heap of both containing both a KdNode and Euclidean distance

@@ -92,39 +92,73 @@ using std::setprecision;
 using std::streamsize;
 using std::vector;
 
-/* Convert microseconds to seconds for use with std::chrono */
+/* 
+ * Convert microseconds to seconds for use with std::chrono
+ * but if this constant is already defined by kdTreeDynamic.h
+ * don't define it again.
+ */
+#ifndef KD_TREE_DYNAMIC_H
 static const double MICROSECONDS_TO_SECONDS = 1000000.;
+#endif
 
-/* This type is the signed equivalent of size_t and might be equivalent to intmax_t */
+/*
+ * This type is the signed equivalent of size_t and might be equivalent to intmax_t.
+ * It is defined also in kdTreeDynamic.h so don't define it twice.
+ */
+#ifndef KD_TREE_DYNAMIC_H
 typedef streamsize signed_size_t;
+#endif
 
 #include "kdTreeMergeSort.h"
 #include "kdTreeHeapSort.h"
 
-/* A forward reference to the friend class KdTree */
+/* Forward references to all classes to support any order of compilation */
+template <typename>
+class KdTreeDynamic;
+
 template <typename>
 class KdTree;
 
-/* One node of a k-d tree where T is key type */
+template <typename>
+class KdNode;
+
+template <typename>
+class MergeSort;
+
+template <typename>
+class NearestNeighborHeap;
+
+/* One node of a k-d tree where K is key type */
 template <typename K>
 class KdNode {
 private:
   K* tuple;
-  KdNode<K>* ltChild;
-  KdNode<K>* gtChild;
+  KdNode<K> *ltChild = nullptr, *gtChild = nullptr;
+
+  // A dynamic k-d tree requires a height.
+  //
+  // The height member field could be as small as one byte but
+  // in a 64-bit architecture, it occupies a 64-bit word anyway.
+#ifdef KD_TREE_DYNAMIC_H
+  size_t height = 0;
+#endif
 
 #ifdef REVERSE_NEAREST_NEIGHBORS
   size_t index;
 #endif
 
-  // If PREALLOCATE is defined, the default ~KdNode destructor
-  // is used, which implies that no KdNode member field can be
-  // a pointer because a pointer would require explicit delete.
-#ifndef PREALLOCATE
+  // If PREALLOCATE is defined and KD_TREE_DYNAMIC_H is undefined,
+  // the default ~KdNode destructor is used, which doesn't delete
+  // the tuple field of each KdNode instance; instead, the ~KdTree
+  // destructor deletes a vector of tuples.
+  //
+  // So, if PREALLOCATE is undefined or KD_TREE_DYNAMIC_H is defined,
+  // delete the KdNode::tuples field via the following destructor.
+#if !defined(PREALLOCATE) || defined(KD_TREE_DYNAMIC_H)
 public:
   ~KdNode() {
 
-    // Because tuple is not contained by the KdTree::tuples
+    // Because the tuple is not contained by the KdTree::tuples
     // vector, delete it.
     delete[] tuple;
 
@@ -171,11 +205,12 @@ private:
         // Keep the jth element of the reference array.
         reference[++end] = reference[j];
       } else {
-        // If YUCAO is defined, assign the smaller of the tuple[j] and
-        // tuple[end] indices to tuple[end] because tuple[j] will be
-        // skipped. The smaller index ought to lie in the range [0, end]
-        // upon return from this removeDuplicates function.
-#ifdef YUCAO
+        // If YUCAO is defined and KD_TREE_DYNAMIC_H is not defined,
+        // assign the smaller of the tuple[j] and tuple[end] indices
+        // to tuple[end] because tuple[j] will be skipped. The smaller
+        // index ought to lie in the range [0, end] upon return from
+        // this removeDuplicates function.
+#if defined(YUCAO) && !defined(KD_TREE_DYNAMIC_H)
         if (reference[end][dim] > reference[j][dim]) {
           reference[end][dim] = reference[j][dim];
         }
@@ -201,7 +236,8 @@ private:
 
   /*
    * The getKdNode function gets a KdNode from the kdNodes vector and assigns the tuple field.
-   * It also assigns to the index field the index of the KdNode within the kdNodes array.
+   * It also assigns to the index field the index of the KdNode within the kdNodes array only
+   * if REVERSE_NEAREST_NEIGHBORS is defined, because the index field is required for that case.
    *
    * Calling parameters:
    *
@@ -225,6 +261,15 @@ private:
     kdNodes[k]->index = k;
 #endif
 
+#ifdef KD_TREE_DYNAMIC_H
+    // Reset the height and the parent and child pointers because
+    // this KdNode is being recycled from a sub-tree instead of
+    // being allocated de novo. This is likely unnecessary because
+    // KdTreeDynamic::getSubTree does it, but do it here anyway.
+    kdNodes[k]->height = 1;
+    kdNodes[k]->ltChild = kdNodes[k]->gtChild = nullptr;
+#endif
+
     return kdNodes[k];
   }
 #else
@@ -244,41 +289,9 @@ private:
 #endif
 
   /*
-   * Create a permutation vector.
-   *
-   * Calling parameters:
-   *
-   * permutation - the permutation vector that is passed by reference and modified
-   * numDimensions - the number of dimensions
-   * numCoordinates - the number of points in the coordinates vector
-   */
-private:
-  static
-  void createPermutation(vector<signed_size_t>& permutation,
-                         signed_size_t const numDimensions,
-                         signed_size_t const numCoordinates) {
-    
-    // Determine the maximum depth of the k-d tree, which is log2(numCoordinates).
-    signed_size_t size = numCoordinates;
-    signed_size_t maxDepth = 1;
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
-
-    // Because the partition coordinate permutes in the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
-    // (for e.g. 4-dimensional data), the leading key of the super key will be 0 at the
-    // first level of the nascent tree, consistent with having sorted the reference array
-    // using 0 as the leading key of the super key.
-    permutation.resize(maxDepth);
-    for (size_t i = 0; i < permutation.size(); ++i) {
-      permutation[i] = i % numDimensions;
-    }
-  }
-
-  /*
    * The verifyKdTree function walks the k-d tree and checks that the
-   * children of a node are in the correct branch of that node.
+   * children of a node are in the correct branch of that node, and
+   * checks that the sub-tree rooted at the node is balanced.
    *
    * Calling parameters:
    *
@@ -295,10 +308,24 @@ private:
                              signed_size_t const maximumSubmitDepth,
                              signed_size_t const depth) const {
 
-    signed_size_t count = 1;
     if (tuple == nullptr) {
       throw runtime_error("\n\npoint is null in verifyKdTree\n");
     }
+
+    // Initialize the count and check the balance.
+    signed_size_t count = 1;
+
+#ifdef KD_TREE_DYNAMIC_H
+    KdNode<K>* const node = const_cast<KdNode<K>* const>(this);
+    if (!KdTreeDynamic<K>::isBalanced(node)) {
+      ostringstream buffer;
+      buffer << "\n\nnode is unbalanced: < child height = "
+             << KdTreeDynamic<K>::getHeight(node->ltChild)
+             << "  > child height = "
+             << KdTreeDynamic<K>::getHeight(node->gtChild) << endl;
+      throw runtime_error(buffer.str());
+    }
+#endif
 
     // The partition cycles as x, y, z, w...
     signed_size_t const p = permutation[depth];
@@ -378,6 +405,125 @@ private:
   }
 
   /*
+   * The verifyKdTree function walks the k-d tree and checks that the
+   * children of a node are in the correct branch of that node, and
+   * checks that the sub-tree rooted at the node is balanced.
+   * 
+   * In contrast to the above version of verifyKdTree, this version
+   * does not require a permutation vector, so it may be used for a
+   * k-d tree of any depth, and in particular, an unbalanced k-d tree.
+   *
+   * Calling parameters:
+   *
+   * dim - the number of dimensions
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * depth - the depth in the k-d tree
+   * p - the leading dimension that permutes cyclically
+   *
+   * returns: a count of the number of kdNodes in the k-d tree
+   */
+public:
+  signed_size_t verifyKdTree(signed_size_t const dim,
+                             signed_size_t const maximumSubmitDepth,
+                             signed_size_t const depth,
+                             signed_size_t p) const {
+
+    signed_size_t count = 1;
+    if (tuple == nullptr) {
+      throw runtime_error("\n\npoint is null in verifyKdTree\n");
+    }
+
+#ifdef KD_TREE_DYNAMIC_H
+    KdNode<K>* const node = const_cast<KdNode<K>* const>(this);
+    if (!KdTreeDynamic<K>::isBalanced(node)) {
+      ostringstream buffer;
+      buffer << "\n\nnode is unbalanced: < child height = "
+             << KdTreeDynamic<K>::getHeight(node->ltChild)
+             << "  > child height = "
+             << KdTreeDynamic<K>::getHeight(node->gtChild) << endl;
+      throw runtime_error(buffer.str());
+    }
+#endif
+
+    // Permute the most significant dimension p cyclically using
+    // a fast alternative to the modulus opeator for p <= dim.
+    p = (p < dim) ? p : 0;
+
+    if (ltChild != nullptr) {
+      if (ltChild->tuple[p] > tuple[p]) {
+        throw runtime_error("\n\nchild is > node in verifyKdTree\n");
+      }
+      if (MergeSort<K>::superKeyCompare(ltChild->tuple, tuple, p, dim) >= 0) {
+        throw runtime_error("\n\nchild is >= node in verifyKdTree\n");
+      }
+    }
+    if (gtChild != nullptr) {
+      if (gtChild->tuple[p] < tuple[p]) {
+        throw runtime_error("\n\nchild is < node in verifyKdTree\n");
+      }
+      if (MergeSort<K>::superKeyCompare(gtChild->tuple, tuple, p, dim) <= 0) {
+        throw runtime_error("\n\nchild is <= node in verifyKdTree\n");
+      }
+    }
+
+    // Verify the < branch with a child thread at as many levels of the tree as possible.
+    // Create the child thread as high in the tree as possible for greater utilization.
+
+    // Is a child thread available to verify the < branch?
+    if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
+
+      // No, so verify the < branch with the current thread.
+      if (ltChild != nullptr) {
+        count += ltChild->verifyKdTree(dim, maximumSubmitDepth, depth+1, p+1);
+      }
+
+      // Then verify the > branch with the current thread.
+      if (gtChild != nullptr) {
+        count += gtChild->verifyKdTree(dim, maximumSubmitDepth, depth+1, p+1);
+      }
+    }
+    else {
+
+      // Yes, so verify the < branch with a child thread. Note that a lambda
+      // is required because this verifyKdTree function is not static. The use
+      // of std::ref may be unnecessary in view of the [&] lambda argument specification.
+
+      future<signed_size_t> verifyFuture;
+      if (ltChild != nullptr) {
+        verifyFuture =
+          async(launch::async, [&] {
+                                 return ltChild->verifyKdTree(dim,
+                                                              maximumSubmitDepth,
+                                                              depth+1,
+                                                              p+1);
+                               });
+      }
+
+      // And simultaneously verify the > branch with the current thread.
+      signed_size_t gtCount = 0;
+      if (gtChild != nullptr) {
+        gtCount = gtChild->verifyKdTree(dim, maximumSubmitDepth, depth+1, p+1);
+      }
+
+      // Wait for the child thread to finish execution.
+      signed_size_t ltCount = 0;
+      if (ltChild != nullptr) {
+        try {
+          ltCount = verifyFuture.get();
+        }
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for verify future in verifyKdTree\n");
+        }
+      }
+
+      // Sum the counts returned by the child and current threads.
+      count += ltCount + gtCount;
+    }
+
+    return count;
+  }
+
+  /*
    * The insideBounds function determines whether KdNode::tuple lies inside the
    * hyper-rectangle defined by the query lower and upper bound vectors.
    *
@@ -413,22 +559,23 @@ private:
    * result - a list<KdNode<K>*> that is passed by reference and modified
    * queryLower - the query lower bound vector
    * queryUpper - the query upper bound vector
-   * permutation - vector that specifies permutation of the partition coordinate
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * depth - the depth in the k-d tree
+   * p - the leading dimension that permutes cyclically
    * enable - a vector that specifies the dimensions on which to prune the region search
    */
 private:
   void regionSearch(list<KdNode<K>*>& result,
                     vector<K> const& queryLower,
                     vector<K> const& queryUpper,
-                    vector<signed_size_t> const& permutation,
                     signed_size_t const maximumSubmitDepth,
                     signed_size_t const depth,
+                    size_t p,
                     vector<bool> const&  enable) {
 
-    // The partition cycles as x, y, z, w...
-    signed_size_t const p = permutation[depth];
+    // Permute the most significant dimension p cyclically using
+    // a fast alternative to the modulus opeator for p <= dim.
+    p = (p < queryLower.size()) ? p : 0;
 
     // If the KdNode is within the query hyper-rectangle for each of the k dimensions,
     // add the KdNode to the list of KdNodes that lie inside the hyper-cube. The
@@ -477,9 +624,9 @@ private:
                                               ltChild->regionSearch(ref(ltResult),
                                                                     ref(queryLower),
                                                                     ref(queryUpper),
-                                                                    ref(permutation),
-                                                                    maximumSubmitDepth,
-                                                                    depth + 1,
+                                                                   maximumSubmitDepth,
+                                                                    depth+1,
+                                                                    p+1,
                                                                     ref(enable));
                                             });
         // Search the > branch?
@@ -487,7 +634,7 @@ private:
         if (searchGT) {
           
           // Yes, search the > branch  with the master thread.
-          gtChild->regionSearch(gtResult, queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
+          gtChild->regionSearch(gtResult, queryLower, queryUpper, maximumSubmitDepth, depth+1, p+1, enable);
         }
 
         // Get the result of searching the < branch with the child thread.
@@ -509,7 +656,7 @@ private:
         if (searchGT) {
           
           // Yes, search the > branch  with the master thread.
-          gtChild->regionSearch(gtResult, queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
+          gtChild->regionSearch(gtResult, queryLower, queryUpper, maximumSubmitDepth, depth+1, p+1, enable);
         }
 
         // Append the result of searching the > branch to the result (if any) for this KdNode.
@@ -521,14 +668,14 @@ private:
       // No, both branches do not require searching. Search the < branch with the master thread?
       if (searchLT) {
         list<KdNode<K>*> ltResult;
-        ltChild->regionSearch(ltResult, queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
+        ltChild->regionSearch(ltResult, queryLower, queryUpper, maximumSubmitDepth, depth+1, p+1, enable);
         result.splice(result.end(), ltResult);
       }
 
       // Search the > branch with the master thread?
       if (searchGT) {
         list<KdNode<K>*> gtResult;
-        gtChild->regionSearch(gtResult, queryLower, queryUpper, permutation, maximumSubmitDepth, depth + 1, enable);
+        gtChild->regionSearch(gtResult, queryLower, queryUpper, maximumSubmitDepth, depth+1, p+1, enable);
         result.splice(result.end(), gtResult);
       }
 
@@ -545,7 +692,6 @@ private:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * size - the number of points in the coordinates vector
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
@@ -553,14 +699,7 @@ private:
   void searchRegion(list<KdNode<K>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
-                    signed_size_t const maximumSubmitDepth,
-                    signed_size_t const size) {
-    
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the regionSearch function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    vector<signed_size_t> permutation;
-    createPermutation(permutation, queryLower.size(), size);
+                    signed_size_t const maximumSubmitDepth) {
     
     // Ensure that each query lower bound <= the corresponding query upper bound.
     for (size_t i = 0; i < queryLower.size(); ++i) {
@@ -573,7 +712,7 @@ private:
 
     // Search the tree over all dimensions to obtain the resulting list of KdNodes.
     vector<bool> enable(queryLower.size(), true);
-    regionSearch(result, queryLower, queryUpper, permutation, maximumSubmitDepth, 0, enable);
+    regionSearch(result, queryLower, queryUpper, maximumSubmitDepth, 0, 0, enable);
   }
 
   /*
@@ -586,7 +725,6 @@ private:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * size - the number of points in the coordinates vector
    * enable - a vector that specifies the dimensions on which to test for insidedness
    *          and prune the region search
    *
@@ -597,14 +735,7 @@ private:
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
-                    signed_size_t const size,
                     vector<bool> const& enable) {
-    
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the regionSearch function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    vector<signed_size_t> permutation;
-    createPermutation(permutation, queryLower.size(), size);
     
     // Ensure that each query lower bound <= the corresponding query upper bound.
     for (size_t i = 0; i < queryLower.size(); ++i) {
@@ -616,7 +747,7 @@ private:
     }
 
     // Search the tree over the enabled dimensions to obtain the resulting list of KdNodes.
-    regionSearch(result, queryLower, queryUpper, permutation, maximumSubmitDepth, 0, enable);
+    regionSearch(result, queryLower, queryUpper, maximumSubmitDepth, 0, 0, enable);
   }
 
   /*
@@ -703,23 +834,24 @@ private:
    * Calling parameters:
    *
    * heap - an instance of NearestNeighborHeap that is built relative to a query point
-   * permutation - vector that specifies permutation of the partition coordinate
-   * depth - depth in the k-d tree
+   * dim - the number of dimensions
+   * p - the leading dimension that permutes cyclically
    */
 private:
   void nearestNeighbors(NearestNeighborHeap<K>& heap,
-                        vector<signed_size_t> const& permutation,
-                        signed_size_t const depth) {
+                        signed_size_t const dim,
+                        signed_size_t p) {
 
-    // The partition permutes as x, y, z, w...
-    signed_size_t p = permutation[depth];
+    // Permute the most significant dimension p cyclically using
+    // a fast alternative to the modulus opeator for p <= dim.
+    p = (p < dim) ? p : 0;
 
     // If query[p] < tuple[p], descend the < branch to the bottom of the tree before adding a point to the
     // heap, which increases the probability that closer nodes to the query point will get added earlier,
     // thus reducing the likelihood of adding more distant points that get kicked out of the heap later.
     if (heap.query[p] < tuple[p]) {
       if (ltChild != nullptr) {  // If not at the bottom of the tree, descend the < branch unconditionally.
-        ltChild->nearestNeighbors(heap, permutation, depth + 1);
+        ltChild->nearestNeighbors(heap, dim, p+1);
       }
       // If the current node is closer to the query point than the farthest item in the heap, or if this
       // component of the array is not part of the nearest neighbor search, or if the heap is not full,
@@ -729,7 +861,7 @@ private:
       double const dist = tup - que;
       if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
         if (gtChild != nullptr) { // If not at the bottom of the tree, descend the > branch
-          gtChild->nearestNeighbors(heap, permutation, depth + 1);
+          gtChild->nearestNeighbors(heap, dim, p+1);
         }
         heap.add(this);  // Attempt to add the current KdNode to the heap.
       }
@@ -739,7 +871,7 @@ private:
     // thus reducing the likelihood of adding more distant points that get kicked out of the heap later.
     else if (heap.query[p] > tuple[p]) {
       if (gtChild != nullptr) {  // If not at the bottom of the tree, descend the > branch unconditionally.
-        gtChild->nearestNeighbors(heap, permutation, depth + 1);
+        gtChild->nearestNeighbors(heap, dim, p+1);
       }
       // If the current node is closer to the query point than the farthest item in the heap, or if this
       // component of the array is not part of the nearest neighbor search, or if the heap is not full,
@@ -749,7 +881,7 @@ private:
       double const dist = tup - que;
       if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
         if (ltChild != nullptr) {
-          ltChild->nearestNeighbors(heap, permutation, depth + 1);
+          ltChild->nearestNeighbors(heap, dim, p+1);
         }
         heap.add(this);  // Attempt to add the current node to the heap.
       }
@@ -758,10 +890,10 @@ private:
     // of the tree, so descend both branches and then attempt to add the current node to the heap.
     else {
       if (ltChild != nullptr) {
-        ltChild->nearestNeighbors(heap, permutation, depth + 1);
+        ltChild->nearestNeighbors(heap, dim, p+1);
       }
       if (gtChild != nullptr) {
-        gtChild->nearestNeighbors(heap, permutation, depth + 1);
+        gtChild->nearestNeighbors(heap, dim, p+1);
       }
       heap.add(this);  // Attempt to add the current node to the heap.
     }
@@ -775,23 +907,15 @@ private:
    * neighbors - the nearest neighbors list that is passed by reference and modified.
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to attempt to find
-   * size - the number of points in the coordinates vector
    */
 private:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
-                            signed_size_t const numNeighbors,
-                            signed_size_t const size) {
+                            signed_size_t const numNeighbors) {
     
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the nearestNeighbors function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    vector<signed_size_t> permutation;
-    createPermutation(permutation, query.size(), size);
-
     // Create the heap and search the k-d tree for nearest neighbors.
     NearestNeighborHeap<K> heap(query, numNeighbors);
-    nearestNeighbors(heap, permutation, 0);
+    nearestNeighbors(heap, query.size(), 0);
 
     // Empty the heap by successively removing the top of the heap and prepending it to a list.
     // Remove only the number of heap entries present.
@@ -801,91 +925,25 @@ private:
     }
   }
   
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified.
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   * size - the number of points in the coordinates vector
-   * enable - a vector that specifies the dimensions for which to test distance
-   */
-private:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
-                            signed_size_t const numNeighbors,
-                            signed_size_t const size,
-                            vector<bool> const& enable) {
-    
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the nearestNeighbors function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    vector<signed_size_t> permutation;
-    createPermutation(permutation, query.size(), size);
-
-    // Create the heap and search the k-d tree for nearest neighbors.
-    NearestNeighborHeap<K> heap(query, numNeighbors, enable);
-    nearestNeighbors(heap, permutation, 0);
-
-    // Empty the heap by successively removing the top of the heap and prepending it to a list.
-    // Remove only the number of heap entries present.
-    signed_size_t const heapDepth = heap.heapDepth();;
-    for (signed_size_t i = 0; i < heapDepth; ++i) {
-      neighbors.push_front(heap.removeTop());
-    }
-  }
-  
-  /*
+ /*
    * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
    *
    * Calling parameters:
    *
    * neighbors - the nearest neighbors list that is passed by reference and modified
    * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   */
-private:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors) {
-    
-    // Create the heap and search the k-d tree for nearest neighbors.
-    NearestNeighborHeap<K> heap(query, numNeighbors);
-    nearestNeighbors(heap, permutation, 0);
-
-    // Empty the heap by successively removing the top of the heap and prepending it to a list.
-    // Remove only the number of heap entries present.
-    signed_size_t const heapDepth = heap.heapDepth();;
-    for (signed_size_t i = 0; i < heapDepth; ++i) {
-      neighbors.push_front(heap.removeTop());
-    }
-  }
-
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
    * numNeighbors - the number M of nearest neighbors to attempt to  find
    * enable - a vector that specifies the dimensions for which to test distance
    */
 private:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
                             signed_size_t const numNeighbors,
                             vector<bool> const& enable) {
     
     // Create the heap and search the k-d tree for nearest neighbors.
     NearestNeighborHeap<K> heap(query, numNeighbors, enable);
-    nearestNeighbors(heap, permutation, 0);
+    nearestNeighbors(heap, query.size(), 0);
 
     // Empty the heap by successively removing the top of the heap and prepending it to a list.
     // Remove only the number of heap entries present.
@@ -1018,7 +1076,6 @@ private:
    * nn - the nearest neighbors vector that is passed by reference and modified
    * rnn - the reverse nearest neighbors vector that is passed by reference and modified
    * mutexes - a vector of mutexes to make individual rnn list update thread safe
-   * permutation - vector that specifies permutation of the partition coordinate
    * root - the root of the k-d tree where a search for nearest neighbors must begin
    * numDimensions - the dimensionality k of the k-d tree
    * numNeighbors - the number M of nearest neighbors to attempt to find
@@ -1029,7 +1086,6 @@ private:
   void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
                                vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                                vector<mutex>& mutexes,
-                               vector<signed_size_t> const& permutation,
                                KdNode<K>* const root,
                                signed_size_t const numDimensions,
                                signed_size_t const numNeighbors,
@@ -1043,7 +1099,7 @@ private:
     // without copying the list.
     vector<K> const query(tuple, tuple + numDimensions);
     auto& nnList = nn[this->index];
-    root->findNearestNeighbors(nnList, query, permutation, numNeighbors);
+    root->findNearestNeighbors(nnList, query, numNeighbors);
     nnList.pop_front();
 
     // Iterate over the remaining list of nearest neighbors and prepend
@@ -1068,14 +1124,14 @@ private:
 
       // No, so visit the < sub-tree with the master thread.
       if (ltChild != nullptr) {
-        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
-                                         numNeighbors, maximumSubmitDepth, depth + 1);
+        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
+                                         numNeighbors, maximumSubmitDepth, depth+1);
       }
     
       // And then visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
-                                         numNeighbors, maximumSubmitDepth, depth + 1);
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
+                                         numNeighbors, maximumSubmitDepth, depth+1);
       }
     } else {
 
@@ -1090,19 +1146,18 @@ private:
                                                ref(nn),
                                                ref(rnn),
                                                ref(mutexes),
-                                               ref(permutation),
                                                root,
                                                numDimensions,
                                                numNeighbors,
                                                maximumSubmitDepth,
-                                               depth + 1);
+                                               depth+1);
                                            });
       }
 
       // And simultaneously visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
-                                         numNeighbors, maximumSubmitDepth, depth + 1);
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
+                                         numNeighbors, maximumSubmitDepth, depth+1);
       }
 
       // Wait for the child thread to finish execution.
@@ -1127,7 +1182,6 @@ private:
    * nn - the nearest neighbors vector that is passed by reference and modified
    * rnn - the reverse nearest neighbors vector that is passed by reference and modified
    * mutexes - a vector of mutexes to make individual rnn list update thread safe
-   * permutation - vector that specifies permutation of the partition coordinate
    * root - the root of the k-d tree where a search for nearest neighbors must begin
    * numDimensions - the dimensionality k of the k-d tree
    * numNeighbors - the number M of nearest neighbors to attempt to find
@@ -1139,7 +1193,6 @@ private:
   void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
                                vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                                vector<mutex>& mutexes,
-                               vector<signed_size_t> const& permutation,
                                KdNode<K>* const root,
                                signed_size_t const numDimensions,
                                signed_size_t const numNeighbors,
@@ -1154,7 +1207,7 @@ private:
     // without copying the list.
     vector<K> const query(tuple, tuple + numDimensions);
     auto& nnList = nn[this->index];
-    root->findNearestNeighbors(nnList, query, permutation, numNeighbors, enable);
+    root->findNearestNeighbors(nnList, query, numNeighbors, enable);
     nnList.pop_front();
 
     // Iterate over the remaining list of nearest neighbors and prepend
@@ -1179,14 +1232,14 @@ private:
 
       // No, so visit the < sub-tree with the master thread.
       if (ltChild != nullptr) {
-        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
-                                         numNeighbors, maximumSubmitDepth, depth + 1, enable);
+        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
+                                         numNeighbors, maximumSubmitDepth, depth+1, enable);
       }
     
       // And then visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
-                                         numNeighbors, maximumSubmitDepth, depth + 1, enable);
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
+                                         numNeighbors, maximumSubmitDepth, depth+1, enable);
       }
     } else {
 
@@ -1201,20 +1254,19 @@ private:
                                                ref(nn),
                                                ref(rnn),
                                                ref(mutexes),
-                                               ref(permutation),
                                                root,
                                                numDimensions,
                                                numNeighbors,
                                                maximumSubmitDepth,
-                                               depth + 1,
+                                               depth+1,
                                                enable);
                                            });
       }
 
       // And simultaneously visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
-                                         numNeighbors, maximumSubmitDepth, depth + 1, enable);
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
+                                         numNeighbors, maximumSubmitDepth, depth+1, enable);
       }
 
       // Wait for the child thread to finish execution.
@@ -1259,14 +1311,8 @@ private:
                                    signed_size_t const numNeighbors,
                                    signed_size_t maximumSubmitDepth) {
     
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the nearestNeighbors function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    vector<signed_size_t> permutation;
-    createPermutation(permutation, numDimensions, nn.size());
-
     // Walk the k-d tree and build the nearest neighbors lists.
-    nearestNeighborsForEach(nn, rnn, mutexes, permutation, this, numDimensions,
+    nearestNeighborsForEach(nn, rnn, mutexes, this, numDimensions,
                             numNeighbors, maximumSubmitDepth, 0);
   }
 
@@ -1302,14 +1348,8 @@ private:
                                    signed_size_t const maximumSubmitDepth,
                                    vector<bool> const& enable) {
     
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the nearestNeighbors function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    vector<signed_size_t> permutation;
-    createPermutation(permutation, numDimensions, nn.size());
-
     // Walk the k-d tree and build the nearest neighbors lists.
-    nearestNeighborsForEach(nn, rnn, mutexes, permutation, this, numDimensions,
+    nearestNeighborsForEach(nn, rnn, mutexes, this, numDimensions,
                             numNeighbors, maximumSubmitDepth, 0, enable);
   }
 
@@ -1561,7 +1601,7 @@ private:
   }
 
   /*
-   * The printKdTree function prints the k-d tree "sideways" with the root at the ltChild.
+   * The printKdTree function prints the k-d tree "sideways" with the root at the left.
    *
    * Calling parameters:
    *
@@ -1569,21 +1609,23 @@ private:
    * depth - the depth in the k-d tree
    */
 private:
-  void printKdTree(signed_size_t const dim,
+  void printKdTree(KdNode<K>* const node,
+                   signed_size_t const dim,
                    signed_size_t const depth) const {
     
     if (gtChild != nullptr) {
-      gtChild->printKdTree(dim, depth + 1);
+      gtChild->printKdTree(node->gtChild, dim, depth + 1);
     }
     for (signed_size_t i = 0; i < depth; ++i) cout << "       ";
     printTuple(tuple, dim);
     cout << endl;
     if (ltChild != nullptr) {
-      ltChild->printKdTree(dim, depth + 1);
+      ltChild->printKdTree(node->ltChild, dim, depth + 1);
     }
   }
 
   friend class KdTree<K>;
+  friend class KdTreeDynamic<K>;
   friend class NearestNeighborHeap<K>;
 }; // class KdNode
 

@@ -56,6 +56,22 @@
 
 #include "kdTreeNode.h"
 
+/* Forward references to all classes to support any order of compilation */
+template <typename>
+class KdTreeDynamic;
+
+template <typename>
+class KdTree;
+
+template <typename>
+class KdNode;
+
+template <typename>
+class MergeSort;
+
+template <typename>
+class NearestNeighborHeap;
+
 /* The KdTree class defines the k-d tree API. */
 template <typename K>
 class KdTree {
@@ -70,7 +86,7 @@ private:
 public:
   ~KdTree() {
 
-    // If the KdNode instances and the tuples contained by preallocated
+    // If the KdNode instances and the tuples are contained by preallocated
     // vectors, delete them; otherwise, delete the root KdNode so that
     // the ~KdNode destructor will recursively delete all tuple arrays.
 #ifdef PREALLOCATE
@@ -521,7 +537,7 @@ private:
    * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
    * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime, unsortTime - execution times
    *
-   * returns: a KdTree pointer to the root of the k-d tree
+   * returns: a KdTree pointer
    */
 public:
   static KdTree<K>* createKdTree(vector<vector<K>> const& coordinates,
@@ -787,17 +803,39 @@ public:
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     kdTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-    // Verify the k-d tree and report the number of kdNodes. Begin by
-    // creating a 1D permutation vector for use by the verifyKdTree function.
+    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() )
+    // or log2( kdNodes.size() ), depending on whether KD_TREE_DYNAMIC_H is defined,
+    // and assuming a balanced tree.
+    signed_size_t maxDepth = 1;
+#ifdef KD_TREE_DYNAMIC_H
+    signed_size_t size = kdNodes.size();
+#else
+    signed_size_t size = coordinates.size();
+#endif
+    while (size > 0) {
+      ++maxDepth;
+      size >>= 1;
+    }
+
+    // It is unnecessary to compute the partition coordinate upon each recursive call of
+    // the buildKdTree function because that coordinate depends only on the depth of
+    // recursion, so it may be pre-computed and stored in the permutation vector.
+    // Add the leading dimension p to the pre-computed partition coordinate (modulo
+    // the number of dimensions) to permit KdTreeDynamic::balanceSubtree to build
+    // a sub-tree whose root node has a non-zero partition coordinate.
+    vector<signed_size_t> permutation(maxDepth);
+    for (size_t i = 0; i < permutation.size(); ++i) {
+      permutation[i] = i % numDimensions;
+    }
+
+    // Verify the k-d tree and report the number of kdNodes.
     //
     // Because the partition coordinate permutes in the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
     // (for e.g. 4-dimensional data), the leading key of the super key will be 0 at the
     // first level of the nascent tree, consistent with having sorted the reference array
     // using 0 as the leading key of the super key.
     beginTime = steady_clock::now();
-    vector<signed_size_t> permutationVerify;
-    KdNode<K>::createPermutation(permutationVerify, numDimensions, coordinates.size());
-    numberOfNodes = tree->root->verifyKdTree(permutationVerify, numDimensions, maximumSubmitDepth, 0);
+    numberOfNodes = tree->root->verifyKdTree(permutation, numDimensions, maximumSubmitDepth, 0);
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     verifyTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -825,11 +863,11 @@ public:
     deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
 #ifdef DEBUG_PRINT
-    tree->printKdTree(numDimensions, 0);
+    tree->printKdTree(numDimensions);
     cout << endl;
 #endif
 
-    // Return the pointer to the root of the k-d tree.
+    // Return the pointer to the k-d tree.
     return tree;
   }
 
@@ -843,7 +881,6 @@ public:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * size - the number of points in the coordinates vector
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
@@ -851,10 +888,11 @@ public:
   void searchRegion(list<KdNode<K>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
-                    signed_size_t const maximumSubmitDepth,
-                    signed_size_t const size) {
+                    signed_size_t const maximumSubmitDepth) {
 
-    root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, size);
+    if (root != nullptr) {
+      root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth);
+    }
   }
 
   /*
@@ -867,7 +905,6 @@ public:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * size - the number of points in the coordinates vector
    * enable - a vector that specifies the dimensions on which to test for insidedness
    *          and prune the region search
    *
@@ -878,10 +915,11 @@ public:
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
-                    signed_size_t const size,
                     vector<bool> const& enable) {
     
-    root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, size, enable);
+    if (root != nullptr) {
+      root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enable);
+    }
   }
 
   /*
@@ -901,7 +939,9 @@ public:
                    vector<K>& queryLower,
                    vector<K>& queryUpper) {
 
-    root->bruteRegion(result, queryLower, queryUpper);
+    if (root != nullptr) {
+      root->bruteRegion(result, queryLower, queryUpper);
+    }
   }
 
   /*
@@ -912,15 +952,15 @@ public:
    * neighbors - the nearest neighbors list that is passed by reference and modified.
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to attempt to find
-   * size - the number of points in the coordinates vector
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
-                            signed_size_t const numNeighbors,
-                            signed_size_t const size) {
+                            signed_size_t const numNeighbors) {
     
-    root->findNearestNeighbors(neighbors, query, numNeighbors, size);
+    if (root != nullptr) {
+      root->findNearestNeighbors(neighbors, query, numNeighbors);
+    }
   }
   
   /*
@@ -931,17 +971,17 @@ public:
    * neighbors - the nearest neighbors list that is passed by reference and modified.
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to attempt to find
-   * size - the number of points in the coordinates vector
    * enable - a vector that specifies the dimensions for which to test distance
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
                             signed_size_t const numNeighbors,
-                            signed_size_t const size,
                             vector<bool> const& enable) {
     
-    root->findNearestNeighbors(neighbors, query, numNeighbors, size, enable);
+    if (root != nullptr) {
+      root->findNearestNeighbors(neighbors, query, numNeighbors, enable);
+    }
   }
   
   /*
@@ -960,7 +1000,9 @@ public:
                             vector<signed_size_t> const& permutation,
                             signed_size_t const numNeighbors) {
     
-    root->findNearestNeighbors(neighbors, query, permutation, numNeighbors);
+    if (root != nullptr) {
+      root->findNearestNeighbors(neighbors, query, permutation, numNeighbors);
+    }
   }
 
   /*
@@ -981,7 +1023,9 @@ public:
                             signed_size_t const numNeighbors,
                             vector<bool> const& enable) {
 
-    root->findNearestNeighbors(neighbors, query, permutation, numNeighbors, enable);
+    if (root != nullptr) {
+      root->findNearestNeighbors(neighbors, query, permutation, numNeighbors, enable);
+    }
   }
 
   /*
@@ -1000,7 +1044,9 @@ public:
   void verifyNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighborsFast,
                               forward_list< pair<double, KdNode<K>*> >& neighborsSlow) const {
     
-    root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
+    if (root != nullptr) {
+      root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
+    }
   }
   
   /*
@@ -1023,7 +1069,12 @@ public:
                                                         vector<K> const& query,
                                                         signed_size_t const& maxNodes) {
 
-    return root->sortByDistance(kdList, query, maxNodes);
+    if (root != nullptr) {
+      return root->sortByDistance(kdList, query, maxNodes);
+    } else {
+      forward_list<pair<double, KdNode<K>*>> sortedList;
+      return sortedList;
+    }
   }
 
 #ifdef REVERSE_NEAREST_NEIGHBORS
@@ -1057,7 +1108,10 @@ public:
                                    signed_size_t const numNeighbors,
                                    signed_size_t maximumSubmitDepth) {
     
-    root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions, numNeighbors, maximumSubmitDepth);
+    if (root != nullptr) {
+      root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions,
+                                        numNeighbors, maximumSubmitDepth);
+    }
   }
 
   /*
@@ -1092,7 +1146,10 @@ public:
                                    signed_size_t const maximumSubmitDepth,
                                    vector<bool> const& enable) {
     
-    root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions, numNeighbors, maximumSubmitDepth, enable);
+    if (root != nullptr) {
+      root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions,
+                                        numNeighbors, maximumSubmitDepth, enable);
+    }
   }
 
   /*
@@ -1112,7 +1169,9 @@ public:
                               vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                               signed_size_t const numberOfNodes) {
 
-    root->verifyReverseNeighbors(nn, rnn, numberOfNodes);
+    if (root != nullptr) {
+      root->verifyReverseNeighbors(nn, rnn, numberOfNodes);
+    }
   }
 
   /*
@@ -1132,7 +1191,9 @@ public:
                         double& meanDist,
                         double& stdDist) const {
 
-    root->calculateMeanStd(vec, meanSize, stdSize, meanDist, stdDist);
+    if (root != nullptr) {
+      root->calculateMeanStd(vec, meanSize, stdSize, meanDist, stdDist);
+    }
   }
 
   /*
@@ -1148,7 +1209,11 @@ public:
 public:
   size_t nonEmptyLists(vector< forward_list< pair<double, KdNode<K>*> > >& vec) const {
 
-    return root->nonEmptyLists(vec);
+    if (root != nullptr) {
+      return root->nonEmptyLists(vec);
+    } else {
+      return 0;
+    }
   }
 #endif // REVERSE_NEAREST_NEIGHBORS
                                                                                                
@@ -1167,9 +1232,34 @@ public:
                              vector<K> const& query,
                              signed_size_t const numNeighbors) {
     
-    root->bruteNearestNeighbors(neighbors, query, numNeighbors);
+    if (root != nullptr) {
+      root->bruteNearestNeighbors(neighbors, query, numNeighbors);
+    }
   }
   
+  /*
+   * The verifyKdTree function walks the k-d tree and checks that the
+   * children of a node are in the correct branch of that node.
+   *
+   * Calling parameters:
+   *
+   * permutation - the permutation vector
+   * dim - the number of dimensions
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   *
+   * returns: a count of the number of kdNodes in the k-d tree
+   */
+public:
+  signed_size_t verifyKdTree(signed_size_t const dim,
+                             signed_size_t const maximumSubmitDepth) {
+
+    if (root != nullptr) {
+      return root->verifyKdTree(dim, maximumSubmitDepth, 0, 0);
+    } else {
+      return 0;
+    }
+  }
+
   /*
    * The printTuple function prints one tuple.
    *
@@ -1186,7 +1276,9 @@ public:
   void printTuple(K const* tuple,
                   signed_size_t const dim) const {
     
-    root->printTuple(tuple, dim);
+    if (root != nullptr) {
+      root->printTuple(tuple, dim);
+    }
   }
 
   /*
@@ -1203,10 +1295,12 @@ public:
 public:
   void printTuple(vector<K> const& tuple) const {
     
-    root->printTuple(tuple);
+    if (root != nullptr) {
+      root->printTuple(tuple);
+    }
   }
 
-  /*
+ /*
    * The printTuples function prints all tuples in a forward list of pairs.
    *
    * Calling parameters:
@@ -1224,23 +1318,26 @@ public:
                    signed_size_t const maximumNumberOfNodesToPrint,
                    signed_size_t const numDimensions) const {
     
-    root->printTuples(regionList, maximumNumberOfNodesToPrint, numDimensions);
+    if (root != nullptr) {
+      root->printTuples(regionList, maximumNumberOfNodesToPrint, numDimensions);
+    }
   }
 
- /*
-   * The printKdTree function prints the k-d tree "sideways" with the root at the ltChild.
+  /*
+   * The printKdTree function prints the k-d tree "sideways" with the root at the left.
    *
    * Calling parameters:
    *
    * dim - the number of dimensions
-   * depth - the depth in the k-d tree
    */
 public:
-  void printKdTree(signed_size_t const dim,
-                   signed_size_t const depth) const {
+  void printKdTree(signed_size_t const dim) const {
     
-    root->printKdTree(dim, depth);
+    if (root != nullptr) {
+      root->printKdTree(root, dim, 0);
+    }
   }
+
 }; // class KdTree
 
 #endif // KD_TREE_YUCAO_H

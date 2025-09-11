@@ -41,20 +41,28 @@
 #define MERGE_CUTOFF 4096
 #endif
 
-/* Forward references to KdNode and KdTree friend classes */
+/* Forward references to all classes to support any order of compilation */
+template <typename>
+class KdTreeDynamic;
+
+template <typename>
+class KdTree;
 
 template <typename>
 class KdNode;
 
 template <typename>
-class KdTree;
+class MergeSort;
+
+template <typename>
+class NearestNeighborHeap;
 
 /* The merge sort functions */
 template <typename K>
 class MergeSort {
 
   /*
-   * The superKeyCompare function compares two T arrays in all k dimensions,
+   * The superKeyCompare function compares two K arrays in all k dimensions,
    * and uses the sorting or partition coordinate as the most significant dimension.
    *
    * Calling parameters:
@@ -64,7 +72,7 @@ class MergeSort {
    * p - the most significant dimension
    * dim - the number of dimensions
    *
-   * returns a T result of comparing two T arrays
+   * returns a K result of comparing two K arrays
    */
 private:
   inline
@@ -644,6 +652,7 @@ private:
 
   friend class KdNode<K>;
   friend class KdTree<K>;
+  friend class KdTreeDynamic<K>;
 }; // class MergeSort
 
 #endif // KD_TREE_MERGE_SORT_H

@@ -426,7 +426,7 @@ int main(int argc, char** argv) {
     }
     regionList.clear();
     auto beginTime = steady_clock::now();
-    root->searchRegion(regionList, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
+    root->searchRegion(regionList, queryLower, queryUpper, maximumSubmitDepth);
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     regionTime[i] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -444,7 +444,7 @@ int main(int argc, char** argv) {
     }
     neighborList.clear();
     auto beginTime = steady_clock::now();
-    root->findNearestNeighbors(neighborList, query, numNeighbors, coordinates.size());
+    root->findNearestNeighbors(neighborList, query, numNeighbors);
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     neighborTime[i] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -506,7 +506,7 @@ int main(int argc, char** argv) {
     }
     kdKey_t queryRange = (endCoordinate - beginCoordinate) / searchDivisor / 2;
     list<KdNode<kdKey_t>*> regionFast;
-    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
+    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth);
 
     cout << regionFast.size() << " nodes within " << queryRange << " units of ";
     root->printTuple(query);
@@ -575,7 +575,7 @@ int main(int argc, char** argv) {
       query[i] = i;
     }
     forward_list< pair<double, KdNode<kdKey_t>*> > neighborsFast;
-    root->findNearestNeighbors(neighborsFast, query, numNeighbors, coordinates.size());
+    root->findNearestNeighbors(neighborsFast, query, numNeighbors);
 
     cout << "tree nearest-neighbor list size = " << distance(neighborsFast.begin(), neighborsFast.end()) << endl << endl;
 
