@@ -597,14 +597,17 @@ private:
                 //
                 // Checking the height prior to checking the countNodes result
                 // avoids a time-consuming call of countNodes for a large subtree.
+
+#ifdef ENABLE_1TO3
+
                 size_t nodeCount;
                 if (nodePtr->ltChild->height <= 3
-                    && (nodeCount = countNodes(nodePtr->ltChild)) <= 3) {
+                    && (nodeCount = countNodes(nodePtr->ltChild)) <= 3)
+                {
                     // Yes, the < child subtree contains <= 3 nodes. So, rebuild
                     // the < subtree explicitly using the leading dimension p at
                     // this level of the tree, and delete the node. This approach
-                    // circumvents the more expensive approach that must find a
-                    // predecessor node.
+                    // avoids the approach that finds a predecessor node.
                     //
                     // Note that rebuildSubTree1to3 computes the height
                     // of the rebuilt subtree.
@@ -622,8 +625,12 @@ private:
                         tempPtr->ltChild = nullptr; // Prevent recursive deletion.
                         delete tempPtr;
                     }
-                } else {
-                    // No, the < child sub-tree contains >= 4 nodes. So, find
+                } else
+
+#endif // ENABLE_1TO3
+
+                {
+                    // No, the < child sub-tree contains > 3 nodes. So, find
                     // the immediate predecessor node, copy the tuple from that
                     // predecessor node to the one-child node, delete the
                     // predecessor node, recompute the height along the path
@@ -667,14 +674,17 @@ private:
                 //
                 // Checking the height prior to checking the countNodes result
                 // avoids a time-consuming call of countNodes for a large sub-tree.
+
+#ifdef ENABLE_1TO3
+
                 size_t nodeCount;
                 if (nodePtr->gtChild->height <= 3
-                    && (nodeCount = countNodes(nodePtr->gtChild)) <= 3) {
-                    // Yes, the > child subtree contains <= 3 nodes. So, rebuild
+                    && (nodeCount = countNodes(nodePtr->gtChild)) <= 3)
+                {
+                   // Yes, the > child subtree contains <= 3 nodes. So, rebuild
                     // the > subtree explicitly using the leading dimension p at
                     // this level of the tree, and delete the node. This approach
-                    // circumvents the more expensive approach that must find a
-                    // successor node.
+                    // avoids the approach that finds a successor node.
                     //
                     // Note that rebuildSubTree1to3 computes the height
                     // of the rebuilt subtree.
@@ -692,8 +702,12 @@ private:
                         tempPtr->gtChild = nullptr; // Prevent recursive deletion.
                         delete tempPtr;
                     }
-                } else {
-                    // No, the > child subtree contains >= 4 nodes. So, find
+                } else
+
+#endif // ENABLE_1TO3
+
+                {
+                    // No, the > child subtree contains > 3 nodes. So, find
                     // the immediate successor node, copy the tuple from that
                     // successor node to the one-child node, delete the
                     // successor node, recompute the height along the path
@@ -751,14 +765,17 @@ private:
                 //
                 // Checking the height prior to checking the countNodesSkipRoot result
                 // avoids a time-consuming call of countNodesSkipRoot for a large sub-tree.
+
+#ifdef ENABLE_1TO3
+
                 size_t nodeCount;
                 if (nodePtr->height <= 3
-                    && (nodeCount = countNodesSkipRoot(nodePtr)) <= 3) {
+                    && (nodeCount = countNodesSkipRoot(nodePtr)) <= 3)
+                {
                     // Yes, the subtree rooted at this node contains <= 3 nodes,
-                    // excluding its root node, so rebuild the subtree excluding
-                    // its root node and delete its root node. This approach
-                    // circumvents the more expensive approach that must find
-                    // a predecessor or successor node.
+                    // excluding this root node, so rebuild the subtree excluding
+                    // this root node and delete this root node. This approach avoids
+                    // the approach that finds a predecessor or successor node.
                     //
                     // Note that rebuildSubTreeSkipRoot1to3 computes the height
                     // of the rebuilt subtree.
@@ -766,37 +783,44 @@ private:
                     nodePtr = rebuildSubTreeSkipRoot1to3(nodePtr, nodeCount, 2, dim, p);
                     if (tempPtr == nullptr) {
                         ostringstream buffer;
-                        buffer << "= = child null in erase 1to3" << endl;
+                        buffer << "!= != child null in erase 1to3" << endl;
                         throw runtime_error(buffer.str());
                     } else {
-    #ifdef STATISTICS
+#ifdef STATISTICS
                         ++eraseCount;
                         ++eraseBalanceCount;
-    #endif
+#endif
                         tempPtr->ltChild = tempPtr->gtChild = nullptr; // Prevent recursive deletion.
                         delete tempPtr;
                     }
-                } else {
-                    // No, the subtree rooted at this node contains >= 4 nodes.
-                    // So replace it by either its predecessor or its successor.
+                } else
+
+#endif // ENABLE_1TO3
+
+                {
+                    // No, the subtree rooted at this node contains > 3 nodes,
+                    // excluding this root node, so replace this node by either
+                    // its predecessor or its successor.
+                    //
                     // If ENABLE_PREFERRED_TEST is defined, select the replacement
                     // node from the taller of the child sub-trees.
 
-    #ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                     cout << "< height = " << getHeight(nodePtr->ltChild)
                         << "  > height = " << getHeight(nodePtr->gtChild)
                         << "  p = " << p << endl << endl;
-    #endif
+#endif
 
-    #ifdef ENABLE_PREFERRED_TEST
+#ifdef ENABLE_PREFERRED_TEST
+
                     if ( getHeight(nodePtr->ltChild) >= getHeight(nodePtr->gtChild) )
                     {
 
-    #ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                         cout << "erase: must find predecessor for ";
                         KdTree<K>::printTuple(nodePtr->tuple, dim);
                         cout << endl << endl;
-    #endif
+#endif
 
                         // Find the node with the largest super-key in the
                         // sub-tree rooted at the < child, which is the
@@ -806,13 +830,13 @@ private:
                         // predecessor node to (but excluding) the two-child node,
                         // and then recompute the height at the two-child node.
                         KdNode<K>* predecessor = nodePtr->ltChild;
-    #ifndef STATISTICS
+#ifndef STATISTICS
                         predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                         for (signed_size_t i = 0; i < dim; ++i) {
                             nodePtr->tuple[i] = predecessor->tuple[i];
                         }
                         nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
-    #else
+#else
                         ++eraseFindCount;
                         auto beginTime = steady_clock::now();
                         predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
@@ -827,35 +851,37 @@ private:
                         endTime = steady_clock::now();
                         duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                         eraseRecursiveTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-    #endif
+#endif
                         nodePtr->height = computeHeight(nodePtr);
                         if ( !isBalanced(nodePtr) ) {
-    #ifndef STATISTICS
+#ifndef STATISTICS
                             nodePtr = rebuildSubTree(nodePtr, 2, dim, p);
-    #else
+#else
                             ++eraseBalanceCount;
                             beginTime = steady_clock::now();
                             nodePtr = rebuildSubTree(nodePtr, 2, dim, p);
                             endTime = steady_clock::now();
                             duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                             eraseBalanceTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-    #endif
+#endif
                         }
 
-    #ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                         cout << "erase: predecessor = ";
                         KdTree<K>::printTuple(nodePtr->tuple, dim);
                         cout << endl << endl;
-    #endif
+#endif
                     } else
-    #endif
+
+#endif // ENABLE_PREFERRED_TEST
+
                     {
 
-    #ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                         cout << "erase: must find successor for ";
                         KdTree<K>::printTuple(nodePtr->tuple, dim);
                         cout << endl << endl;
-    #endif
+#endif
 
                         // Find the node with the smallest super-key in the
                         // sub-tree rooted at the > child, which is the
@@ -865,13 +891,13 @@ private:
                         // successor node to (but excluding) the two-child node,
                         // and then recompute the height at the two-child node.
                         KdNode<K>* successor = nodePtr->gtChild;
-    #ifndef STATISTICS
+#ifndef STATISTICS
                         successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                         for (signed_size_t i = 0; i < dim; ++i) {
                             nodePtr->tuple[i] = successor->tuple[i];
                         }
                         nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
-    #else
+#else
                         ++eraseFindCount;
                         auto beginTime = steady_clock::now();
                         successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
@@ -886,26 +912,26 @@ private:
                         endTime = steady_clock::now();
                         duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                         eraseRecursiveTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-    #endif
+#endif
                         nodePtr->height = computeHeight(nodePtr);
                         if ( !isBalanced(nodePtr) ) {
-    #ifndef STATISTICS
+#ifndef STATISTICS
                             nodePtr = rebuildSubTree(nodePtr, 2, dim, p);
-    #else
+#else
                             ++eraseBalanceCount;
                             beginTime = steady_clock::now();
                             nodePtr = rebuildSubTree(nodePtr, 2, dim, p);
                             endTime = steady_clock::now();
                             duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                             eraseBalanceTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-    #endif
+#endif
                         }
 
-    #ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                         cout << "erase: successor = ";
                         KdTree<K>::printTuple(nodePtr->tuple, dim);
                         cout << endl << endl;
-    #endif
+#endif
                     }
                 }
             }
@@ -941,7 +967,7 @@ private:
         // a fast alternative to the modulus operator for p <= dim.
         p = (p < dim) ? p : 0;
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
         cout << "findPredecessor: dim = " << dim << "  p = " << p << "  node = ";
         KdTree<K>::printTuple(node->tuple, dim);
         cout << endl << endl;
@@ -966,7 +992,7 @@ private:
             if (node->ltChild != nullptr) {
                 pred = findPredecessor(node->ltChild, pred, dim, p0, p+1);
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                 cout << "findPredecessor: predecessor = ";
                 KdTree<K>::printTuple(pred->tuple, dim);
                 cout << endl << endl;
@@ -975,7 +1001,7 @@ private:
             if (node->gtChild != nullptr) {
                 pred = findPredecessor(node->gtChild, pred, dim, p0, p+1);
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
             cout << "findPredecessor: predecessor = ";
             KdTree<K>::printTuple(pred->tuple, dim);
             cout << endl << endl;
@@ -1007,7 +1033,7 @@ private:
         // The return value because the predecessor argument to this function is read only.
         KdNode<K>* pred = predecessor;
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
         cout << "checkPredecessor: p0 = " << p0
              << "  dim = " << dim << "  node = ";
         KdTree<K>::printTuple(node->tuple, dim);
@@ -1021,7 +1047,7 @@ private:
             pred = node;
         }
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
         cout << "checkPredecessor: predecessor = ";
         KdTree<K>::printTuple(pred->tuple, dim);
         cout << endl << endl;
@@ -1057,7 +1083,7 @@ private:
         // a fast alternative to the modulus operator for p <= dim.
         p = (p < dim) ? p : 0;
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
         cout << "findSuccessor: dim = " << dim << "  p = " << p << "  node = ";
         KdTree<K>::printTuple(node->tuple, dim);
         cout << endl << endl;
@@ -1080,7 +1106,7 @@ private:
             if (node->ltChild != nullptr) {
                 succ = findSuccessor(node->ltChild, succ, dim, p0, p+1);
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                 cout << "findSuccessor: successor = ";
                 KdTree<K>::printTuple(succ->tuple, dim);
                 cout << endl << endl;
@@ -1089,7 +1115,7 @@ private:
             if (node->gtChild != nullptr) {
                 succ = findSuccessor(node->gtChild, succ, dim, p0, p+1);
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                 cout << "findSuccessor: successor = ";
                 KdTree<K>::printTuple(succ->tuple, dim);
                 cout << endl << endl;
@@ -1121,7 +1147,7 @@ private:
         // The return value because the successor argument to this function is read only.
         KdNode<K>* succ = successor;
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
         cout << "checkSuccessor: p0 = " << p0
              << "  dim = " << dim << "  node = ";
         KdTree<K>::printTuple(node->tuple, dim);
@@ -1135,7 +1161,7 @@ private:
             succ = node;
         }
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
         cout << "checkSuccessor: successor = ";
         KdTree<K>::printTuple(succ->tuple, dim);
         cout << endl << endl;
@@ -1185,7 +1211,7 @@ private:
             // No, the sub-tree contains more than 3 KdNodes,
             // so rebuild the sub-tree via KdTree::createKdTree.
 
-    #ifdef EXTRA_PRINT
+    #if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
             cout << "tree prior to rebalancing sub-tree (p = " << p << "):" << endl << endl;
             KdTree<K>::printKdTree(dim);
             cout << endl << endl;
@@ -1243,7 +1269,7 @@ private:
                                             verifyTime, deallocateTime, unsortTime, p);
                 }
 
-    #ifdef EXTRA_PRINT
+    #if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
             cout << "rebalanced sub-tree (p = " << p << "):" << endl << endl;
             subTree->printKdTree(dim);
             cout << endl << endl;
@@ -1287,35 +1313,6 @@ private:
     }
 
     /*
-     * Build a sub-tree that contains 1 to 3 KdNode instances
-     * but skip the root node.     
-     *
-     * Calling parameters:
-     * 
-     * @param node (IN) the root of the sub-tree
-     * @param nodeCount (IN) the number of nodes in the subtree
-     * @param histogram (IN) specify a histogram to record statistics
-     * @param dim (IN) the number of dimensions
-     * @param p (IN) the leading dimension
-     * 
-     * return the root node of the sub-tree
-     */
-private:
-    inline KdNode<K>* rebuildSubTreeSkipRoot1to3(KdNode<K>* const node,
-                                                 size_t const nodeCount,
-                                                 size_t const histogram,
-                                                 size_t const dim,
-                                                 signed_size_t const p) {
-
-        // Allocate a sized vector of KdNode pointers, and walk the subtree
-        // to assign to each vector element a pointer to a KdNode instance.
-        vector<KdNode<K>*> kdNodes(nodeCount);
-        size_t index = 0;
-        getSubTreeSkipRoot(node, kdNodes, index);
-        return rebuildSubTree1to3(node, kdNodes, histogram, dim, p);
-    }
-
-    /*
      * Build a sub-tree that contains 1 to 3 KdNode instances.     
      *
      * Calling parameters:
@@ -1341,7 +1338,7 @@ private:
         // Prevent the compiler from issuing a warning when STATISTICS is undefined.
         size_t const foo = histogram;
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
         cout << "rebuildSubTree1to3: node = ";
         KdTree<K>::printTuple(node->tuple, dim);
         cout << "  subtree size = " << kdNodes.size() << endl << endl;
@@ -1447,7 +1444,7 @@ private:
         }
 #endif
 
-#ifdef EXTRA_PRINT
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
         cout << "rebuildSubTree1to3: return node = ";
         KdTree<K>::printTuple(ptr->tuple, dim);
         cout << endl << endl;
@@ -1480,6 +1477,133 @@ private:
         }
 
         return count;
+    }
+
+    /*
+     * Append the nodes from a sub-tree into a pre-sized vector.     
+     *
+     * Calling parameters:
+     * 
+     * @param node (IN) the root of the sub-tree
+     * @param kdNodes (MODIFIED) the vector
+     * @param index (MODIFIED) the index where the node is stored
+     */
+private:
+    void getSubTree(KdNode<K>* const node,
+                    vector<KdNode<K>*>& kdNodes,
+                    size_t& index) {
+
+        // Append the child nodes recursively.
+        if (node->ltChild != nullptr) {
+            getSubTree(node->ltChild, kdNodes, index);
+        }
+        if (node->gtChild != nullptr) {
+            getSubTree(node->gtChild, kdNodes, index);
+        }
+
+        // Initialize this node's fields, including its child
+        // pointers, and append it to the kdNodes vector.
+        node->height = 1;
+        node->ltChild = node->gtChild = nullptr;
+        kdNodes[index++] = node;
+    }
+
+#ifdef PUSH_NODES
+
+    /*
+     * Build a sub-tree that contains 1 to 3 KdNode instances
+     * but skip the root node.     
+     *
+     * Calling parameters:
+     * 
+     * @param node (IN) the root of the sub-tree
+     * @param nodeCount (IN) the number of nodes in the subtree
+     * @param histogram (IN) specify a histogram to record statistics
+     * @param dim (IN) the number of dimensions
+     * @param p (IN) the leading dimension
+     * 
+     * return the root node of the sub-tree
+     */
+private:
+    inline KdNode<K>* rebuildSubTreeSkipRoot1to3(KdNode<K>* const node,
+                                                 size_t const nodeCount,
+                                                 size_t const histogram,
+                                                 size_t const dim,
+                                                 signed_size_t const p) {
+
+        // Allocate a sized vector of KdNode pointers, and walk the subtree
+        // to assign to each vector element a pointer to a KdNode instance.
+        vector<KdNode<K>*> kdNodes(nodeCount);
+        size_t index = 0;
+        getSubTreeSkipRoot(node, kdNodes, index);
+        return rebuildSubTree1to3(node, kdNodes, histogram, dim, p);
+    }
+
+    /*
+     * Count and prepend the nodes from a sub-tree to a vector.     
+     *
+     * Calling parameters:
+     * 
+     * @param node (IN) the root of the sub-tree
+     * @param kdNodes (MODIFIED) the vector
+     * 
+     * return the number of nodes
+     */
+private:
+    size_t getSubTree(KdNode<K>* const node,
+                      vector<KdNode<K>*>& kdNodes) {
+
+        // Count this node.
+        size_t count = 1;
+
+        // Obtain counts from child nodes and prepend nodes recursively.
+        if (node->ltChild != nullptr) {
+            count += getSubTree(node->ltChild, kdNodes);
+        }
+        if (node->gtChild != nullptr) {
+            count += getSubTree(node->gtChild, kdNodes);
+        }
+
+        // Initialize this node's fields, including its child
+        // pointers, and prepend it to the kdNodes vector.
+        node->height = 1;
+        node->ltChild = node->gtChild = nullptr;
+        kdNodes.push_back(node);
+
+        return count;
+    }
+
+#endif // PUSH_NODES
+
+#ifdef ENABLE_1TO3
+
+    /*
+     * Build a sub-tree that contains 1 to 3 KdNode instances
+     * but skip the root node.     
+     *
+     * Calling parameters:
+     * 
+     * @param node (IN) the root of the sub-tree
+     * @param nodeCount (IN) the number of nodes in the subtree
+     * @param histogram (IN) specify a histogram to record statistics
+     * @param dim (IN) the number of dimensions
+     * @param p (IN) the leading dimension
+     * 
+     * return the root node of the sub-tree
+     */
+private:
+    inline KdNode<K>* rebuildSubTreeSkipRoot1to3(KdNode<K>* const node,
+                                                 size_t const nodeCount,
+                                                 size_t const histogram,
+                                                 size_t const dim,
+                                                 signed_size_t const p) {
+
+        // Allocate a sized vector of KdNode pointers, and walk the subtree
+        // to assign to each vector element a pointer to a KdNode instance.
+        vector<KdNode<K>*> kdNodes(nodeCount);
+        size_t index = 0;
+        getSubTreeSkipRoot(node, kdNodes, index);
+        return rebuildSubTree1to3(node, kdNodes, histogram, dim, p);
     }
 
     /*
@@ -1516,35 +1640,6 @@ private:
     }
 
     /*
-     * Append the nodes from a sub-tree into a pre-sized vector.     
-     *
-     * Calling parameters:
-     * 
-     * @param node (IN) the root of the sub-tree
-     * @param kdNodes (MODIFIED) the vector
-     * @param index (MODIFIED) the index where the node is stored
-     */
-private:
-    void getSubTree(KdNode<K>* const node,
-                    vector<KdNode<K>*>& kdNodes,
-                    size_t& index) {
-
-        // Append the child nodes recursively.
-        if (node->ltChild != nullptr) {
-            getSubTree(node->ltChild, kdNodes, index);
-        }
-        if (node->gtChild != nullptr) {
-            getSubTree(node->gtChild, kdNodes, index);
-        }
-
-        // Initialize this node's fields, including its child
-        // pointers, and append it to the kdNodes vector.
-        node->height = 1;
-        node->ltChild = node->gtChild = nullptr;
-        kdNodes[index++] = node;
-    }
-
-    /*
      * Append the nodes from a sub-tree into a pre-sized vector
      * but skip the root node.     
      *
@@ -1578,6 +1673,8 @@ private:
             kdNodes[index++] = node;
         }
     }
+
+#endif // ENABLE_1TO3
 
     /*
      * Count and append the tuples of nodes from a sub-tree into a pre-sized vector.

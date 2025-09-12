@@ -37,6 +37,11 @@
  * 
  * -D NLOGN - Select the O(n log n) algorithm instead of the O(kn log n) algorithm.
  * 
+ * -D ENABLE_PREFERRED_TEST - Enable comparing the heights of a deleted 2-child node's
+ *                            child subtrees to select a preferred replacement node.
+ * 
+ * -D ENABLE_1TO3 - Enable interrupting recursive deletion when a subtree contains <= 3 nodes.
+ * 
  * -D AVL_BALANCE - If defined, KdTreeDynamic::isBalanced checks for AVL balancing;
  *                  otherwise, KdTreeDynamic::isBalanced checks for red-black balancing.
  * 
@@ -57,6 +62,10 @@
  * -D DEBUG_PRINT - Provide a simple coordinates vector and print information to
  *                  facilitate debugging the KdTreeDynamic insert and erase functions.
  *
+ * -D EXTRA_PRINT - Print additional information to facilitate debugging
+ *                  the KdTreeDynamic insert and erase functions. This directive
+ *                  is ignored unless -D DEBUG_PRINT is defined.
+ * 
  * -D WORST_CASE - A pathological coordinates vector that requires frequent rebalancing;
  *                 this option is recognized only if DEBUG_PRINT is also defined.
  * 
@@ -65,9 +74,6 @@
  *                 and requires balancing after the final insertion. The resulting
  *                 tree is useful for creating a diagram of the tree. This option is
  *                 recognized only if DEBUG_PRINT is also defined.
- * 
- * -D EXTRA_PRINT - Print additional information to facilitate debugging
- *                  the KdTreeDynamic insert and erase functions.
  * 
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  *
