@@ -492,11 +492,11 @@ public:
             KdTree<K>::root = erase(KdTree<K>::root, tuple, dim, 0);
         }
 
-    #ifdef STATISTICS
+#ifdef STATISTICS
         eraseBalanceSum += eraseBalanceCount;
         eraseFindSum += eraseFindCount;
         storeToHistogram(eraseBalanceCount, eraseHistogram);
-    #endif
+#endif
         return erased;
     }
 
@@ -1211,7 +1211,7 @@ private:
             // No, the sub-tree contains more than 3 KdNodes,
             // so rebuild the sub-tree via KdTree::createKdTree.
 
-    #if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
             cout << "tree prior to rebalancing sub-tree (p = " << p << "):" << endl << endl;
             KdTree<K>::printKdTree(dim);
             cout << endl << endl;
@@ -1219,7 +1219,7 @@ private:
             cout << "must rebalance sub-tree (p = " << p << "):" << endl << endl;
             node->printKdTree(node, dim, 0);
             cout << endl << endl;
-    #endif
+#endif
 
             // Check the count and kdNodes.size() for consistency.
             if (count != kdNodes.size()) {
@@ -1228,7 +1228,7 @@ private:
                 throw runtime_error(buffer.str());
             }
 
-    #ifdef STATISTICS
+#ifdef STATISTICS
             if (histogram == 1) {
                 storeToHistogram(count,
                                  insertBalanceHistogram,
@@ -1244,7 +1244,7 @@ private:
                 buffer << "\n\nunsupported histogram = " << histogram << " in rebuildSubTree\n";
                 throw runtime_error(buffer.str());
             }
-    #endif
+#endif
 
             // Call KdTree::createKdTree to rebuild the sub-tree, which
             // invalidates the node argument to this rebuildSubTree function.
@@ -1269,11 +1269,11 @@ private:
                                             verifyTime, deallocateTime, unsortTime, p);
                 }
 
-    #if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
+#if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
             cout << "rebalanced sub-tree (p = " << p << "):" << endl << endl;
             subTree->printKdTree(dim);
             cout << endl << endl;
-    #endif
+#endif
 
             // Delete the KdTree instance but not its root
             // (see the ~KdTree destructor) so that the 
