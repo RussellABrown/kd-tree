@@ -40,7 +40,7 @@
  * -D ENABLE_PREFERRED_TEST - Enable comparing the heights of a deleted 2-child node's
  *                            child subtrees to select a preferred replacement node.
  * 
- * -D ENABLE_1TO3 - Enable interrupting recursive deletion when a subtree contains <= 3 nodes.
+ * -D ENABLE_1TO3 - Enable curtailing recursive deletion when a subtree contains <= 3 nodes.
  * 
  * -D AVL_BALANCE - If defined, KdTreeDynamic::isBalanced checks for AVL balancing;
  *                  otherwise, KdTreeDynamic::isBalanced checks for red-black balancing.
