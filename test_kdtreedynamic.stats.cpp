@@ -46,13 +46,15 @@
  *                  otherwise, KdTreeDynamic::isBalanced checks for red-black balancing.
  * 
  * -D HEIGHT_DIFF=n - For red-black balancing, the maximum allowed height difference
- *                    between the < and > subtrees of a node when one subtree is empty;
+ *                    between the < and > sub-trees of a node when one sub-tree is empty;
  *                    for AVL balancing, the maximum allowed height difference between
- *                    the < and > subtrees of a node (default 1)
+ *                    the < and > sub-trees of a node (default 1)
  * 
-* -D HISTOGRAM_SIZE=n - The size of the histogram vectors that collect balance data (default 25)
+ * -D STATISTICS - Collect statistics such as the number of rebalancing operations, etc.
  * 
- * -D MAXIMUM_SIZE=n - The size of the maximum vectors that collect maximum subtree sizes (default 25)
+ * -D HISTOGRAM_SIZE=n - The size of the histogram vectors that collect balance data (default 25)
+ * 
+ * -D MAXIMUM_SIZE=n - The size of the maximum vectors that collect maximum sub-tree sizes (default 25)
  * 
  * -D DEBUG_PRINT - Provide a simple coordinates vector and print information to
  *                  facilitate debugging the KdTreeDynamic insert and erase functions.
@@ -98,7 +100,7 @@
  * 
  * Usage:
  *
- * test_kdtree [-i I] [-n N] [-m M] [-d D] [-t T] [-s S] [-p P] [-b] [-g] [-v] [-f] [-w] [-r]
+ * test_kdtree [-i I] [-n N] [-m M] [-d D] [-t T] [-s S] [-p P] [-b] [-g] [-v] [-f] [-w] [r]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -138,7 +140,7 @@
   * Include kdTreeDynamic.h first so that KD_TREE_DYNAMIC_H will be defined
   * for kdTreeMergeSort.h, kdTreeKnlogn.h and kdTreeNlogn.h
   */
-#include "kdTreeDynamic.h"
+#include "kdTreeDynamic.stats.h"
 
 #ifdef NLOGN
 #include "kdTreeNlogn.h"
@@ -312,6 +314,88 @@ int main(int argc, char** argv) {
   // Create an instance of KdTreeDynamic.
   auto tree = new KdTreeDynamic<kdKey_t>(maximumSubmitDepth,cutoff);
 
+#ifdef DEBUG_PRINT
+  // A data set that requires some rebalancing operations.
+#if !defined(WORST_CASE) && !defined(FEWER_CASE)
+  vector<vector<kdKey_t>> coordinates = { {9,7,8}, {9,6,7}, {8,7,5}, {9,5,3}, {8,3,2}, 
+                                          {8,1,5}, {9,4,1}, {7,2,6}, {4,7,9}, {1,6,8},
+                                          {3,4,5}, {5,4,2}, {2,1,3}, {2,3,4}, {6,3,2} };
+#endif
+
+  // A data set that comprises fewer coordinates and produces
+  // a tree with more evenly distributed nodes side-to-side,
+  // and requires rebalancing after the final insertion.
+#if !defined(WORST_CASE) && defined(FEWER_CASE)
+  vector<vector<kdKey_t>> coordinates = { {7,2,6}, 
+                                          {2,3,4}, {9,4,1},
+                                          {2,1,3}, {5,4,2}, {8,1,5}, {9,5,3},
+                                          {6,5,1}, {3,4,5}, {8,3,2}, {8,7,5},
+                                          {9,2,1} };
+#endif
+
+#if defined(WORST_CASE) && !defined(FEWER_CASE)
+  // A pathological data set that creates a list instead of a balanced tree
+  // and therefore requires a large number of rebalancing operations.
+  vector<vector<kdKey_t>> coordinates = { {2,3,4}, {5,4,2}, {9,6,7}, {4,7,9}, {8,1,5}, 
+                                          {7,2,6}, {9,4,1}, {8,3,2}, {9,7,8}, {6,3,2},
+                                          {3,4,5}, {1,6,8}, {9,5,3}, {2,1,3}, {8,7,5} };
+#endif
+
+  // Insert each coordinate into the k-d tree.
+  for (size_t i = 0; i < coordinates.size(); ++i) {
+    cout << "inserting tuple ";
+    tree->printTuple(coordinates[i]);
+    cout << endl << endl;
+    if (tree->insert(coordinates[i])) {
+      cout << "tree after insertion of tuple ";
+      tree->printTuple(coordinates[i]);
+      cout << endl << endl;
+      tree->printKdTree(coordinates[i].size());
+      cout << endl << endl;
+      tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+    } else {
+      ostringstream buffer;
+      buffer << "\n\nfailed to insert tuple:";
+      tree->printTuple(coordinates[i]);
+      buffer << endl;
+      throw runtime_error(buffer.str());
+    }
+  }
+
+  // Verify correct order of each node in the k-d tree.
+  tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+
+  cout << "*******************************************" << endl << endl;
+
+  // Erase each coordinate from the k-d tree.
+  for (size_t i = 0; i < coordinates.size(); ++i) {
+    cout << "erasing tuple ";
+    tree->printTuple(coordinates[i]);
+    cout << endl << endl;
+    if (tree->erase(coordinates[i])) {
+      cout << "tree after erasure of tuple ";
+      tree->printTuple(coordinates[i]);
+      cout << endl << endl;
+      if (!tree->isEmpty()) {
+        tree->printKdTree(coordinates[i].size());
+        cout << endl << endl;
+      } else {
+        cout << "tree is empty" << endl << endl;
+      }
+      tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+    } else {
+      ostringstream buffer;
+      buffer << "\n\nfailed to erase tuple:";
+      tree->printTuple(coordinates[i]);
+      buffer << endl;
+      throw runtime_error(buffer.str());
+    }
+  }
+
+  cout << "*******************************************" << endl << endl;
+
+#else // !defined(DEBUG_PRINT)
+
   // Declare and initialize the coordinates and oneCoordinte vectors.
   vector<vector<kdKey_t>> coordinates(numPoints, vector<kdKey_t>(numDimensions));
   vector<kdKey_t> oneCoordinate(numPoints);
@@ -350,6 +434,20 @@ int main(int argc, char** argv) {
   vector<double> containsTime(iterations);
   vector<double> neighborsTimeBalanced(iterations);
   vector<double> neighborsTimeDynamic(iterations);
+
+#ifdef STATISTICS
+  vector<double> insertBalanceTime(iterations);
+  vector<double> netInsertTime(iterations);
+  vector<double> eraseBalanceTime(iterations);
+  vector<double> eraseFindTime(iterations);
+  vector<double> eraseRecursiveTime(iterations);
+  vector<double> netEraseTime(iterations);
+  vector<double> copyBalanceTime(iterations);
+  vector<size_t> insertBalanceSum(iterations);
+  vector<size_t> eraseBalanceSum(iterations);
+  vector<size_t> eraseFindSum(iterations);
+  vector<size_t> copyBalanceSum(iterations);
+#endif
 
   // If a worst-case set of coordinates is requested, create that set
   // by creating a static, balanced k-d tree and walking that tree in order.
@@ -451,6 +549,9 @@ int main(int argc, char** argv) {
     }
 
     // Insert each coordinate into the dynamic k-d tree.
+#ifdef STATISTICS
+    tree->clearStatistics();
+#endif
     auto beginTime = steady_clock::now();
     for (size_t i = 0; i < coordinates.size(); ++i) {
       if (tree->insert(coordinates[i])) {
@@ -537,7 +638,7 @@ int main(int argc, char** argv) {
           coordinates[i][j] = tuplePointers[i][j];
         }
       }
-    }
+  }
 
     // Erase each coordinate from the dynamic k-d tree,
     // and reverse the order of the coordinates if both
@@ -602,6 +703,18 @@ int main(int argc, char** argv) {
       throw runtime_error("\n\ntree is not empty\n");
     }
 
+#ifdef STATISTICS
+    insertBalanceTime[k] = tree->insertBalanceTime;
+    netInsertTime[k] = insertTime[k] - insertBalanceTime[k];
+    insertBalanceSum[k] = tree->insertBalanceSum;
+    eraseBalanceTime[k] = tree->eraseBalanceTime;
+    eraseFindTime[k] = tree->eraseFindTime;
+    eraseRecursiveTime[k] = tree->eraseRecursiveTime;
+    netEraseTime[k] = eraseTime[k] - eraseBalanceTime[k] - eraseFindTime[k] - eraseRecursiveTime[k];
+    eraseBalanceSum[k] = tree->eraseBalanceSum;
+    eraseFindSum[k] = tree->eraseFindSum;
+#endif
+
     cout << "finished iteration " << (k + 1) << endl;
   }
 
@@ -645,6 +758,94 @@ int main(int argc, char** argv) {
     }
     cout << endl;
   }
+
+#ifdef STATISTICS
+  timePair = calcMeanStd<double>(insertBalanceTime);
+  cout << "insert balance time = " << fixed << setprecision(4) << timePair.first
+       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+
+  timePair = calcMeanStd<double>(eraseBalanceTime);
+  cout << "delete balance time = " << fixed << setprecision(4) << timePair.first
+       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+
+  timePair = calcMeanStd<double>(eraseFindTime);
+  cout << "delete find time = " << fixed << setprecision(4) << timePair.first
+       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+
+  timePair = calcMeanStd<double>(eraseRecursiveTime);
+  cout << "delete recursion time = " << fixed << setprecision(4) << timePair.first
+       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl << endl;
+
+  timePair = calcMeanStd<size_t>(insertBalanceSum);
+  cout << "insert balance count = " << static_cast<size_t>(timePair.first)
+       << setprecision(4) << "  std dev = " << static_cast<size_t>(timePair.second) << endl;
+
+  timePair = calcMeanStd<size_t>(eraseBalanceSum);
+  cout << "delete balance count = " << static_cast<size_t>(timePair.first)
+       << setprecision(4) << "  std dev = " << static_cast<size_t>(timePair.second) << endl;
+
+  timePair = calcMeanStd<size_t>(eraseFindSum);
+  cout << "delete find count = " << static_cast<size_t>(timePair.first)
+       << setprecision(4) << "  std dev = " << static_cast<size_t>(timePair.second) << endl << endl;
+
+  timePair = calcMeanStd<double>(netInsertTime);
+  cout << "net insert time = " << fixed << setprecision(4) << timePair.first
+       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+
+  timePair = calcMeanStd<double>(netEraseTime);
+  cout << "net delete time = " << fixed << setprecision(4) << timePair.first
+       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl << endl;
+
+  cout << "insert count (for " << iterations << " iterations) = " << tree->insertCount
+       << "  erase count (for " << iterations << " iterations) = " << tree->eraseCount << endl << endl;
+
+  cout << "balance count histograms (average for " << iterations << " iterations):" << endl;
+  cout << "   insert histogram\t   delete histogram\t    sum of histograms" << endl << endl;
+  for (size_t i = 0; i < HISTOGRAM_SIZE; ++i) {
+    cout << "\t" << (tree->insertHistogram[i] / iterations)
+         << "\t\t\t" << (tree->eraseHistogram[i] / iterations)
+         << "\t\t\t" << ((tree->insertHistogram[i]
+                        + tree->eraseHistogram[i]) / iterations) << endl;
+  }
+  cout << endl << endl;
+  
+  cout << "balance size histograms (average for " << iterations << " iterations):" << endl;
+  cout << "   insert histogram\t   delete histogram\t    sum of histograms" << endl << endl;
+  for (size_t i = 0; i < HISTOGRAM_SIZE; ++i) {
+    cout << "\t" << (tree->insertBalanceHistogram[i] / iterations)
+         << "\t\t\t" << (tree->eraseBalanceHistogram[i] / iterations)
+        << "\t\t\t" << ((tree->insertBalanceHistogram[i]
+                        + tree->eraseBalanceHistogram[i]) / iterations) << endl;
+  }
+  cout << endl << endl;
+
+  cout << "balance maximum and (count) vectors (cumulative for " << iterations << " iterations):" << endl;
+  cout << "   insert max vector\t   delete max vector" << endl << endl;
+
+  // For worst-case statistics, divide the count vector element
+  // by the number of iterations because each iteration produces
+  // and identical count.
+  if (worst) {
+    for (size_t i = 0; i < MAXIMUM_SIZE; ++i) {
+      cout << "\t" << tree->insertBalanceMaximum[i]
+          << "  (" << (tree->insertBalanceMaxCnt[i] / iterations) << ")"
+          << "\t\t" << tree->eraseBalanceMaximum[i]
+          << "  (" << (tree->eraseBalanceMaxCnt[i] / iterations) << ")" << endl;
+    }
+  } else {
+    for (size_t i = 0; i < MAXIMUM_SIZE; ++i) {
+      cout << "\t" << tree->insertBalanceMaximum[i]
+           << "  (" << tree->insertBalanceMaxCnt[i] << ")"
+           << "\t\t" << tree->eraseBalanceMaximum[i]
+           << "  (" << tree->eraseBalanceMaxCnt[i] << ")" << endl;
+    }
+  }
+  cout << endl << endl;
+
+#endif //STATISTICS
+
+#endif // DEBUG_PRINT
+
   // Delete the k-d tree instance.
   delete tree;
 

@@ -31,7 +31,7 @@
 /*
  * Test program for kdTreeDynamic.h and kdTreeNlogn.h
  *
- * Compile via: g++ -O3 -std=c++20 -pthread -W test_kdtreedynamic.cpp
+ * Compile via: g++ -O3 -std=c++20 -pthread -W test_kdmapdynamic.cpp
  *
  * Optional compilation defines are as follows.
  * 
@@ -98,7 +98,7 @@
  * 
  * Usage:
  *
- * test_kdtree [-i I] [-n N] [-m M] [-d D] [-t T] [-s S] [-p P] [-b] [-g] [-v] [-f] [-w] [-r]
+ * test_kdtree [-i I] [-n N] [-m M] [-d D] [-t T] [-s S] [-p P] [-b] [-g] [-v] [-f] [-w]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -138,19 +138,20 @@
   * Include kdTreeDynamic.h first so that KD_TREE_DYNAMIC_H will be defined
   * for kdTreeMergeSort.h, kdTreeKnlogn.h and kdTreeNlogn.h
   */
-#include "kdTreeDynamic.h"
+#include "kdMapDynamic.h"
 
 #ifdef NLOGN
-#include "kdTreeNlogn.h"
+#include "kdMapNlogn.h"
 #else
-#include "kdTreeKnlogn.h"
+#include "kdMapKnlogn.h"
 #endif
 
 /*
  * This is the type used for the test. Change the intrisic type in
  * this typedef to test the k-d tree with different intrisic types.
  */
-typedef int64_t kdKey_t; // Add required #include and using to kdTreeNode.h
+typedef int64_t kdKey_t; // Add required #include and using to kdMapNode.h
+typedef string kdValue_t; // Add required #include and using to kdMapNode.h
 
 /*
   * Calculate the mean and standard deviation of the elements of a vector.
@@ -181,6 +182,7 @@ int main(int argc, char** argv) {
   size_t cutoff = 65536;
   signed_size_t numPoints = 262144;
   signed_size_t numNeighbors = 5;
+  signed_size_t extraPoints = 100;
   signed_size_t numDimensions = 3;
   signed_size_t numThreads = 1;
   signed_size_t maximumNumberOfNodesToPrint = 5;
@@ -189,8 +191,6 @@ int main(int argc, char** argv) {
   bool neighbors = false;
   bool verify = false;
   bool find = false;
-  bool worst = false;
-  bool reverse = false;
 
   for (signed_size_t i = 1; i < argc; ++i) {
     if (0 == strcmp(argv[i], "-i") || 0 == strcmp(argv[i], "--iterations")) {
@@ -203,6 +203,10 @@ int main(int argc, char** argv) {
     }
     if (0 == strcmp(argv[i], "-m") || 0 == strcmp(argv[i], "--numNeighbors")) {
       numNeighbors = atol(argv[++i]);
+      continue;
+    }
+    if (0 == strcmp(argv[i], "-x") || 0 == strcmp(argv[i], "--extraPoints")) {
+      extraPoints = atol(argv[++i]);
       continue;
     }
     if (0 == strcmp(argv[i], "-d") || 0 == strcmp(argv[i], "--numDimensions")) {
@@ -241,14 +245,6 @@ int main(int argc, char** argv) {
       find = !find;
       continue;
     }
-    if (0 == strcmp(argv[i], "-w") || 0 == strcmp(argv[i], "--worst")) {
-      worst = !worst;
-      continue;
-    }
-    if (0 == strcmp(argv[i], "-r") || 0 == strcmp(argv[i], "--reverse")) {
-      reverse = !reverse;
-      continue;
-    }
 
     if (0 == strcmp(argv[i], "-h") || 0 == strcmp(argv[i], "--help")) {
       cout << endl << "Usage:" << endl << endl
@@ -257,6 +253,7 @@ int main(int argc, char** argv) {
            << "-i The number I of iterations of k-d tree creation" << endl << endl
            << "-n The number N of randomly generated points used to build the k-d tree" << endl << endl
            << "-m The maximum number M of nearest neighbors added to a priority queue" << endl << endl
+           << "-x The number X of duplicate points added to test removal of duplicate points" << endl << endl
            << "-d The number of dimensions D (aka k) of the k-d tree" << endl << endl
            << "-t The number of threads T used to build and search the k-d tree" << endl << endl
            << "-s The search divisor S used for region search" << endl << endl
@@ -266,8 +263,6 @@ int main(int argc, char** argv) {
            << "-g Find nearest neighbors to each point" << endl << endl
            << "-v Verify the k-d tree ordering and balance after insertion or erasure of each point" << endl << endl
            << "-f Check for the next point after deleting each point (a cheap tree-order check)" << endl << endl
-           << "-w Create a worst-case set of coordinates by walking a k-d tree in order" << endl << endl
-           << "-r Reverse the order of the worst-case set of coordinates for erasure" << endl << endl
            << "-h List the command-line options" << endl << endl;
       exit(1);
     }
@@ -278,6 +273,18 @@ int main(int argc, char** argv) {
     }
   }
 
+  // Declare and initialize the coordinates and oneCoordinte vectors. Each element
+  // of the coordinates vector is a pair wherein first is a vector of (x, y, z, w...)
+  // coordinates and second is the string representation of an integer.
+  vector<kdKey_t> oneCoordinate(numPoints);
+  extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
+
+  vector<pair<vector<kdKey_t>, kdValue_t>> coordinates(numPoints + extraPoints);
+  for (size_t i = 0; i < coordinates.size(); ++i) {
+    ostringstream buffer;
+    buffer << i;
+    coordinates[i] = make_pair<vector<kdKey_t>, kdValue_t>(vector<kdKey_t>(numDimensions), buffer.str());
+  }
 
   // Calculate the number of child threads to be the number of threads minus 1, then
   // calculate the maximum tree depth at which to launch a child thread.  Truncate
@@ -310,11 +317,7 @@ int main(int argc, char** argv) {
        << "  max submit depth = " << maximumSubmitDepth << endl << endl;
 
   // Create an instance of KdTreeDynamic.
-  auto tree = new KdTreeDynamic<kdKey_t>(maximumSubmitDepth,cutoff);
-
-  // Declare and initialize the coordinates and oneCoordinte vectors.
-  vector<vector<kdKey_t>> coordinates(numPoints, vector<kdKey_t>(numDimensions));
-  vector<kdKey_t> oneCoordinate(numPoints);
+  auto tree = new KdTreeDynamic<kdKey_t, kdValue_t>(maximumSubmitDepth, cutoff);
 
   // Calculate a delta coordinate by dividing the positive range of int64_t
   // by the number of points and truncating the quotient. Because the positive
@@ -351,52 +354,6 @@ int main(int argc, char** argv) {
   vector<double> neighborsTimeBalanced(iterations);
   vector<double> neighborsTimeDynamic(iterations);
 
-  // If a worst-case set of coordinates is requested, create that set
-  // by creating a static, balanced k-d tree and walking that tree in order.
-  if (worst) {
-
-    // Shuffle the coordinates vector independently for each dimension.
-    std::mt19937_64 g(std::mt19937_64::default_seed);
-    for (signed_size_t j = 0; j < numDimensions; ++j) {
-      shuffle(oneCoordinate.begin(), oneCoordinate.end(), g);
-      for (signed_size_t i = 0; i < numPoints; ++i) {
-        coordinates[i][j] = oneCoordinate[i];
-      }
-    }
-
-    // Create a static KdTree instance tree.
-    signed_size_t numNodes;
-    double allocateTime, sortTime, removeTime, kdTime,
-            verifyTime, deallocateTime, unsortTime;
-    auto const balancedTree =
-      KdTree<kdKey_t>::createKdTree(coordinates, maximumSubmitDepth, numNodes,
-                                    allocateTime, sortTime, removeTime, kdTime,
-                                    verifyTime, deallocateTime, unsortTime);
-
-    // Re-size the coordinates vector in case duplicate coordinates were removed.
-    coordinates.resize(numNodes);
-
-    // Create a KdTreeDynamic tree instance that has as its root node
-    // the root node of the static KdTree instance. The KdTreeDynamic
-    // constructor provides a way to create a static k-d tree that
-    // can thereafter be modified as a dynamic k-d tree.
-    auto dynamicTree = new KdTreeDynamic<kdKey_t>(maximumSubmitDepth,
-                                                  cutoff,
-                                                  balancedTree->getRoot());
-
-    // Walk the static k-d tree in increasing order and
-    // copy each tuple into a coordinate, which sorts the
-    // coordinates in the coordinates vector.
-    size_t count = dynamicTree->getSortedTree(coordinates);
-
-    // Delete the static KdTree instance, which does not recursively
-    // delete the KdNode instances when KD_TREE_DYNAMIC_H is defined
-    // (see the ~KdTree destructor). Then delete the KdTreeDynamic
-    // instance, which does delete the KdNode instances.
-    delete balancedTree;
-    delete dynamicTree;
-  }
-
   // Iterate the construction of the k-d tree to improve statistics.
   signed_size_t numberOfNodes = 0;
   size_t treeHeight = 0;
@@ -404,13 +361,17 @@ int main(int argc, char** argv) {
   for (size_t k = 0; k < iterations; ++k) {
 
     // Shuffle the coordinates vector independently for each dimension.
-    // Skip this step if worst-case coordinates have already been created.
-    if (!worst) {
+    for (signed_size_t j = 0; j < numDimensions; ++j) {
+      shuffle(oneCoordinate.begin(), oneCoordinate.end(), g);
+      for (signed_size_t i = 0; i < numPoints; ++i) {
+        coordinates[i].first[j] = oneCoordinate[i];
+      }
+    }
+
+    // Reflect tuples across coordinates[numPoints - 1] to initialize the extra points.
+    for (signed_size_t i = 1; i <= extraPoints; ++i) {
       for (signed_size_t j = 0; j < numDimensions; ++j) {
-        shuffle(oneCoordinate.begin(), oneCoordinate.end(), g);
-        for (signed_size_t i = 0; i < numPoints; ++i) {
-          coordinates[i][j] = oneCoordinate[i];
-        }
+        coordinates[numPoints - 1 + i].first[j] = coordinates[numPoints - 1 - i].first[j];
       }
     }
 
@@ -421,23 +382,23 @@ int main(int argc, char** argv) {
       signed_size_t numNodes;
       double allocateTime, sortTime, removeTime, kdTime,
              verifyTime, deallocateTime, unsortTime;
-      KdTree<kdKey_t>* const tree =
-        KdTree<kdKey_t>::createKdTree(coordinates, maximumSubmitDepth, numNodes,
-                                      allocateTime, sortTime, removeTime, kdTime,
-                                      verifyTime, deallocateTime, unsortTime);
+      KdTree<kdKey_t, kdValue_t>* const tree =
+        KdTree<kdKey_t, kdValue_t>::createKdTree(coordinates, maximumSubmitDepth, numNodes,
+                                                 allocateTime, sortTime, removeTime, kdTime,
+                                                 verifyTime, deallocateTime);
 
       // Record the time for k-d tree creation, ignoring verifyTime and unsortTime.
       createTime[k] = allocateTime + sortTime + removeTime + kdTime + deallocateTime;
 
       // Find numNeighbors nearest neighbors to each coordinate.
       if (neighbors) {
-        forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
-        vector<kdKey_t> query(coordinates[0].size());
+        forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > neighborList;
+        vector<kdKey_t> query(numDimensions);
         auto beginTime = steady_clock::now();
         for (size_t i = 0; i < coordinates.size(); ++i) {
           neighborList.clear();
           for (size_t j = 0; j < query.size(); ++j) {
-          query[j] = coordinates[i][j];
+          query[j] = coordinates[i].first[j];
           }
         tree->findNearestNeighbors(neighborList, query, numNeighbors);
         }
@@ -459,7 +420,7 @@ int main(int argc, char** argv) {
         }
       } else {
         cout << "\n\nfailed to insert tuple:";
-        tree->printTuple(coordinates[i]); // Need to implement printTupleToStream
+        tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
         cout << endl;
         exit(0);
       }
@@ -474,13 +435,13 @@ int main(int argc, char** argv) {
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     verifyTime[k] += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-    if (static_cast<size_t>(numberOfNodes) != coordinates.size()) {
+    if (static_cast<size_t>(numberOfNodes + extraPoints) != coordinates.size()) {
       ostringstream buffer;
       buffer << "\n\nnumber of coordinates = " << coordinates.size()
-             << "  number of nodes = " << numberOfNodes << endl;
+             << "  number of nodes + extra points = " << (numberOfNodes + extraPoints) << endl;
       throw runtime_error(buffer.str());
      } else {
-      treeHeight = KdTreeDynamic<kdKey_t>::getHeight(tree->getRoot());
+      treeHeight = KdTreeDynamic<kdKey_t, kdValue_t>::getHeight(tree->getRoot());
      }
 
     // Search for each coordinate in the k-d tree. 
@@ -492,7 +453,7 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < coordinates.size(); ++i) {
       if (!tree->contains(coordinates[i])) {
         cout << "\n\nfailed to find tuple:";
-        tree->printTuple(coordinates[i]); // Need to implement printTupleToStream
+        tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
         cout << endl;
         exit(0);
       }
@@ -503,13 +464,13 @@ int main(int argc, char** argv) {
 
     // Find numNeighbors nearest neighbors to each coordinate.
     if (neighbors) {
-      forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
-      vector<kdKey_t> query(coordinates[0].size());
+      forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > neighborList;
+      vector<kdKey_t> query(numDimensions);
       auto beginTime = steady_clock::now();
       for (size_t i = 0; i < coordinates.size(); ++i) {
         neighborList.clear();
         for (size_t j = 0; j < query.size(); ++j) {
-        query[j] = coordinates[i][j];
+        query[j] = coordinates[i].first[j];
         }
       tree->findNearestNeighbors(neighborList, query, numNeighbors);
       }
@@ -518,80 +479,36 @@ int main(int argc, char** argv) {
       neighborsTimeDynamic[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
     }
 
-    // Reshuffle the coordinates prior to erasing each coordinate from
-    // the tree because erasure rebalances the tree and hence the insertion
-    // order of the keys may influence the performance of erasure. But
-    // skip this step if worst-case coordinates have already been created.
-    //
-    // It is necessary to shuffle a vector of pointers to tuple arrays
-    // because the shuffle function won't shuffle a 2D vector.
-    if (!worst) {
-      auto saveCoordinates = coordinates;
-      auto tuplePointers = vector<kdKey_t*>(coordinates.size());
-      for (size_t i = 0; i < coordinates.size(); ++i) {
-        tuplePointers[i] = saveCoordinates[i].data();
-      }
-      shuffle(tuplePointers.begin(), tuplePointers.end(), g);
-      for (size_t i = 0; i < coordinates.size(); ++i) {
-        for (size_t j = 0; j < coordinates[0].size(); ++j) {
-          coordinates[i][j] = tuplePointers[i][j];
-        }
-      }
-    }
-
     // Erase each coordinate from the dynamic k-d tree,
     // and reverse the order of the coordinates if both
     // worst and reverse are true.
+    //
+    // Whereas test_kdtreedynamic.cpp reshuffles the coordinates prior to
+    // erasing the coordinates, reshuffling doesn't work correctly for
+    // this test_kdmapdynamic.cpp program, so don't reshuffle.
     beginTime = steady_clock::now();
-    if (worst && reverse) {
-      for (signed_size_t i = coordinates.size() - 1; i >= 0; --i) {
-        if (tree->erase(coordinates[i])) {
-          if (verify) {
-            tree->verifyKdTree(numDimensions, maximumSubmitDepth);
-          }
-          if (find && tree->contains(coordinates[i])) {
-            cout << "\n\nfound tuple after erasing tuple:";
-            tree->printTuple(coordinates[i]); // Need to implement printTupleToStream
-            cout << endl;
-            exit(0);
+    for (size_t i = 0; i < coordinates.size(); ++i) {
+      if (tree->erase(coordinates[i])) {
+        if (verify) {
+          tree->verifyKdTree(numDimensions, maximumSubmitDepth);
         }
-          if (find && i > 0 && !tree->contains(coordinates[i-1])) {
-            cout << "\n\nfailed to find next tuple after erasing tuple:";
-            tree->printTuple(coordinates[i]); // Need to implement printTupleToStream
-            cout << endl;
-            exit(0);
+        if (find && tree->contains(coordinates[i])) {
+          cout << "\n\nfound tuple after erasing tuple:";
+          tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+          cout << endl;
+          exit(0);
         }
-        } else {
-            cout << "\n\nfailed to erase tuple:";
-            tree->printTuple(coordinates[i]); // Need to implement printTupleToStream
-            cout << endl;
-            exit(0);
+        if (find && i < coordinates.size()-1 && !tree->contains(coordinates[i+1])) {
+          cout << "\n\nfailed to find next tuple after erasing tuple:";
+          tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+          cout << endl;
+          exit(0);
         }
-      }
-    } else {
-      for (size_t i = 0; i < coordinates.size(); ++i) {
-        if (tree->erase(coordinates[i])) {
-          if (verify) {
-            tree->verifyKdTree(numDimensions, maximumSubmitDepth);
-          }
-          if (find && tree->contains(coordinates[i])) {
-            cout << "\n\nfound tuple after erasing tuple:";
-            tree->printTuple(coordinates[i]); // Need to implement printTupleToStream
-            cout << endl;
-            exit(0);
-        }
-          if (find && i < coordinates.size()-1 && !tree->contains(coordinates[i+1])) {
-            cout << "\n\nfailed to find next tuple after erasing tuple:";
-            tree->printTuple(coordinates[i]); // Need to implement printTupleToStream
-            cout << endl;
-            exit(0);
-        }
-        } else {
-            cout << "\n\nfailed to erase tuple:";
-            tree->printTuple(coordinates[i]); // Need to implement printTupleToStream
-            cout << endl;
-            exit(0);
-        }
+      } else {
+          cout << "\n\nfailed to erase tuple:";
+          tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+          cout << endl;
+          exit(0);
       }
     }
     endTime = steady_clock::now();

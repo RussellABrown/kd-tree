@@ -985,50 +985,6 @@ public:
   }
   
   /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   */
-public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors) {
-    
-    if (root != nullptr) {
-      root->findNearestNeighbors(neighbors, query, permutation, numNeighbors);
-    }
-  }
-
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to  find
-   * enable - a vector that specifies the dimensions for which to test distance
-   */
-public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors,
-                            vector<bool> const& enable) {
-
-    if (root != nullptr) {
-      root->findNearestNeighbors(neighbors, query, permutation, numNeighbors, enable);
-    }
-  }
-
-  /*
    * Verify the consistency between the nearest neighbors lists found
    * by k-d tree search and by brute force.
    *

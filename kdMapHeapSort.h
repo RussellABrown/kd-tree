@@ -31,9 +31,21 @@
 #ifndef KD_MAP_HEAP_SORT_H
 #define KD_MAP_HEAP_SORT_H
 
-/* A forward reference to the KdNode friend class */
+/* Forward references to all classes to support any order of compilation */
+template <typename, typename>
+class KdTreeDynamic;
+
+template <typename, typename>
+class KdTree;
+
 template <typename, typename>
 class KdNode;
+
+template <typename, typename>
+class MergeSort;
+
+template <typename, typename>
+class NearestNeighborHeap;
 
 /*
  * The NearestNeighborHeap class implements a fixed length heap of both containing both a KdNode and Euclidean distance
@@ -50,7 +62,7 @@ class KdNode;
  * For a discussion of heap sort and a priority queue implemented via a heap, see Section 2.4 "Priority Queues"
  * pp. 308-335 in "Algorithms Fourth Edition" by Robert Sedgewick and Kevin Wayne, Addison-Wesley, 2011.
  */
-template <typename K, typename V=int> // V is a dummy template parameter if TREE is defined.
+template <typename K, typename V=int>
 class NearestNeighborHeap {
 private:
   vector<K> query; // query point for which nearest neighbors will be found

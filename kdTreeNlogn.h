@@ -711,8 +711,8 @@ private:
    * reference - a K** of references to recursively partition via its K* (x, y, z, w...) tuples
    * temporary - a K** scratch array into which to copy references
    * permutation - a vector<signed_size_t> that indications permutation of the partition coordinate
-   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined
-   *           a vector<KdNode<K>*> if PREALLOCATE is undefined
+   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined and KD_TREE_DYNAMIC_h is undefined
+   *         - a vector<KdNode<K>*> if PREALLOCATE is undefined or KD_TREE_DYNAMIC_H is defined
    * start - start element of the reference array
    * end - end element of the reference array
    * size - the size of the reference array
@@ -726,7 +726,7 @@ private:
   static KdNode<K>* buildKdTree(K** const reference,
                                 K** const temporary,
                                 vector<signed_size_t> const& permutation,
-#ifndef PREALLOCATE
+#if !defined(PREALLOCATE) || defined(KD_TREE_DYNAMIC_H)
                                 vector<KdNode<K>*> const& kdNodes,
 #else
                                 vector<KdNode<K>>* const kdNodes,
@@ -1083,6 +1083,7 @@ public:
     for (size_t i = 0; i < 2; ++i) {
       references[i] = new K*[kdNodes.size()];
     }
+
     // Don't allocate tuples arrays for the first references array.
     // Instead, copy pointers from the KdNode instances of the kdNodes
     // array. These pointers will be re-ordered by the KdTree::partition
@@ -1090,12 +1091,8 @@ public:
     // KdNode::getKdNode function. For this case where KD_TREE_DYNAMIC_H
     // is defined, the tuples will be deallocated by the ~KdNode destructor
     // when a KdNode instance is deleted from the dynamic k-d tree.
-    //
-    // It is likely unnecessary to set kdNodes[i]->tuple to nullptr,
-    // but do it anyway.
     for (size_t i = 0; i < kdNodes.size(); ++i) {
       references[0][i] = kdNodes[i]->tuple;
-      kdNodes[i]->tuple = nullptr;
     }
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
@@ -1104,7 +1101,7 @@ public:
     // For a dynamic k-d tree, it is unnecessary to sort the first references
     // array and remove duplicate coordinates, so merely specify the end index.
     signed_size_t end = kdNodes.size() - 1;
-    removeTime = 0.0;
+    removeTime = sortTime = 0.0;
 
     // Start the timer to time building the k-d tree.
     beginTime = steady_clock::now();
@@ -1121,6 +1118,7 @@ public:
     // It is unnecessary to compute the partition coordinate upon each recursive call of
     // the buildKdTree function because that coordinate depends only on the depth of
     // recursion, so it may be pre-computed and stored in the permutation vector.
+    //
     // Add the leading dimension p to the pre-computed partition coordinate (modulo
     // the number of dimensions) to permit KdTreeDynamic::balanceSubtree to build
     // a sub-tree whose root node has a non-zero partition coordinate.
@@ -1152,9 +1150,6 @@ public:
     // For a dynamic k-d tree, do not deallocate the kdNodes vector;
     // instead, merely specify zero deallocate time.
     deallocateTime = 0.0;
-
-    // The sort time is measured only for the O(kn log n) algorithm.
-    sortTime = 0.0;
 
     // The unsort time is measured only for the Yu Cao algorithm.
     unsortTime = 0.0;
@@ -1281,9 +1276,6 @@ public:
     // It is unnecessary to compute the partition coordinate upon each recursive call of
     // the buildKdTree function because that coordinate depends only on the depth of
     // recursion, so it may be pre-computed and stored in the permutation vector.
-    // Add the leading dimension p to the pre-computed partition coordinate (modulo
-    // the number of dimensions) to permit KdTreeDynamic::balanceSubtree to build
-    // a sub-tree whose root node has a non-zero partition coordinate.
     vector<signed_size_t> permutation(maxDepth);
     for (size_t i = 0; i < permutation.size(); ++i) {
       permutation[i] = i % numDimensions;
@@ -1453,50 +1445,6 @@ public:
     }
   }
   
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   */
-public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors) {
-    
-    if (root != nullptr) {
-      root->findNearestNeighbors(neighbors, query, permutation, numNeighbors);
-    }
-  }
-
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to  find
-   * enable - a vector that specifies the dimensions for which to test distance
-   */
-public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors,
-                            vector<bool> const& enable) {
-
-    if (root != nullptr) {
-      root->findNearestNeighbors(neighbors, query, permutation, numNeighbors, enable);
-    }
-  }
-
   /*
    * Verify the consistency between the nearest neighbors lists found
    * by k-d tree search and by brute force.

@@ -109,7 +109,7 @@ public:
     //
     // However, do not delete the KdNode::root if KD_TREE_DYNAMIC_H
     // is defined, because the KdTreeDynamic::rebuildSubTree function
-    // requires that the k-d tree persist. Instead, thee ~KdTreeDynamic
+    // requires that the k-d tree persist. Instead, the ~KdTreeDynamic
     // destructor will delete KdNode::root 
 #ifndef KD_TREE_DYNAMIC_H
 #ifdef PREALLOCATE
@@ -132,8 +132,8 @@ public:
    *
    * references - a K*** of references to each of the (x, y, z, w...) tuples
    * permutation - a vector<vector<signed_size_t>> that indicates permutation of the reference arrays
-   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined
-   *         - a vector<KdNode<K>*> if PREALLOCATE is undefined
+   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined and KD_TREE_DYNAMIC_h is undefined
+   *         - a vector<KdNode<K>*> if PREALLOCATE is undefined or KD_TREE_DYNAMIC_H is defined
    * start - start element of the reference array
    * end - end element of the reference array
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
@@ -144,7 +144,7 @@ public:
 private:
   static KdNode<K>* buildKdTree(K*** const references,
                                 vector<vector<signed_size_t>> const& permutation,
-#ifndef PREALLOCATE
+#if !defined(PREALLOCATE) || defined(KD_TREE_DYNAMIC_H)
                                 vector<KdNode<K>*> const& kdNodes,
 #else
                                 vector<KdNode<K>>* const kdNodes,
@@ -509,6 +509,7 @@ public:
     for (size_t i = 0; i < numDimensions + 1; ++i) {
       references[i] = new K*[kdNodes.size()];
     }
+
     // Don't allocate tuples arrays for the pth references array
     // (where p is the leading dimension) instead of the first
     // references array to permit KdTreeDynamic::balanceSubtree
@@ -521,12 +522,8 @@ public:
     // KdNode::getKdNode function. For this case where KD_TREE_DYNAMIC_H
     // is defined, the tuples will be deallocated by the ~KdNode destructor
     // when a KdNode instance is deleted from the dynamic k-d tree.
-    //
-    // It is likely unnecessary to set kdNodes[i]->tuple to nullptr,
-    // but do it anyway.
     for (size_t i = 0; i < kdNodes.size(); ++i) {
       references[p][i] = kdNodes[i]->tuple;
-      kdNodes[i]->tuple = nullptr;
     }
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
@@ -580,14 +577,13 @@ public:
     // of the reference arrays and of the partition coordinate, and a 'verifyPermutation'
     // vector to specify permutation of the partition coordinate for verifyKdTree.
     vector< vector<signed_size_t> > permutation(maxDepth, vector<signed_size_t>(numDimensions + 2));
-    vector<signed_size_t> verifyPermutation(maxDepth);
 
     // Fill the permutation vector by calculating the permutation of the indices vector
     // and the the partition coordinate of the tuple at each depth in the tree.
     for (signed_size_t depth = 0; depth < maxDepth; ++depth) {
       signed_size_t p0 = (depth + p) % numDimensions;
       // The last entry of the indices vector contains the partition coordinate.
-      indices[numDimensions + 1] = verifyPermutation[depth] = p0;
+      indices[numDimensions + 1] = p0;
       // The penultimate entry of the indices vector specifies the source reference array.
       indices[numDimensions] = current[p0];
       // The first entry of the indices vector specifies the temporary reference array.
@@ -615,7 +611,6 @@ public:
     verifyTime = 0.0;
 
     // Delete the references arrays but not the tuples arrays that they point to.
-    beginTime = steady_clock::now();
     for (size_t i = 0; i < numDimensions + 1; ++i) {
       delete[] references[i];
     }
@@ -753,44 +748,41 @@ public:
       size >>= 1;
     }
 
-    // It is unnecessary to compute the partition coordinate upon each recursive call of
-    // the buildKdTree function because that coordinate depends only on the depth of
-    // recursion, so it may be pre-computed and stored in the permutation vector.
+    // It is unnecessary to compute either the permutation of the reference array or
+    // the partition coordinate upon each recursive call of the buildKdTree function
+    // because both depend only on the depth of recursion, so they may be pre-computed.
     //
-    // first create an array the tracks which reference array contains each coordinate.
-    // index 0 is for x, index 1 is for y ... index dim (i.e., numDimensions) is the
-    // reference array that MergeSort::mergeSortReferenceAscending used as a temporary array.
-    std::vector<signed_size_t> current(numDimensions + 1);
-    for(size_t i = 0;  i <= numDimensions; ++i) {
-      current[i] = i;
+    // Because this vector is initialized with 0, 1, 2, 3, 0, 1, 2, 3, etc. (for
+    // e.g. 4-dimensional data), the leading key of the super key will be 0 at the
+    // first level of the nascent tree, consistent with having sorted the reference
+    // array above using 0 as the leading key of the super key.
+    //
+    // Begin by creating an 'indices' vector.
+    vector<signed_size_t> indices(numDimensions + 2);
+    for (size_t i = 0; i < indices.size() - 1; ++i) {
+      indices[i] = i;
     }
-    std::vector<signed_size_t> indices(numDimensions + 2);
 
     // Create a 2D 'permutation' vector from the 'indices' vector to specify permutation
     // of the reference arrays and of the partition coordinate, and a 'verifyPermutation'
     // vector to specify permutation of the partition coordinate for verifyKdTree.
     vector< vector<signed_size_t> > permutation(maxDepth, vector<signed_size_t>(numDimensions + 2));
-    vector<signed_size_t> verifyPermutation(maxDepth);
+    vector<signed_size_t> permutationVerify(maxDepth);
 
     // Fill the permutation vector by calculating the permutation of the indices vector
     // and the the partition coordinate of the tuple at each depth in the tree.
-    for (signed_size_t depth = 0; depth < maxDepth; ++depth) {
-      signed_size_t p0 = depth % numDimensions;
+    for (size_t i = 0; i < permutation.size(); ++i) {
       // The last entry of the indices vector contains the partition coordinate.
-      indices[numDimensions + 1] = verifyPermutation[depth] = p0;
-      // The penultimate entry of the indices vector specifies the source reference array.
-      indices[numDimensions] = current[p0];
-      // The first entry of the indices vector specifies the temporary reference array.
-      indices[0] = current[numDimensions];
-      size_t k = 1;
-      // do the partitioning swaps
-      for (size_t i = 1;  i < numDimensions; ++i) {
-        size_t j = (i + p0) % numDimensions;  // this is the coordinate index following the primary
-        indices[k] = current[j];  // write the reference index for that coordinate to the indices array
-        swap(current, numDimensions, j);  // this keeps track of where the coordinate will have been have been swapped to.
-        ++k;
-      }
-      permutation[depth] = indices;  // write the index array to he current level of the permutation array
+      // Add the leading dimension p to the pre-computed partition coordinate
+      // (modulo the number of dimensions) to permit KdTreeDynamic::balanceSubtree
+      // to build a sub-tree whose root node has a non-zero partition coordinate.
+      indices[numDimensions + 1] = permutationVerify[i] = i % numDimensions;
+      // Swap the first and second to last elements of the indices vector.
+      swap(indices, 0, numDimensions);
+      // Copy the indices vector to one row of the permutation vector.
+      permutation[i] = indices;
+      // Swap the third and second to last elements of the indices vector.
+      swap(indices, numDimensions - 1, numDimensions);
     }
 
     // Build the k-d tree with multiple threads if possible.
@@ -806,7 +798,7 @@ public:
 
     // Verify the k-d tree and report the number of kdNodes.
     beginTime = steady_clock::now();
-    numberOfNodes = tree->root->verifyKdTree(verifyPermutation, numDimensions, maximumSubmitDepth, 0);
+    numberOfNodes = tree->root->verifyKdTree(permutationVerify, numDimensions, maximumSubmitDepth, 0);
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     verifyTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -950,50 +942,6 @@ public:
     }
   }
   
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   */
-public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors) {
-    
-    if (root != nullptr) {
-      root->findNearestNeighbors(neighbors, query, permutation, numNeighbors);
-    }
-  }
-
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to  find
-   * enable - a vector that specifies the dimensions for which to test distance
-   */
-public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors,
-                            vector<bool> const& enable) {
-
-    if (root != nullptr) {
-      root->findNearestNeighbors(neighbors, query, permutation, numNeighbors, enable);
-    }
-  }
-
   /*
    * Verify the consistency between the nearest neighbors lists found
    * by k-d tree search and by brute force.

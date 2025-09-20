@@ -41,16 +41,24 @@
 #define MERGE_CUTOFF 4096
 #endif
 
-/* Forward references to KdNode and KdTree friend classes */
+/* Forward references to all classes to support any order of compilation */
+template <typename, typename>
+class KdTreeDynamic;
+
+template <typename, typename>
+class KdTree;
 
 template <typename, typename>
 class KdNode;
 
 template <typename, typename>
-class KdTree;
+class MergeSort;
+
+template <typename, typename>
+class NearestNeighborHeap;
 
 /* The merge sort functions */
-template <typename K, typename V=int> // V is a dummy template parameter if TREE is defined.
+template <typename K, typename V=int>
 class MergeSort {
 
   /*
@@ -646,6 +654,7 @@ private:
 
   friend class KdNode<K,V>;
   friend class KdTree<K,V>;
+  friend class KdTreeDynamic<K,V>;
 }; // class MergeSort
 
 #endif // KD_MAP_MERGE_SORT_H

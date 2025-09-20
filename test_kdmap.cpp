@@ -39,32 +39,9 @@
  * 
  * The following compilation defines apply to both O(n log n) and O(kn log n) algorithms.
  * 
- * -D TREE - If defined, a k-d tree is created to implement a set instead of creating
- *           a key-to-multiple-value map.
- *
  * -D PREALLOCATE - If defined, all instances of KdNodes are allocated within a vector
  *                  instead of being allocated individually. This decreases the time
  *                  required to allocate and deallocate the KdNode instances.
- *                  If DIMENSIONS is undefined, the (x, y, z, w...) coordinates are
- *                  stored in an array whose first element is the last member field of
- *                  the KdNode instance and whose remaining elements immediately follow
- *                  the KdNode instance in the vector of Kdnodes. This decreases the
- *                  time required to access the coordinates relative to storing the
- *                  coordinates in a separate array because one degree of indirection
- *                  is removed and because proximity of the coordinates to the KdNode
- *                  instance may place both in the same cache line.
- * 
- * -D DIMENSIONS=k - If defined, k is the number of dimensions and the -d command-line
- *                   option is ignored. The (x, y, z, w...) coordinates are stored in
- *                   each KdNode instance instead of in a separate array. This decreases
- *                   the time required to access the coordinates relative to storing the
- *                   coordinates in a separate array because one degree of indirection
- *                   is removed and because proximity of the coordinates to the KdNode
- *                   instance may place both in the same cache line. This define confers
- *                   no performance improvement relative to the PREALLOCATE define and
- *                   in addition, it does not permit dynamically sized coordinate arrays.
- *                   It is useful only if the PREALLOCATE define fails to compile correctly.
- *                   This define is ignored if PREALLOCATE is undefined.
  * 
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  *
@@ -139,9 +116,7 @@
  * these typedefs to test the k-d tree with different intrisic types.
  */
 typedef int64_t kdKey_t;  // Add required #include and using to kdMapNode.h
-#ifndef TREE
 typedef string kdValue_t; // Add required #include and using to kdMapNode.h
-#endif
 
 /*
   * Calculate the mean and standard deviation of the elements of a vector.
@@ -170,11 +145,7 @@ int main(int argc, char** argv) {
   signed_size_t numPoints = 262144;
   signed_size_t numNeighbors = 5;
   signed_size_t extraPoints = 100;
-#if defined(PREALLOCATE) && defined(DIMENSIONS)
-  signed_size_t numDimensions = static_cast<signed_size_t>(DIMENSIONS);
-#else
   signed_size_t numDimensions = 3;
-#endif
   signed_size_t numThreads = 4;
   signed_size_t maximumNumberOfNodesToPrint = 5;
   kdKey_t searchDivisor = 10;
@@ -199,12 +170,10 @@ int main(int argc, char** argv) {
       extraPoints = atol(argv[++i]);
       continue;
     }
-#if !defined(PREALLOCATE) || !defined(DIMENSIONS)
     if (0 == strcmp(argv[i], "-d") || 0 == strcmp(argv[i], "--numDimensions")) {
       numDimensions = atol(argv[++i]);
       continue;
     }
-#endif
     if (0 == strcmp(argv[i], "-t") || 0 == strcmp(argv[i], "--numThreads")) {
       numThreads = atol(argv[++i]);
       continue;
@@ -239,9 +208,7 @@ int main(int argc, char** argv) {
            << "-n The number N of randomly generated points used to build the k-d tree" << endl << endl
            << "-m The maximum number M of nearest neighbors added to a priority queue" << endl << endl
            << "-x The number X of duplicate points added to test removal of duplicate points" << endl << endl
-#ifndef DIMENSIONS
            << "-d The number of dimensions D (aka k) of the k-d tree" << endl << endl
-#endif
            << "-t The number of threads T used to build and search the k-d tree" << endl << endl
            << "-s The search divisor S used for region search" << endl << endl
            << "-p The maximum number P of nodes to report when reporting region search results" << endl << endl
@@ -266,16 +233,12 @@ int main(int argc, char** argv) {
   vector<kdKey_t> oneCoordinate(numPoints);
   extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
 
-#ifdef TREE
-  vector<vector<kdKey_t>> coordinates(numPoints + extraPoints, vector<kdKey_t>(numDimensions));
-#else
   vector<pair<vector<kdKey_t>, kdValue_t>> coordinates(numPoints + extraPoints);
   for (size_t i = 0; i < coordinates.size(); ++i) {
     ostringstream buffer;
     buffer << i;
     coordinates[i] = make_pair<vector<kdKey_t>, kdValue_t>(vector<kdKey_t>(numDimensions), buffer.str());
   }
-#endif
 
   // Calculate a delta coordinate by dividing the positive range of int64_t
   // by the number of points and truncating the quotient. Because the positive
@@ -350,11 +313,7 @@ int main(int argc, char** argv) {
 
   // Iterate the creation of the k-d tree to improve statistics.
 
-#ifdef TREE
-  KdTree<kdKey_t>* root = nullptr;
-#else
   KdTree<kdKey_t,kdValue_t>* root = nullptr;
-#endif
 
   signed_size_t numberOfNodes = 0;
   std::mt19937_64 g(std::mt19937_64::default_seed);
@@ -364,35 +323,21 @@ int main(int argc, char** argv) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
       shuffle(oneCoordinate.begin(), oneCoordinate.end(), g);
       for (signed_size_t i = 0; i < numPoints; ++i) {
-#ifdef TREE
-        coordinates[i][j] = oneCoordinate[i];
-#else
         coordinates[i].first[j] = oneCoordinate[i];
-#endif
       }
     }
 
     // Reflect tuples across coordinates[numPoints - 1] to initialize the extra points.
     for (signed_size_t i = 1; i <= extraPoints; ++i) {
       for (signed_size_t j = 0; j < numDimensions; ++j) {
-#ifdef TREE
-        coordinates[numPoints - 1 + i][j] = coordinates[numPoints - 1 - i][j];
-#else
         coordinates[numPoints - 1 + i].first[j] = coordinates[numPoints - 1 - i].first[j];
-#endif
       }
     }
 
     // Create the k-d tree and record the execution times.
-#ifdef TREE
-    root = KdTree<kdKey_t>::createKdTree(coordinates, maximumSubmitDepth, numberOfNodes,
-                                         allocateTime[k], sortTime[k], removeTime[k], kdTime[k],
-                                         verifyTime[k], deallocateTime[k]);
-#else
     root = KdTree<kdKey_t, kdValue_t>::createKdTree(coordinates, maximumSubmitDepth, numberOfNodes,
                                                     allocateTime[k], sortTime[k], removeTime[k], kdTime[k],
                                                     verifyTime[k], deallocateTime[k]);
-#endif
 
     kdTotalTime[k] =  allocateTime[k] + sortTime[k] + removeTime[k] + kdTime[k] + verifyTime[k] + deallocateTime[k];
 
@@ -430,26 +375,18 @@ int main(int argc, char** argv) {
   vector<kdKey_t> queryLower(numDimensions);
   vector<kdKey_t> queryUpper(numDimensions);
 
-#ifdef TREE
-  list<KdNode<kdKey_t>*> regionList;
-#else
   list<KdNode<kdKey_t,kdValue_t>*> regionList;
-#endif
 
   for (size_t i = 0; i < searchIterations; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
 
-#ifdef TREE
-        query[j] = coordinates[i][j];
-#else
         query[j] = coordinates[i].first[j];
-#endif
         queryLower[j] = query[j] + (beginCoordinate / searchDivisor);
         queryUpper[j] = query[j] + (endCoordinate / searchDivisor);
     }
     regionList.clear();
     auto beginTime = steady_clock::now();
-    root->searchRegion(regionList, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
+    root->searchRegion(regionList, queryLower, queryUpper, maximumSubmitDepth);
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     regionTime[i] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -460,24 +397,16 @@ int main(int argc, char** argv) {
 
   // Search the k-d tree for up to numNeighbors nearest neighbors to the
   // first searchIterations (x, y, z, w...) coordinates.
-#ifdef TREE
-  forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
-#else
   forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborList;
-#endif
 
   for (size_t i = 0; i < searchIterations; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
 
-#ifdef TREE
-        query[j] = coordinates[i][j];
-#else
         query[j] = coordinates[i].first[j];
-#endif
     }
     neighborList.clear();
     auto beginTime = steady_clock::now();
-    root->findNearestNeighbors(neighborList, query, numNeighbors, coordinates.size());
+    root->findNearestNeighbors(neighborList, query, numNeighbors);
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     neighborTime[i] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -534,13 +463,9 @@ int main(int argc, char** argv) {
     }
     kdKey_t queryRange = (endCoordinate - beginCoordinate) / searchDivisor / 2;
 
-#ifdef TREE
-    list<KdNode<kdKey_t>*> regionFast;
-#else
     list<KdNode<kdKey_t,kdValue_t>*> regionFast;
-#endif
 
-    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth, coordinates.size());
+    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth);
     cout << regionFast.size() << " nodes within " << queryRange << " units of ";
     root->printTuple(query);
     cout << " in all dimensions." << endl << endl;
@@ -560,11 +485,7 @@ int main(int argc, char** argv) {
       }
     }
 
-#ifdef TREE
-    list<KdNode<kdKey_t>*> regionSlow;
-#else
     list<KdNode<kdKey_t,kdValue_t>*> regionSlow;
-#endif
 
     auto beginTime = steady_clock::now();
     root->bruteRegion(regionSlow, queryLower, queryUpper);
@@ -613,13 +534,9 @@ int main(int argc, char** argv) {
       query[i] = i;
     }
 
-#ifdef TREE
-    forward_list< pair<double, KdNode<kdKey_t>*> > neighborsFast;
-#else
     forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborsFast;
-#endif
 
-    root->findNearestNeighbors(neighborsFast, query, numNeighbors, coordinates.size());
+    root->findNearestNeighbors(neighborsFast, query, numNeighbors);
 
     cout << "tree nearest-neighbor list size = " << distance(neighborsFast.begin(), neighborsFast.end()) << endl << endl;
 
@@ -627,11 +544,7 @@ int main(int argc, char** argv) {
     root->printTuples(neighborsFast, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
 
-#ifdef TREE
-    forward_list< pair<double, KdNode<kdKey_t>*> > neighborsSlow;
-#else
     forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborsSlow;
-#endif
 
     // Find only the number of nearest neighbors returned by findNearestNeighbors above.
     auto beginTime = steady_clock::now();
@@ -667,13 +580,8 @@ int main(int argc, char** argv) {
   if (reverseNearestNeighbors) {
     auto beginTime = steady_clock::now();
 
-#ifdef TREE
-    vector< forward_list< pair<double, KdNode<kdKey_t>*> > > nn(coordinates.size());
-    vector< forward_list< pair<double, KdNode<kdKey_t>*> > > rnn(coordinates.size());
-#else
     vector< forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > > nn(coordinates.size());
     vector< forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > > rnn(coordinates.size());
-#endif
 
     vector<mutex> mutexes(coordinates.size());
     auto endTime = steady_clock::now();

@@ -261,15 +261,6 @@ private:
     kdNodes[k]->index = k;
 #endif
 
-#ifdef KD_TREE_DYNAMIC_H
-    // Reset the height and the parent and child pointers because
-    // this KdNode is being recycled from a sub-tree instead of
-    // being allocated de novo. This is likely unnecessary because
-    // KdTreeDynamic::getSubTree does it, but do it here anyway.
-    kdNodes[k]->height = 1;
-    kdNodes[k]->ltChild = kdNodes[k]->gtChild = nullptr;
-#endif
-
     return kdNodes[k];
   }
 #else
@@ -428,10 +419,12 @@ public:
                              signed_size_t const depth,
                              signed_size_t p) const {
 
-    signed_size_t count = 1;
     if (tuple == nullptr) {
       throw runtime_error("\n\npoint is null in verifyKdTree\n");
     }
+
+    // Initialize the count and check the balance.
+    signed_size_t count = 1;
 
 #ifdef KD_TREE_DYNAMIC_H
     KdNode<K>* const node = const_cast<KdNode<K>* const>(this);
@@ -624,7 +617,7 @@ private:
                                               ltChild->regionSearch(ref(ltResult),
                                                                     ref(queryLower),
                                                                     ref(queryUpper),
-                                                                   maximumSubmitDepth,
+                                                                    maximumSubmitDepth,
                                                                     depth+1,
                                                                     p+1,
                                                                     ref(enable));

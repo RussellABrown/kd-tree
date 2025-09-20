@@ -31,32 +31,9 @@
 /*
  * The following compilation defines are relevant.
  *
- * -D TREE - If defined, a k-d tree is created to implement a set instead of creating
- *           a key-to-multiple-value map.
- *
  * -D PREALLOCATE - If defined, all instances of KdNodes are allocated within a vector
  *                  instead of being allocated individually. This decreases the time
  *                  required to allocate and deallocate the KdNode instances.
- *                  If DIMENSIONS is undefined, the (x, y, z, w...) coordinates are
- *                  stored in an array whose first element is the last member field of
- *                  the KdNode instance and whose remaining elements immediately follow
- *                  the KdNode instance in the vector of Kdnodes. This decreases the
- *                  time required to access the coordinates relative to storing the
- *                  coordinates in a separate array because one degree of indirection
- *                  is removed and because proximity of the coordinates to the KdNode
- *                  instance may place both in the same cache line.
- * 
- * -D DIMENSIONS=k - If defined, k is the number of dimensions and the -d command-line
- *                   option is ignored. The (x, y, z, w...) coordinates are stored in
- *                   each KdNode instance instead of in a separate array. This decreases
- *                   the time required to access the coordinates relative to storing the
- *                   coordinates in a separate array because one degree of indirection
- *                   is removed and because proximity of the coordinates to the KdNode
- *                   instance may place both in the same cache line. This define confers
- *                   no performance improvement relative to the PREALLOCATE define and
- *                   in addition, it does not permit dynamically sized coordinate arrays.
- *                   It is useful only if the PREALLOCATE define fails to compile correctly.
- *                   This define is ignored if PREALLOCATE is undefined.
  * 
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  *
@@ -98,30 +75,60 @@
 #define INDEX_CUTOFF 1073741824 // =2^30 to disable switching to 2 threads
 #endif
 
+/* Forward references to all classes to support any order of compilation */
+template <typename, typename>
+class KdTreeDynamic;
+
+template <typename, typename>
+class KdTree;
+
+template <typename, typename>
+class KdNode;
+
+template <typename, typename>
+class MergeSort;
+
+template <typename, typename>
+class NearestNeighborHeap;
+
 /* The KdTree class defines the k-d tree API. */
-template <typename K, typename V=int> // V is a dummy template parameter if TREE is defined.
+template <typename K, typename V=int>
 class KdTree {
 private:
   KdNode<K,V>* root = nullptr;
 
-#ifdef PREALLOCATE
-#ifdef DIMENSIONS
-  vector<KdNode<K,V>>* kdNodes = nullptr;
-#else
+public:
+  KdNode<K,V>* getRoot() {
+    return root;
+  }
+
+public:
+  bool isEmpty() {
+    return (root == nullptr);
+  }
+  
+#if defined(PREALLOCATE) && !defined(KD_MAP_DYNAMIC_H)
+  size_t entrySize;
   vector<uint8_t>* kdNodes = nullptr;
-#endif
 #endif
 
 public:
   ~KdTree() {
 
-    // If the KdNode instances and tuples are contained by a preallocated
-    // vector, delete it; otherwise, delete the root KdNode so that the
-    // ~KdNode destructor will recursively delete all KdNode instances.
+    // If the KdNode instances are contained by a preallocated vector,
+    // delete it; otherwise, delete the KdNode::root so that the
+    // ~KdNode destructor will recursively delete all tuple arrays.
+    //
+    // However, do not delete the KdNode::root if KD_MAP_DYNAMIC_H
+    // is defined, because the KdTreeDynamic::rebuildSubTree function
+    // requires that the k-d tree persist. Instead, the ~KdTreeDynamic
+    // destructor will delete KdNode::root 
+#ifndef KD_MAP_DYNAMIC_H
 #ifdef PREALLOCATE
     delete kdNodes;
 #else
     delete root;
+#endif
 #endif
 
   }
@@ -717,8 +724,11 @@ private:
 static KdNode<K,V>* buildKdTree(KdNode<K,V>** reference,
                                 KdNode<K,V>** temporary,
                                 vector<signed_size_t> const& permutation,
-                                signed_size_t start, signed_size_t end, signed_size_t size,
-                                signed_size_t dim, signed_size_t maximumSubmitDepth,
+                                signed_size_t start,
+                                signed_size_t end,
+                                signed_size_t size,
+                                signed_size_t dim,
+                                signed_size_t maximumSubmitDepth,
                                 signed_size_t depth) {
 
   KdNode<K,V>* node = nullptr;
@@ -902,8 +912,11 @@ private:
 static KdNode<K,V>* buildKdTreePresorted(KdNode<K,V>** reference,
                                          KdNode<K,V>** temporary,
                                          vector<signed_size_t> const& permutation,
-                                         signed_size_t start, signed_size_t end, signed_size_t size,
-                                         signed_size_t dim, signed_size_t maximumSubmitDepth) {
+                                         signed_size_t start,
+                                         signed_size_t end,
+                                         signed_size_t size,
+                                         signed_size_t dim,
+                                         signed_size_t maximumSubmitDepth) {
 
   KdNode<K,V>* node = nullptr;
 
@@ -1007,21 +1020,18 @@ static KdNode<K,V>* buildKdTreePresorted(KdNode<K,V>** reference,
    *
    * Calling parameters:
    *
-   * coordinates - if TREE is defined, a vector of (x, y, z, w...) coordinates and their associated values
-   *               if TREE is undefined, a vector of pairs that store the coordinates and their associated values
+   * kdNodes - a vector<KdNode<K>*> whose KdNodes store the (x, y, z, w...) coordinates
+   * dim - the number of dimensions (required when KD_MAP_DYNAMIC_H is defined)
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
    * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times returned by reference
+   * p - the leading dimension
    *
    * returns: a KdNode pointer to the root of the k-d tree
    */
 public:
-  static KdTree<K,V>* createKdTree(
-#ifdef TREE
-                                   vector<vector<K>> const& coordinates,
-#else
-                                   vector<pair<vector<K>,V>> const& coordinates,
-#endif
+  static KdTree<K,V>* createKdTree(vector<KdNode<K,V>*> const& kdNodes,
+                                   size_t const dim,
                                    signed_size_t const maximumSubmitDepth,
                                    signed_size_t& numberOfNodes,
                                    double& allocateTime,
@@ -1029,18 +1039,119 @@ public:
                                    double& removeTime,
                                    double& kdTime,
                                    double& verifyTime,
-                                   double& deallocateTime
-                                  ) {
+                                   double& deallocateTime,
+                                   signed_size_t const p) {
 
     // Create a KdTree instance.
     auto tree = new KdTree();
 
     // Allocate two references arrays.
-#ifdef TREE
-    size_t numDimensions = coordinates[0].size();
-#else
+    auto beginTime = steady_clock::now();
+    size_t numDimensions = dim;
+    KdNode<K,V>*** references = new KdNode<K,V>**[2];
+    for (size_t i = 0; i < 2; ++i) {
+      references[i] = new KdNode<K,V>*[kdNodes.size()];
+    }
+
+    // Don't allocate KdNode instances for the first references array.
+    // Instead, copy pointers from the KdNode instances of the kdNodes
+    // vector. These pointers will be re-ordered by the KdTree::partition
+    // function. For this case where KD_MAP_DYNAMIC_H is defined, the
+    // tuples will be deallocated by the ~KdNode destructor when a
+    // KdNode instance is deleted from the dynamic k-d tree.
+    for (size_t i = 0; i < kdNodes.size(); ++i) {
+      references[0][i] = kdNodes[i];
+    }
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // For a dynamic k-d tree, it is unnecessary to sort the first references
+    // array and remove duplicate coordinates, so merely specify the end index.
+    signed_size_t end = kdNodes.size() - 1;
+    removeTime = sortTime = 0.0;
+
+    // Start the timer to time building the k-d tree.
+    beginTime = steady_clock::now();
+
+    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() )
+    // or log2( kdNodes.size() ), depending on whether KD_MAP_DYNAMIC_H is defined,
+    // and assuming a balanced tree.
+    signed_size_t maxDepth = 1;
+    signed_size_t size = kdNodes.size();
+    while (size > 0) {
+      ++maxDepth;
+      size >>= 1;
+    }
+
+    // It is unnecessary to compute the partition coordinate upon each recursive call of
+    // the buildKdTree function because that coordinate depends only on the depth of
+    // recursion, so it may be pre-computed and stored in the permutation vector.
+    //
+    // Add the leading dimension p to the pre-computed partition coordinate (modulo
+    // the number of dimensions) to permit KdTreeDynamic::balanceSubtree to build
+    // a sub-tree whose root node has a non-zero partition coordinate.
+    vector<signed_size_t> permutation(maxDepth);
+    for (size_t i = 0; i < permutation.size(); ++i) {
+      permutation[i] = (i + p) % numDimensions;
+    }
+
+    // Build the k-d tree with multiple threads if possible. For a dynamic k-d tree,
+    // call the KdNode::buildKdTree function instead of KdNode::buildKdTreePresorted.
+    tree->root = buildKdTree(references[0], references[1], permutation, 0, end,
+                             kdNodes.size(), numDimensions, maximumSubmitDepth, 0);
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // For a dynamic k-d tree, do not verify the sub-tree;
+    // instead, assign the number of nodes.
+    numberOfNodes = kdNodes.size();
+    verifyTime = 0.0;
+    
+    // Delete the references arrays but not the KdNodes instances that they point to
+    // because those KdNodes instances will be deleted by the ~KdTree destructor.
+    beginTime = steady_clock::now();
+    for (size_t i = 0; i < 2; ++i) {
+      delete[] references[i];
+    }
+    delete[] references;
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Return the pointer to the KdTree instance.
+    return tree;
+  }
+
+  /*
+   * The createKdTree function performs the necessary initialization then calls the buildKdTreePresorted function.
+   *
+   * Calling parameters:
+   *
+   * coordinates - a vector of pairs that store the coordinates and their associated values
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
+   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times returned by reference
+   *
+   * returns: a KdNode pointer to the root of the k-d tree
+   */
+public:
+  static KdTree<K,V>* createKdTree(vector<pair<vector<K>,V>> const& coordinates,
+                                   signed_size_t const maximumSubmitDepth,
+                                   signed_size_t& numberOfNodes,
+                                   double& allocateTime,
+                                   double& sortTime,
+                                   double& removeTime,
+                                   double& kdTime,
+                                   double& verifyTime,
+                                   double& deallocateTime) {
+
+    // Create a KdTree instance.
+    auto tree = new KdTree();
+
+    // Allocate two references arrays.
     size_t numDimensions = coordinates[0].first.size();
-#endif
 
     auto beginTime = steady_clock::now();
     KdNode<K,V>*** references = new KdNode<K,V>**[2];
@@ -1055,15 +1166,6 @@ public:
     //
     // Point each element of the first references array to a KdNode instance
     // that is an element of the kdNodes vector and initalize that instance.
-#ifdef DIMENSIONS
-    // KdNode::tuple is an array of dimensions elements of type K
-    // that is embedded in each KdNode instance.
-    tree->kdNodes = new vector<KdNode<K,V>>(coordinates.size());
-    for (size_t i = 0; i < tree->kdNodes->size(); ++i) {
-      new(&(*(tree->kdNodes))[i]) KdNode<K,V>(coordinates, i);
-      references[0][i] = &(*(tree->kdNodes))[i];
-    }
-#else // DIMENSIONS
     // KdNode::tuple is an array of 1 element that is extended
     // to dimensions elements by appending dimensions-1 elements
     // to the KdNode instance.
@@ -1074,23 +1176,24 @@ public:
     // multiple of kdNodeAlign.
     size_t const kdNodeAlign = alignof(KdNode<K,V>);
     size_t const kdNodeSize = ((sizeof(KdNode<K,V>) + kdNodeAlign - 1) / kdNodeAlign) * kdNodeAlign;
+    size_t const setSize = ((sizeof(set<V>) + kdNodeAlign - 1) / kdNodeAlign) * kdNodeAlign;
     size_t const tupleSize = ((sizeof(K) * (numDimensions - 1)) / kdNodeAlign) * kdNodeAlign;
-    size_t const entrySize = kdNodeSize + tupleSize;
+    tree->entrySize = kdNodeSize + setSize + tupleSize;
     // The following kdNodeAlign argument to new is likely redundant and requires c++17. See
     // https://stackoverflow.com/questions/15511909/does-the-alignas-specifier-work-with-new
-    tree->kdNodes = new vector<uint8_t>(entrySize * coordinates.size(), kdNodeAlign); // requires c++17
+    tree->kdNodes = new vector<uint8_t>(tree->entrySize * coordinates.size(), kdNodeAlign); // requires c++17
     for (size_t i = 0; i < coordinates.size(); ++i) {
-      new(&(*(tree->kdNodes))[entrySize * i]) KdNode<K,V>(coordinates, i);
-      references[0][i] = reinterpret_cast<KdNode<K,V>*>(&(*(tree->kdNodes))[entrySize * i]);
+      new(&(*(tree->kdNodes))[tree->entrySize * i]) KdNode<K,V>(coordinates, i);
+      references[0][i] = reinterpret_cast<KdNode<K,V>*>(&(*(tree->kdNodes))[tree->entrySize * i]);
     }
-#endif // DIMENSIONS
-#else  // PREALLOCATE
+#else
+
     // Allocate KdNode instances for the first references array. These
     // KdNode instances will be deallocated by the ~KdTree destructor.
     for (size_t i = 0; i < coordinates.size(); ++i) {
       references[0][i] = new KdNode<K,V>(coordinates, i);
     }
-#endif // PREALLOCATE
+#endif
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -1117,7 +1220,9 @@ public:
     // Start the timer to time building the k-d tree.
     beginTime = steady_clock::now();
 
-    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
+    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() )
+    // or log2( kdNodes.size() ), depending on whether KD_MAP_DYNAMIC_H is defined,
+    // and assuming a balanced tree.
     signed_size_t maxDepth = 1;
     signed_size_t size = coordinates.size();
     while (size > 0) {
@@ -1126,10 +1231,12 @@ public:
     }
 
     // It is unnecessary to compute the partition coordinate upon each recursive call of
-    // the buildKdTree or verifyKdTree functions because that coordinate depends only on
-    // the depth of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    vector<signed_size_t> permutation;
-    KdNode<K,V>::createPermutation(permutation, numDimensions, coordinates.size());
+    // the buildKdTree function because that coordinate depends only on the depth of
+    // recursion, so it may be pre-computed and stored in the permutation vector.
+    vector<signed_size_t> permutation(maxDepth);
+    for (size_t i = 0; i < permutation.size(); ++i) {
+      permutation[i] = i % numDimensions;
+    }
 
     // Build the k-d tree with multiple threads if possible.
     tree->root = buildKdTreePresorted(references[0], references[1], permutation, 0, end,
@@ -1146,9 +1253,7 @@ public:
     // first level of the nascent tree, consistent with having sorted the reference array
     // using 0 as the leading key of the super key.
     beginTime = steady_clock::now();
-    vector<signed_size_t> permutationVerify;
-    KdNode<K,V>::createPermutation(permutationVerify, numDimensions, coordinates.size());
-    numberOfNodes = tree->root->verifyKdTree(permutationVerify, numDimensions, maximumSubmitDepth, 0);
+    numberOfNodes = tree->root->verifyKdTree(permutation, numDimensions, maximumSubmitDepth, 0);
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     verifyTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -1178,7 +1283,6 @@ public:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * size - the number of points in the coordinates vector
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
@@ -1186,10 +1290,9 @@ public:
   void searchRegion(list<KdNode<K,V>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
-                    signed_size_t const maximumSubmitDepth,
-                    signed_size_t const size) {
+                    signed_size_t const maximumSubmitDepth) {
 
-    root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, size);
+    root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth);
   }
 
   /*
@@ -1202,7 +1305,6 @@ public:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * size - the number of points in the coordinates vector
    * enable - a vector that specifies the dimensions on which to test for insidedness
    *          and prune the region search
    *
@@ -1213,10 +1315,9 @@ public:
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
-                    signed_size_t const size,
                     vector<bool> const& enable) {
     
-    root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, size, enable);
+    root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enable);
   }
 
   /*
@@ -1247,15 +1348,13 @@ public:
    * neighbors - the nearest neighbors list that is passed by reference and modified.
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to attempt to find
-   * size - the number of points in the coordinates vector
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
                             vector<K> const& query,
-                            signed_size_t const numNeighbors,
-                            signed_size_t const size) {
+                            signed_size_t const numNeighbors) {
     
-    root->findNearestNeighbors(neighbors, query, numNeighbors, size);
+    root->findNearestNeighbors(neighbors, query, numNeighbors);
   }
   
   /*
@@ -1266,59 +1365,17 @@ public:
    * neighbors - the nearest neighbors list that is passed by reference and modified.
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to attempt to find
-   * size - the number of points in the coordinates vector
    * enable - a vector that specifies the dimensions for which to test distance
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
                             vector<K> const& query,
                             signed_size_t const numNeighbors,
-                            signed_size_t const size,
                             vector<bool> const& enable) {
     
-    root->findNearestNeighbors(neighbors, query, numNeighbors, size, enable);
+    root->findNearestNeighbors(neighbors, query, numNeighbors, enable);
   }
   
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   */
-public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors) {
-    
-    root->findNearestNeighbors(neighbors, query, permutation, numNeighbors);
-  }
-
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified
-   * query - the query vector
-   * permutation - vector that specifies permutation of the partition coordinate
-   * numNeighbors - the number M of nearest neighbors to attempt to  find
-   * enable - a vector that specifies the dimensions for which to test distance
-   */
-public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
-                            vector<K> const& query,
-                            vector<signed_size_t> const& permutation,
-                            signed_size_t const numNeighbors,
-                            vector<bool> const& enable) {
-    
-    root->findNearestNeighbors(neighbors, query, permutation, numNeighbors, enable);
-  }
-
   /*
    * Verify the consistency between the nearest neighbors lists found
    * by k-d tree search and by brute force.
@@ -1506,6 +1563,29 @@ public:
   }
   
   /*
+   * The verifyKdTree function walks the k-d tree and checks that the
+   * children of a node are in the correct branch of that node.
+   *
+   * Calling parameters:
+   *
+   * permutation - the permutation vector
+   * dim - the number of dimensions
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   *
+   * returns: a count of the number of kdNodes in the k-d tree
+   */
+public:
+  signed_size_t verifyKdTree(signed_size_t const dim,
+                             signed_size_t const maximumSubmitDepth) {
+
+    if (root != nullptr) {
+      return root->verifyKdTree(dim, maximumSubmitDepth, 0, 0);
+    } else {
+      return 0;
+    }
+  }
+
+  /*
    * The printTuple function prints one tuple.
    *
    * Calling parameters:
@@ -1576,6 +1656,8 @@ public:
 
     root->printKdTree(dim, depth);
   }
+
+  friend class KdTreeDynamic<K,V>;
 }; // class KdTree
 
 #endif // KD_MAP_NLOGN_H

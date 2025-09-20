@@ -28,8 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef KD_TREE_DYNAMIC_H
-#define KD_TREE_DYNAMIC_H
+#ifndef KD_MAP_DYNAMIC_H
+#define KD_MAP_DYNAMIC_H
 
 #include <chrono>
 #include <cstdint>
@@ -37,6 +37,7 @@
 #include <cstring>
 #include <exception>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -46,7 +47,9 @@ using std::chrono::steady_clock;
 using std::cout;
 using std::endl;
 using std::ostringstream;
+using std::pair;
 using std::runtime_error;
+using std::set;
 using std::streamsize;
 using std::vector;
 
@@ -74,23 +77,23 @@ typedef streamsize signed_size_t;
 /*
  * Forward references to all classes to support any order of compilation
  *
- * However, this kdTreeDynamic.h file must be compiled before kdTreeNode.h,
- * kdTreeKnlogn.h, and kdTreeNlogn.h because those files contain #if and #ifdef
- * directives that check whether KD_TREE_DYNAMIC_H is defined.
+ * However, this kdMapDynamic.h file must be compiled before kdMapNode.h,
+ * kdMapKnlogn.h, and kdMapNlogn.h because those files contain #if and #ifdef
+ * directives that check whether KD_MAP_DYNAMIC_H is defined.
  */
-template <typename>
+template <typename, typename>
 class KdTreeDynamic;
 
-template <typename>
+template <typename, typename>
 class KdTree;
 
-template <typename>
+template <typename, typename>
 class KdNode;
 
-template <typename>
+template <typename, typename>
 class MergeSort;
 
-template <typename>
+template <typename, typename>
 class NearestNeighborHeap;
 
 /*
@@ -98,13 +101,13 @@ class NearestNeighborHeap;
  * accessess KdTree::root so that an instance of KdTreeDynamic
  * may use KdTree member functions that require access to root.
  */
-template <typename K>
-class KdTreeDynamic : public KdTree<K>
+template <typename K, typename V>
+class KdTreeDynamic : public KdTree<K,V>
 {
 private:
     signed_size_t maxSubmitDepth = -1;
     size_t cutoff;
-    bool inserted = false, erased = false;
+    bool inserted = false, erased = false, changed = false;
 
     /*
      * This is the basic constructor.
@@ -134,22 +137,22 @@ public:
 public:
     KdTreeDynamic(signed_size_t const maxSubmitDepth,
                   size_t const cutoff,
-                  KdNode<K>* const root) {
+                  KdNode<K,V>* const root) {
 
         this->maxSubmitDepth = maxSubmitDepth;
         this->cutoff = cutoff;
-        KdTree<K>::root = root;
+        KdTree<K,V>::root = root;
     }
 
     /*
-     * If KD_TREE_DYNAMIC_H is defined, the ~KdTree destructor does not
+     * If KD_MAP_DYNAMIC_H is defined, the ~KdTree destructor does not
      * delete KdTree::root to prevent recursive deletion of the k-d tree
      * whose persistence is required by KdTreeDynamic::rebuildSubTree, so
      * so delete KdTree::root here.
      */
 public:
     ~KdTreeDynamic() {
-        delete KdTree<K>::root;
+        delete KdTree<K,V>::root;
     }
 
     /*
@@ -157,17 +160,19 @@ public:
      *
      * Calling parameter:
      *
-     * @param xkey (IN) the key to search for
+     * @param coordinate (IN) the key-value pair to search for
      * 
      * @return true if the key was found; otherwise, false
      */
 public:
-    inline bool contains(vector<K> const& key) {
+    inline bool contains(pair<vector<K>, V> const& coordinate) {
 
-        if (KdTree<K>::root != nullptr) {
-            signed_size_t dim = key.size();
-            K* const tuple = const_cast<K* const>(key.data());
-            return contains(KdTree<K>::root, tuple, dim, 0);
+        if (KdTree<K,V>::root != nullptr) {
+            vector<K> const tuple = coordinate.first;
+            signed_size_t const dim = tuple.size();
+            K* const key = const_cast<K* const>(tuple.data());
+            V const value = coordinate.second;
+            return contains(KdTree<K,V>::root, key, value, dim, 0);
         } else {
             return false;
         }
@@ -178,26 +183,29 @@ public:
     * Calling parameters:
     *
      * @param node (IN) the root of the subtree
-     * @param key (IN) the tuple of the node to search for
+     * @param key (IN) the tuple to search for
+     * @param value (IN) the value to search for
      * @param dim (IN) the number of dimensions
-     * @param p (IN) the leading dimension that is permuted cyclically
+     * @param partition (IN) the leading dimension that is permuted cyclically
     * 
     * @return true if the key was found; otherwise, false
     */
 private:
-    inline bool contains(KdNode<K>* const node,
+    inline bool contains(KdNode<K,V>* const node,
                          K* const key,
-                         signed_size_t dim,
+                         V const& value,
+                         signed_size_t const dim,
                          signed_size_t p) {
 
-        KdNode<K>* ptr = node;
+        KdNode<K,V>* ptr = node;
         while ( ptr != nullptr ) {
-            if (MergeSort<K>::superKeyCompare(key, ptr->tuple, p, dim) < 0) {
+            if (MergeSort<K,V>::superKeyCompare(key, ptr->tuple, p, dim) < 0) {
                 ptr = ptr->ltChild;
-            } else if (MergeSort<K>::superKeyCompare(key, ptr->tuple, p, dim) > 0) {
+            } else if (MergeSort<K,V>::superKeyCompare(key, ptr->tuple, p, dim) > 0) {
                 ptr = ptr->gtChild;
             } else {
-                return true; // found the key
+                // found the key, so check for the value
+                return ptr->values.contains(value);
             }
             // Permute the most significant dimension p cyclically using
             // a fast alternative to the modulus operator for p <= dim.
@@ -212,32 +220,35 @@ private:
      *
      * Calling parameter:
      *
-     * @param key (IN) the key to add to the tree
+     * @param coordinate (IN) the key-value pair to insert
      * 
      * This function modifies KdTreeDynamic::root,
      * KdTreeDynamic::inserted, and KdTreeDynamic::changed.
      * 
-     * @return true if the key was added as a new node; otherwise, false
+     * @return true if the key was inserted into a node's set; otherwise, false
      */
 public:
-    inline bool insert(vector<K> const& key) {
+    inline bool insert(pair<vector<K>, V> const& coordinate) {
 
-        inserted = false;
-        signed_size_t dim = key.size();
-        if (KdTree<K>::root != nullptr) {
-            K* const tuple = const_cast<K* const>(key.data());
-            KdTree<K>::root = insert(KdTree<K>::root, tuple, dim, 0);
+        inserted = changed = false;
+        vector<K> const tuple = coordinate.first;
+        signed_size_t const dim = tuple.size();
+        K* const key = const_cast<K* const>(tuple.data());
+        V const value = coordinate.second;
+        if (KdTree<K,V>::root != nullptr) {
+            KdTree<K,V>::root = insert(KdTree<K,V>::root, key, value, dim, 0);
         } else {
-            KdTree<K>::root = new KdNode<K>();
-            KdTree<K>::root->height = 1;
+            KdTree<K,V>::root = new KdNode<K,V>();
+            KdTree<K,V>::root->height = 1;
             // The tuple member field will be deleted by the ~KdNode destructor.
-            KdTree<K>::root->tuple = new K[dim];
+            KdTree<K,V>::root->tuple = new K[dim];
             for (signed_size_t i = 0; i < dim; ++i) {
-                KdTree<K>::root->tuple[i] = key[i];
+                KdTree<K,V>::root->tuple[i] = key[i];
             }
-            inserted = true;
+            // The values member field will be cleared by the ~KdNode destructor.
+            KdTree<K,V>::root->values.insert(value);
+            inserted = changed = true;
         }
-
         return inserted;
     }
 
@@ -247,60 +258,73 @@ public:
      * Calling parameters:
      *
      * @param node (IN) the root of the subtree
-     * @param key (IN) the tuple of the node to insert
+     * @param key (IN) the tuple to insert
+     * @param value (IN) the value to insert
      * @param dim (IN) the number of dimensions
      * @param p (IN) the leading dimension that is permuted cyclically
      * 
      * @return the root of the possibly rebalanced subtree
      */
 private:
-    KdNode<K>* insert(KdNode<K>* const node,
-                      K* const key,
-                      signed_size_t dim,
-                      signed_size_t p) {
+    KdNode<K,V>* insert(KdNode<K,V>* const node,
+                        K* const key,
+                        V const& value,
+                        signed_size_t dim,
+                        signed_size_t p) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus operator for p <= dim.
         p = (p < dim) ? p : 0;
 
         // The return value because the node argument to this function is read only.
-        KdNode<K>* nodePtr = node;
+        KdNode<K,V>* nodePtr = node;
 
         // Determine which child to search recursively for an insertion point.
-        if (MergeSort<K>::superKeyCompare(key, nodePtr->tuple, p, dim) < 0) {
+        if (MergeSort<K,V>::superKeyCompare(key, nodePtr->tuple, p, dim) < 0) {
             if (nodePtr->ltChild != nullptr) {
-                nodePtr->ltChild = insert(nodePtr->ltChild, key, dim, p+1);
+                nodePtr->ltChild = insert(nodePtr->ltChild, key, value, dim, p+1);
             } else {
-                nodePtr->ltChild = new KdNode<K>();
+                // The tree does not contain the key, so insert it.
+                nodePtr->ltChild = new KdNode<K,V>();
                 nodePtr->ltChild->height = 1;
                 // The tuple member field will be deleted by the ~KdNode destructor.
                 nodePtr->ltChild->tuple = new K[dim];
                 for (signed_size_t i = 0; i < dim; ++i) {
                     nodePtr->ltChild->tuple[i] = key[i];
                 }
-                inserted = true;
+                // The values member field will be cleared by the ~KdNode destructor.
+                nodePtr->ltChild->values.insert(value);
+                // The value was inserted and the tree height changed.
+                inserted = changed = true;
             }
-        } else if (MergeSort<K>::superKeyCompare(key, nodePtr->tuple, p, dim) > 0) {
+        } else if (MergeSort<K,V>::superKeyCompare(key, nodePtr->tuple, p, dim) > 0) {
             if (nodePtr->gtChild != nullptr) {
-                nodePtr->gtChild = insert(nodePtr->gtChild, key, dim, p+1);
+                nodePtr->gtChild = insert(nodePtr->gtChild, key, value, dim, p+1);
             } else {
-                nodePtr->gtChild = new KdNode<K>();
+                // The tree does not contain the key, so insert it.
+                nodePtr->gtChild = new KdNode<K,V>();
                 nodePtr->gtChild->height = 1;
                 // The tuple member field will be deleted by the ~KdNode destructor.
                 nodePtr->gtChild->tuple = new K[dim];
                 for (signed_size_t i = 0; i < dim; ++i) {
                     nodePtr->gtChild->tuple[i] = key[i];
                 }
-                inserted = true;
+                // The values member field will be cleared by the ~KdNode destructor.
+                nodePtr->gtChild->values.insert(value);
+                // The value was inserted and the tree height changed.
+                inserted = changed = true;
             }
         } else {
-            // For a tree, don't insert the key twice. Maybe increment
-            // a counter to record duplicate instance of the key.
-            inserted = false;
-        }
+            // The key is in the tree, so insert the value,
+            // even if the values set might already contain
+            // it. The tree height doesn't change.
+            nodePtr->values.insert(value);
+            inserted = true;
+            changed = false;
+       }
 
         // Has the height changed due to an insertion? 
-        if (inserted) {
+        if (changed) {
             // Yes, the height has changed, so recompute the height at this node.
             nodePtr->height = computeHeight(nodePtr);
 
@@ -320,18 +344,20 @@ private:
      *
      * Calling parameter:
      * 
-     * @param key (IN) the key to erase from the tree
+     * @param coordinate (IN) the key-value pair to erase
      * 
-     * @return true if the key was found; otherwise, false
+     * @return true if the key erased from a node's set; otherwise, false
      */
 public:
-    inline bool erase(vector<K> const& key) {
+    inline bool erase(pair<vector<K>, V> const& coordinate) {
 
-        erased = false;
-        if (KdTree<K>::root != nullptr) {
-            signed_size_t dim = key.size();
-            K* const tuple = const_cast<K* const>(key.data());
-            KdTree<K>::root = erase(KdTree<K>::root, tuple, dim, 0);
+        erased = changed = false;
+        if (KdTree<K,V>::root != nullptr) {
+            vector<K> const tuple = coordinate.first;
+            signed_size_t const dim = tuple.size();
+            K* const key = const_cast<K* const>(tuple.data());
+            V const value = coordinate.second;
+            KdTree<K,V>::root = erase(KdTree<K,V>::root, key, value, dim, 0);
         }
         return erased;
     }
@@ -342,32 +368,36 @@ public:
      * Calling parameters:
      * 
      * @param node (IN) the root of the subtree
-     * @param key (IN) the tuple of the node to erase
+     * @param key (IN) the tuple to erase
+     * @param value (IN) the value to erase
      * @param dim (IN) the number of dimensions
      * @param p (IN) the leading dimension that is permuted cyclically
+     * @param clearSet (IN) clear all values in the set (default false)
      * 
      * @return the root of the possibly rebalanced subtree
      */
 private:
-    KdNode<K>* erase(KdNode<K>* const node,
-                     K* const key,
-                     signed_size_t dim,
-                     signed_size_t p) {
+    KdNode<K,V>* erase(KdNode<K,V>* const node,
+                      K* const key,
+                      V const& value,
+                      signed_size_t const dim,
+                      signed_size_t p,
+                      bool const clearSet = false) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus operator for p <= dim.
         p = (p < dim) ? p : 0;
 
         // The return value because the node argument to this function is read only.
-        KdNode<K>* nodePtr = node;
+        KdNode<K,V>* nodePtr = node;
 
         // Determine which child to search recursively for a deletion point.
-        if (MergeSort<K>::superKeyCompare(key, nodePtr->tuple, p, dim) < 0) {
+        if (MergeSort<K,V>::superKeyCompare(key, nodePtr->tuple, p, dim) < 0) {
             if (nodePtr->ltChild != nullptr) {
-                nodePtr->ltChild = erase(nodePtr->ltChild, key, dim, p+1);
+                nodePtr->ltChild = erase(nodePtr->ltChild, key, value, dim, p+1, clearSet);
 
                 // Has the height changed due to an erasure? 
-                if (erased) {
+                if (changed) {
                     // Yes, the height has changed, so recompute the height at this node.
                     nodePtr->height = computeHeight(nodePtr);
 
@@ -380,15 +410,15 @@ private:
                     }
                 }
             } else {
-                // The node doesn't exist.
-                erased = false;
+                // The tree does not contain the key.
+                erased = changed = false;
             }
-        } else if (MergeSort<K>::superKeyCompare(key, nodePtr->tuple, p, dim) > 0) {
+        } else if (MergeSort<K,V>::superKeyCompare(key, nodePtr->tuple, p, dim) > 0) {
             if (nodePtr->gtChild != nullptr) {
-                nodePtr->gtChild = erase(nodePtr->gtChild, key, dim, p+1);
+                nodePtr->gtChild = erase(nodePtr->gtChild, key, value, dim, p+1, clearSet);
              
                 // Has the height changed due to an erasure? 
-                if (erased) {
+                if (changed) {
                     // Yes, the height has changed, so recompute the height at this node.
                     nodePtr->height = computeHeight(nodePtr);
 
@@ -401,199 +431,246 @@ private:
                     }
                 }
             } else {
-                // The node doesn't exist.
-                erased = false;
+                // The tree does not contain the key.
+                erased = changed = false;
             }
         } else {
-            // Found the key, so a node will be erased.
-            erased = true;
-
-            // Does the node have only a < child?
-            if (nodePtr->ltChild != nullptr && nodePtr->gtChild == nullptr) {
-                // Yes, the node has only a < child, so does the subtree
-                // rooted at the < child contain <= 3 nodes?
-                //
-                // Checking the height prior to checking the countNodes result
-                // avoids a time-consuming call of countNodes for a large subtree.
-
-#ifdef ENABLE_1TO3
-
-                size_t nodeCount;
-                if (nodePtr->ltChild->height <= 3
-                    && (nodeCount = countNodes(nodePtr->ltChild)) <= 3)
-                {
-                    // Yes, the < child subtree contains <= 3 nodes. So, rebuild
-                    // the < child subtree using the leading dimension p at this
-                    // level of the tree, and delete the node. This approach
-                    // avoids the need to find a predecessor node.
-                    //
-                    // Note that rebuildSubTree1to3 computes the height
-                    // of the rebuilt < child subtree.
-                    KdNode<K>* const tempPtr = nodePtr;
-                    nodePtr = rebuildSubTree1to3(nodePtr->ltChild, nodeCount, dim, p);
-                    tempPtr->ltChild = nullptr; // Prevent recursive deletion.
-                    delete tempPtr;
-                } else
-
-#endif // ENABLE_1TO3
-
-                {
-                    // No, the < child subtree contains > 3 nodes. So, find
-                    // the immediate predecessor node, copy the tuple from that
-                    // predecessor node to the one-child node, delete the
-                    // predecessor node, recompute the height along the path
-                    // back to the < child (including that child), and then
-                    // recompute the height at the one-child node.
-                    KdNode<K>* predecessor = nodePtr->ltChild;
-                    predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
-                    for (signed_size_t i = 0; i < dim; ++i) {
-                        nodePtr->tuple[i] = predecessor->tuple[i];
-                    }
-                    nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
-
-                    // Compute the height at his node because erase computes
-                    // the height at the < child but not at this node. Note that,
-                    // because the > child is null, deletion of a node from the
-                    // < child can only improve the balance. Hence, there is no
-                    // need to check the balance.
-                    nodePtr->height = computeHeight(nodePtr);
+            // The tree contains the key, so if clearSet is false,
+            // and if the values set does not contain the value, no
+            // value is removed and the tree height doesn't change.
+            if ( !clearSet && !nodePtr->values.contains(value) ) {
+                erased = changed = false;
+            } else {
+                // Either clearSet is true, or the values set
+                // contains the value. So if clearSet is true,
+                // clear the values set; otherwise, remove the
+                // value from the values set.
+                if (clearSet) {
+                    nodePtr->values.clear();
+                } else {
+                    nodePtr->values.erase(value);
                 }
-            }
-            // Does the node have only a > child?
-            else if (nodePtr->gtChild != nullptr && nodePtr->ltChild == nullptr) {
-                // Yes, the node has only a > child, so does the subtree
-                // rooted at the > child contain <= 3 nodes?
-                //
-                // Checking the height prior to checking the countNodes result
-                // avoids a time-consuming call of countNodes for a large subtree.
 
-#ifdef ENABLE_1TO3
+                // Is the values set now empty?
+                if ( !nodePtr->values.empty() ) {
+                    // The values set is not empty, so a value was erased
+                    // but the tree height has not changed.
+                    erased = true;
+                    changed = false;
+                } else {
+                    // The values set is empty, so a value was erased and
+                    // the tree height will change via removal of a node.
+                    erased = changed = true;
 
-                size_t nodeCount;
-                if (nodePtr->gtChild->height <= 3
-                    && (nodeCount = countNodes(nodePtr->gtChild)) <= 3)
-                {
-                    // Yes, the > child subtree contains <= 3 nodes. So, rebuild
-                    // the > child subtree using the leading dimension p at this
-                    // level of the tree, and delete the node. This approach
-                    // avoids the need to find a predecessor node.
-                    //
-                    // Note that rebuildSubTree1to3 computes the height
-                    // of the rebuilt > child subtree.
-                    KdNode<K>* const tempPtr = nodePtr;
-                    nodePtr = rebuildSubTree1to3(nodePtr->gtChild, nodeCount, dim, p);
-                    tempPtr->gtChild = nullptr; // Prevent recursive deletion.
-                    delete tempPtr;
-                } else
+                    // Does the node have only a < child?
+                    if (nodePtr->ltChild != nullptr && nodePtr->gtChild == nullptr) {
+                        // Yes, the node has only a < child, so does the subtree
+                        // rooted at the < child contain <= 3 nodes?
+                        //
+                        // Checking the height prior to checking the countNodes result
+                        // avoids a time-consuming call of countNodes for a large subtree.
 
-#endif // ENABLE_1TO3
+        #ifdef ENABLE_1TO3
 
-                {
-                    // No, the > child subtree contains > 3 nodes. So, find
-                    // the immediate successor node, copy the tuple from that
-                    // successor node to the one-child node, delete the
-                    // successor node, recompute the height along the path
-                    // back to the > child (including that child), and then
-                    // recompute the height at the one-child node.
-                    KdNode<K>* successor = nodePtr->gtChild;
-                    successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
-                    for (signed_size_t i = 0; i < dim; ++i) {
-                        nodePtr->tuple[i] = successor->tuple[i];
+                        size_t nodeCount;
+                        if (nodePtr->ltChild->height <= 3
+                            && (nodeCount = countNodes(nodePtr->ltChild)) <= 3)
+                        {
+                            // Yes, the < child subtree contains <= 3 nodes. So, rebuild
+                            // the < child subtree using the leading dimension p at this
+                            // level of the tree, and delete the node. This approach
+                            // avoids the need to find a predecessor node.
+                            //
+                            // Note that rebuildSubTree1to3 computes the height
+                            // of the rebuilt < child subtree.
+                            KdNode<K,V>* const tempPtr = nodePtr;
+                            nodePtr = rebuildSubTree1to3(nodePtr->ltChild, nodeCount, dim, p);
+                            tempPtr->ltChild = nullptr; // Prevent recursive deletion.
+                            delete tempPtr;
+                        } else
+
+        #endif // ENABLE_1TO3
+
+                        {
+                            // No, the < child subtree contains > 3 nodes. So, find
+                            // the immediate predecessor node, copy the tuple and the
+                            // values set from that predecessor node to the one-child
+                            // node, delete the predecessor node recursively (clearing
+                            // its values set), recompute the height along the path back
+                            // to the < child (including that child), and then recompute
+                            // the height at the one-child node.
+                            KdNode<K,V>* predecessor = nodePtr->ltChild;
+                            predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
+                            for (signed_size_t i = 0; i < dim; ++i) {
+                                nodePtr->tuple[i] = predecessor->tuple[i];
+                            }
+                            nodePtr->values.insert(predecessor->values.begin(), predecessor->values.end());
+                            // value is a dummy argument because the clearSet argument is true
+                            nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1, true);
+
+                            // Compute the height at his node because erase computes
+                            // the height at the < child but not at this node. Because
+                            // the > child is null, deletion of a node from the < child
+                            // subtree can only improve the balance. Hence, there is no
+                            // need to check the balance.
+                            nodePtr->height = computeHeight(nodePtr);
+                        }
                     }
-                    nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
+                    // Does the node have only a > child?
+                    else if (nodePtr->gtChild != nullptr && nodePtr->ltChild == nullptr) {
+                        // Yes, the node has only a > child, so does the subtree
+                        // rooted at the > child contain <= 3 nodes?
+                        //
+                        // Checking the height prior to checking the countNodes result
+                        // avoids a time-consuming call of countNodes for a large subtree.
 
-                    // Compute the height at his node because erase computes
-                    // the height at the > child but not at this node. Note that,
-                    // because the < child is null, deletion of a node from the
-                    // > child can only improve the balance. Hence, there is no
-                    // need to check the balance.
-                    nodePtr->height = computeHeight(nodePtr);
-                }
-            }
-            // If the node has no children, delete the node.
-            else if (nodePtr->ltChild == nullptr && nodePtr->gtChild == nullptr) {
-                KdNode<K>* const tempPtr = nodePtr;
-                nodePtr = nullptr;
-                delete tempPtr;
-            } else { 
-                // The node has two children, so does the subtree rooted
-                // at this node have <= 3 nodes, excluding this root node?
-                //
-                // Checking the height prior to checking the countNodesSkipRoot result
-                // avoids a time-consuming call of countNodesSkipRoot for a large subtree.
+        #ifdef ENABLE_1TO3
 
-#ifdef ENABLE_1TO3
+                        size_t nodeCount;
+                        if (nodePtr->gtChild->height <= 3
+                            && (nodeCount = countNodes(nodePtr->gtChild)) <= 3)
+                        {
+                            // Yes, the > child subtree contains <= 3 nodes. So, rebuild
+                            // the > child subtree using the leading dimension p at this
+                            // level of the tree, and delete the node. This approach
+                            // avoids the need to find a predecessor node.
+                            //
+                            // Note that rebuildSubTree1to3 computes the height
+                            // of the rebuilt > child subtree.
+                            KdNode<K,V>* const tempPtr = nodePtr;
+                            nodePtr = rebuildSubTree1to3(nodePtr->gtChild, nodeCount, dim, p);
+                            tempPtr->gtChild = nullptr; // Prevent recursive deletion.
+                            delete tempPtr;
+                        } else
 
-                size_t nodeCount;
-                if (nodePtr->height <= 3
-                    && (nodeCount = countNodesSkipRoot(nodePtr)) <= 3)
-                {
-                    // Yes, the subtree rooted at this node contains <= 3 nodes,
-                    // excluding this root node, so rebuild the subtree excluding
-                    // this root node and delete this root node. This approach
-                    // avoids the need to find a predecessor or successor node.
-                    //
-                    // Note that rebuildSubTreeSkipRoot1to3 computes the height
-                    // of the rebuilt subtree.
-                    KdNode<K>* const tempPtr = nodePtr;
-                    nodePtr = rebuildSubTreeSkipRoot1to3(nodePtr, nodeCount, dim, p);
-                    tempPtr->ltChild = tempPtr->gtChild = nullptr;
-                    delete tempPtr;
-                } else
+        #endif // ENABLE_1TO3
 
-#endif // ENABLE_1TO3
+                        {
+                            // No, the > child subtree contains > 3 nodes. So, find
+                            // the immediate successor node, copy the tuple and the
+                            // values set from that successor node to the one-child
+                            // node, delete the successor node recursively (clearing
+                            // its values set), recompute the height along the path back
+                            // to the > child (including that child), and then recompute
+                            // the height at the one-child node.
+                           KdNode<K,V>* successor = nodePtr->gtChild;
+                            successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
+                            for (signed_size_t i = 0; i < dim; ++i) {
+                                nodePtr->tuple[i] = successor->tuple[i];
+                            }
+                            nodePtr->values.insert(successor->values.begin(), successor->values.end());
+                            // value is a dummy argument because the clearSet argument is true
+                            nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1, true);
 
-                {
-                    // No, the subtree rooted at this node contains > 3 nodes,
-                    // excluding this root node, so replace this node by either
-                    // its predecessor or its successor.
-                    //
-                    // If ENABLE_PREFERRED_TEST is defined, select the replacement
-                    // node from the taller of the child subtrees.
-
-#ifdef ENABLE_PREFERRED_TEST
-
-                    if ( getHeight(nodePtr->ltChild) >= getHeight(nodePtr->gtChild) )
-                    {
-
-                        // Find the node with the largest super-key in the
-                        // subtree rooted at the < child, which is the
-                        // predecessor node. Copy the predecessor node's tuple
-                        // to the two-child node, delete the predecessor node,
-                        // recompute the heights along the path from the
-                        // predecessor node to (but excluding) the two-child node,
-                        // and then recompute the height at the two-child node.
-                        KdNode<K>* predecessor = nodePtr->ltChild;
-                        predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
-                        for (signed_size_t i = 0; i < dim; ++i) {
-                            nodePtr->tuple[i] = predecessor->tuple[i];
+                            // Compute the height at his node because erase computes
+                            // the height at the > child but not at this node.  Because
+                            // the < child is null, deletion of a node from the > child
+                            // subtree can only improve the balance. Hence, there is no
+                            // need to check the balance.
+                            nodePtr->height = computeHeight(nodePtr);
                         }
-                        nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
-                        nodePtr->height = computeHeight(nodePtr);
-                        if ( !isBalanced(nodePtr) ) {
-                            nodePtr = rebuildSubTree(nodePtr, dim, p);
-                        }
-                    } else
+                    }
+                    // If the node has no children, delete the node.
+                    else if (nodePtr->ltChild == nullptr && nodePtr->gtChild == nullptr) {
+                        KdNode<K,V>* const tempPtr = nodePtr;
+                        nodePtr = nullptr;
+                        delete tempPtr;
+                    } else { 
+                        // The node has two children, so does the subtree rooted
+                        // at this node have <= 3 nodes, excluding this root node?
+                        //
+                        // Checking the height prior to checking the countNodesSkipRoot result
+                        // avoids a time-consuming call of countNodesSkipRoot for a large subtree.
 
-#endif // ENABLE_PREFERRED_TEST
+        #ifdef ENABLE_1TO3
 
-                    {
-                        // Find the node with the smallest super-key in the
-                        // subtree rooted at the > child, which is the
-                        // successor node. Copy the successor node's tuple
-                        // to the two-child node, delete the successor node,
-                        // recompute the heights along the path from the
-                        // successor node to (but excluding) the two-child node,
-                        // and then recompute the height at the two-child node.
-                        KdNode<K>* successor = nodePtr->gtChild;
-                        successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
-                        for (signed_size_t i = 0; i < dim; ++i) {
-                            nodePtr->tuple[i] = successor->tuple[i];
-                        }
-                        nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
-                        nodePtr->height = computeHeight(nodePtr);
-                        if ( !isBalanced(nodePtr) ) {
-                            nodePtr = rebuildSubTree(nodePtr, dim, p);
+                        size_t nodeCount;
+                        if (nodePtr->height <= 3
+                            && (nodeCount = countNodesSkipRoot(nodePtr)) <= 3)
+                        {
+                            // Yes, the subtree rooted at this node contains <= 3 nodes,
+                            // excluding this root node, so rebuild the subtree excluding
+                            // this root node and delete this root node. This approach
+                            // avoids the need to find a predecessor or successor node.
+                            //
+                            // Note that rebuildSubTreeSkipRoot1to3 computes the height
+                            // of the rebuilt subtree.
+                            KdNode<K,V>* const tempPtr = nodePtr;
+                            nodePtr = rebuildSubTreeSkipRoot1to3(nodePtr, nodeCount, dim, p);
+                            tempPtr->ltChild = tempPtr->gtChild = nullptr; // Prevent recursive deletion.
+                            delete tempPtr;
+                        } else
+
+        #endif // ENABLE_1TO3
+
+                        {
+                            // No, the subtree rooted at this node contains > 3 nodes,
+                            // excluding this root node, so replace this node by either
+                            // its predecessor or its successor.
+                            //
+                            // If ENABLE_PREFERRED_TEST is defined, select the replacement
+                            // node from the taller of the child subtrees.
+
+        #ifdef ENABLE_PREFERRED_TEST
+
+                            if ( getHeight(nodePtr->ltChild) >= getHeight(nodePtr->gtChild) )
+                            {
+                                // Find the node with the largest super-key in the
+                                // subtree rooted at the < child, which is the
+                                // predecessor node. Copy the predecessor node's tuple
+                                // and values set to the two-child node, delete the
+                                // predecessor node recursively (clearing its values set),
+                                // recompute the heights along the path from the
+                                // predecessor node to (but excluding) the two-child node,
+                                // and then recompute the height at the two-child node.
+                                KdNode<K,V>* predecessor = nodePtr->ltChild;
+                                predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
+                                for (signed_size_t i = 0; i < dim; ++i) {
+                                    nodePtr->tuple[i] = predecessor->tuple[i];
+                                }
+                                nodePtr->values.insert(predecessor->values.begin(), predecessor->values.end());
+                                // value is a dummy argument because he clearSet argument is true
+                                nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1, true);
+                                nodePtr->height = computeHeight(nodePtr);
+
+                                // Because the two-child node has two subtrees, recursively
+                                // erasing the predecessor node can modify the balance, so
+                                // it may be necessary to rebalance the subtree rooted at
+                                // the two-child node.
+                                if ( !isBalanced(nodePtr) ) {
+                                    nodePtr = rebuildSubTree(nodePtr, dim, p);
+                                }
+                            } else
+
+        #endif // ENABLE_PREFERRED_TEST
+
+                            {
+                                // Find the node with the smallest super-key in the
+                                // subtree rooted at the > child, which is the
+                                // successor node. Copy the successor node's tuple
+                                // and values set to the two-child node, delete the
+                                // successor node recursively (clearing its values set),
+                                // recompute the heights along the path from the
+                                // successor node to (but excluding) the two-child node,
+                                // and then recompute the height at the two-child node.
+                                KdNode<K,V>* successor = nodePtr->gtChild;
+                                successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
+                                for (signed_size_t i = 0; i < dim; ++i) {
+                                    nodePtr->tuple[i] = successor->tuple[i];
+                                }
+                                nodePtr->values.insert(successor->values.begin(), successor->values.end());
+                                // value is a dummy argument because the clearSet argument is true
+                                nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1, true);
+                                nodePtr->height = computeHeight(nodePtr);
+
+                                // Because the two-child node has two subtrees, recursively
+                                // erasing the successor node can modify the balance, so
+                                // it may be necessary to rebalance the subtree rooted at
+                                // the two-child node.
+                                if ( !isBalanced(nodePtr) ) {
+                                    nodePtr = rebuildSubTree(nodePtr, dim, p);
+                                }
+                            }
                         }
                     }
                 }
@@ -617,14 +694,14 @@ private:
      * @return the updated predecessor node
      */
 private:
-    KdNode<K>* findPredecessor(KdNode<K>* const node,
-                               KdNode<K>* const predecessor,
-                               signed_size_t const dim,
-                               signed_size_t const p0,
-                               signed_size_t p) {
+    KdNode<K,V>* findPredecessor(KdNode<K,V>* const node,
+                                 KdNode<K,V>* const predecessor,
+                                 signed_size_t const dim,
+                                 signed_size_t const p0,
+                                 signed_size_t p) {
 
         // The return value because the predecessor argument to this function is read only.
-        KdNode<K>* pred = predecessor;
+        KdNode<K,V>* pred = predecessor;
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus operator for p <= dim.
@@ -644,7 +721,7 @@ private:
         } else {
             // No, the leading dimensions are not equal; hence, this
             // node is a potential predecessor, so check it, and
-            // then follow both children.
+            // then inspect both children.
             pred = checkPredecessor(node, pred, dim, p0);
             if (node->ltChild != nullptr) {
                 pred = findPredecessor(node->ltChild, pred, dim, p0, p+1);
@@ -670,16 +747,16 @@ private:
      * @return the updated predecessor node
      */
 private:
-    KdNode<K>* checkPredecessor(KdNode<K>* const node,
-                                KdNode<K>* const predecessor,
-                                signed_size_t const dim,
-                                signed_size_t const p0) {
+    KdNode<K,V>* checkPredecessor(KdNode<K,V>* const node,
+                                  KdNode<K,V>* const predecessor,
+                                  signed_size_t const dim,
+                                  signed_size_t const p0) {
 
         // The return value because the predecessor argument to this function is read only.
-        KdNode<K>* pred = predecessor;
+        KdNode<K,V>* pred = predecessor;
 
         // Update the current precedessor if the potential predecessor is larger.
-        if (MergeSort<K>::superKeyCompare(node->tuple, pred->tuple, p0, dim) > 0) {
+        if (MergeSort<K,V>::superKeyCompare(node->tuple, pred->tuple, p0, dim) > 0) {
             pred = node;
         }
         return pred;
@@ -700,20 +777,22 @@ private:
      * @return the updated successor node
      */
 private:
-    KdNode<K>* findSuccessor(KdNode<K>* const node,
-                             KdNode<K>* const successor,
-                             signed_size_t const dim,
-                             signed_size_t const p0,
-                             signed_size_t p) {
+    KdNode<K,V>* findSuccessor(KdNode<K,V>* const node,
+                               KdNode<K,V>* const successor,
+                               signed_size_t const dim,
+                               signed_size_t const p0,
+                               signed_size_t p) {
 
         // The return value because the successor argument to this function is read only.
-        KdNode<K>* succ = successor;
+        KdNode<K,V>* succ = successor;
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus operator for p <= dim.
         p = (p < dim) ? p : 0;
 
-        if (p == p0) {
+        // Does the leading dimension at this node equal
+        // the leading dimension at the node to be replaced?
+         if (p == p0) {
             // Yes, the leading dimensions are equal, so if this
             // node has a < child, follow that child; otherwise,
             // this node is a potential successor, so check it.
@@ -751,16 +830,16 @@ private:
      * @return the updated successor node
      */
 private:
-    KdNode<K>* checkSuccessor(KdNode<K>* const node,
-                              KdNode<K>* const successor,
-                              signed_size_t const dim,
-                              signed_size_t p0) {
+    KdNode<K,V>* checkSuccessor(KdNode<K,V>* const node,
+                                KdNode<K,V>* const successor,
+                                signed_size_t const dim,
+                                signed_size_t p0) {
 
         // The return value because the successor argument to this function is read only.
-        KdNode<K>* succ = successor;
+        KdNode<K,V>* succ = successor;
 
-        // Update the current successor node if the potential successor is smaller.
-        if (MergeSort<K>::superKeyCompare(node->tuple, succ->tuple, p0, dim) < 0) {
+        // Update the current successor if the potential successor is smaller.
+        if (MergeSort<K,V>::superKeyCompare(node->tuple, succ->tuple, p0, dim) < 0) {
             succ = node;
         }
         return succ;
@@ -778,15 +857,15 @@ private:
      * return the root node of the balanced subtree
      */
 private:
-    inline KdNode<K>* rebuildSubTree(KdNode<K>* const node,
-                                     size_t const dim,
-                                     signed_size_t const p) {
+    inline KdNode<K,V>* rebuildSubTree(KdNode<K,V>* const node,
+                                       size_t const dim,
+                                       signed_size_t const p) {
 
         // Walk the subtree to obtain a vector of pointers to KdNodes.
         // Count the nodes in the subtree, allocate a sized vector of KdNode
         // pointers, and assign to each vector element a pointer to each KdNode.
         size_t count = countNodes(node);
-        vector<KdNode<K>*> kdNodes(count);
+        vector<KdNode<K,V>*> kdNodes(count);
         size_t index = 0;
         getSubTree(node, kdNodes, index);
 
@@ -808,7 +887,7 @@ private:
         {
             // No, the subtree contains more than 3 KdNodes,
             // so rebuild the subtree via KdTree::createKdTree.
-            //
+
             // Check the count and kdNodes.size() for consistency.
             if (count != kdNodes.size()) {
                 ostringstream buffer;
@@ -820,29 +899,29 @@ private:
             // invalidates the node argument to this rebuildSubTree function.
             //
             // Do not use mutiple threads to build the subtree, even
-            // though multiple threads area available, if the size of the
-            // subtree is too small to justify spawning child threads.
+            // though multiple threads are available, unless the size of the
+            // subtree is sufficiently large to justify spawning child threads.
             signed_size_t numNodes;
             double allocateTime, sortTime, removeTime, kdTime,
-                verifyTime, deallocateTime, unsortTime;
+                verifyTime, deallocateTime;
 
-            KdTree<K>* subTree;
+            KdTree<K,V>* subTree;
             if (count < cutoff) {
                 subTree =
-                    KdTree<K>::createKdTree(kdNodes, dim, -1, numNodes,
-                                            allocateTime, sortTime, removeTime, kdTime,
-                                            verifyTime, deallocateTime, unsortTime, p);
+                    KdTree<K,V>::createKdTree(kdNodes, dim, -1, numNodes,
+                                              allocateTime, sortTime, removeTime, kdTime,
+                                              verifyTime, deallocateTime, p);
             } else {
                 subTree =
-                    KdTree<K>::createKdTree(kdNodes, dim, maxSubmitDepth, numNodes,
-                                            allocateTime, sortTime, removeTime, kdTime,
-                                            verifyTime, deallocateTime, unsortTime, p);
+                    KdTree<K,V>::createKdTree(kdNodes, dim, maxSubmitDepth, numNodes,
+                                              allocateTime, sortTime, removeTime, kdTime,
+                                              verifyTime, deallocateTime, p);
             }
 
             // Delete the KdTree instance but not its root
             // (see the ~KdTree destructor) so that the 
             // rebuilt subtree will be added to the k-d tree.
-            KdNode<K>* const subTreeRoot = subTree->root;
+            KdNode<K,V>* const subTreeRoot = subTree->root;
             delete subTree;
             return subTreeRoot;
         }
@@ -861,14 +940,14 @@ private:
      * return the root node of the subtree
      */
 private:
-    inline KdNode<K>* rebuildSubTree1to3(KdNode<K>* const node,
-                                         size_t const nodeCount,
-                                         size_t const dim,
-                                         signed_size_t const p) {
+    inline KdNode<K,V>* rebuildSubTree1to3(KdNode<K,V>* const node,
+                                           size_t const nodeCount,
+                                           size_t const dim,
+                                           signed_size_t const p) {
 
         // Allocate a sized vector of KdNode pointers, and walk the subtree
         // to assign to each vector element a pointer to a KdNode instance.
-        vector<KdNode<K>*> kdNodes(nodeCount);
+        vector<KdNode<K,V>*> kdNodes(nodeCount);
         size_t index = 0;
         getSubTree(node, kdNodes, index);
         return rebuildSubTree1to3(node, kdNodes, dim, p);
@@ -887,15 +966,14 @@ private:
      * return the root node of the subtree
      */
 private:
-    inline KdNode<K>* rebuildSubTree1to3(KdNode<K>* const node,
-                                         vector<KdNode<K>*> const& kdNodes,
-                                         size_t const dim,
-                                         signed_size_t const p) {
+    inline KdNode<K,V>* rebuildSubTree1to3(KdNode<K,V>* const node,
+                                           vector<KdNode<K,V>*> const& kdNodes,
+                                           size_t const dim,
+                                           signed_size_t const p) {
 
         // The return value because the node argument to this function is read only.
-        KdNode<K>* ptr = node;
+        KdNode<K,V>* ptr = node;
 
-        // Treat specific cases for subtree sizes 1, 2, and 3.
         if (kdNodes.size() == 1) {
 
             // The subtree contains 1 node, so it is the root of the rebuilt subtree.
@@ -906,10 +984,10 @@ private:
 
             // The subtree contains 2 nodes, so the first node is the root of the rebuilt
             // subtree. Compare super-keys to determine whether second node is the < child
-            // or the > child.
+            // or the > child of the first node.
             ptr = kdNodes[0];
             ptr->height = 2;
-            if (MergeSort<K>::superKeyCompare(kdNodes[0]->tuple, kdNodes[1]->tuple, p, dim) > 0) {
+            if (MergeSort<K,V>::superKeyCompare(kdNodes[0]->tuple, kdNodes[1]->tuple, p, dim) > 0) {
                 ptr->ltChild = kdNodes[1];
                 ptr->ltChild->height = 1;
             } else {
@@ -922,16 +1000,16 @@ private:
             // The subtree contains 3 nodes, so compare their super-keys to determine which
             // node is the median node. The node with the smallest super-key is the < child.
             // The node with the larges super-key is the > child.
-            if (MergeSort<K>::superKeyCompare(kdNodes[0]->tuple, kdNodes[1]->tuple, p, dim) < 0) {
+            if (MergeSort<K,V>::superKeyCompare(kdNodes[0]->tuple, kdNodes[1]->tuple, p, dim) < 0) {
                 // kdNodes[0]->tuple < kdNodes[1]->tuple
-                if (MergeSort<K>::superKeyCompare(kdNodes[1]->tuple, kdNodes[2]->tuple, p, dim) < 0) {
+                if (MergeSort<K,V>::superKeyCompare(kdNodes[1]->tuple, kdNodes[2]->tuple, p, dim) < 0) {
                     // kdNodes[0]->tuple < kdNodes[1]->tuple < kdNodes[2]->tuple
                     ptr = kdNodes[1];
                     ptr->ltChild = kdNodes[0];
                     ptr->gtChild = kdNodes[2];
                 } else {
                     // kdNodes[0]->tuple < kdNodes[1]->tuple; kdNodes[2]->tuple < kdNodes[1]->tuple
-                    if (MergeSort<K>::superKeyCompare(kdNodes[0]->tuple, kdNodes[2]->tuple, p, dim) < 0) {
+                    if (MergeSort<K,V>::superKeyCompare(kdNodes[0]->tuple, kdNodes[2]->tuple, p, dim) < 0) {
                         // kdNodes[0]->tuple < kdNodes[2]->tuple < kdNodes[1]->tuple
                         ptr = kdNodes[2];
                         ptr->ltChild = kdNodes[0];
@@ -945,14 +1023,14 @@ private:
                 }
             } else {
                 // kdNodes[1]->tuple < kdNodes[0]->tuple
-                if (MergeSort<K>::superKeyCompare(kdNodes[0]->tuple, kdNodes[2]->tuple, p, dim) < 0) {
+                if (MergeSort<K,V>::superKeyCompare(kdNodes[0]->tuple, kdNodes[2]->tuple, p, dim) < 0) {
                     // kdNodes[1]->tuple < kdNodes[0]->tuple < kdNodes[2]->tuple
                     ptr = kdNodes[0];
                     ptr->ltChild = kdNodes[1];
                     ptr->gtChild = kdNodes[2];
                 } else {
                     // kdNodes[1]->tuple < kdNodes[0]->tuple; kdNodes[2]->tuple < kdNodes[0]->tuple
-                    if (MergeSort<K>::superKeyCompare(kdNodes[1]->tuple, kdNodes[2]->tuple, p, dim) < 0) {
+                    if (MergeSort<K,V>::superKeyCompare(kdNodes[1]->tuple, kdNodes[2]->tuple, p, dim) < 0) {
                         // kdNodes[1]->tuple < kdNodes[2]->tuple < kdNodes[0]->tuple
                         ptr = kdNodes[2];
                         ptr->ltChild = kdNodes[1];
@@ -990,7 +1068,7 @@ private:
      * return the number of nodes
      */
 private:
-    size_t countNodes(KdNode<K>* const node) {
+    size_t countNodes(KdNode<K,V>* const node) {
 
         // Count this node.
         size_t count = 1;
@@ -1016,8 +1094,8 @@ private:
      * @param index (MODIFIED) the index where the node is stored
      */
 private:
-    void getSubTree(KdNode<K>* const node,
-                    vector<KdNode<K>*>& kdNodes,
+    void getSubTree(KdNode<K,V>* const node,
+                    vector<KdNode<K,V>*>& kdNodes,
                     size_t& index) {
 
         // Append the child nodes recursively.
@@ -1035,6 +1113,8 @@ private:
         kdNodes[index++] = node;
     }
 
+#ifdef ENABLE_1TO3
+
     /*
      * Build a subtree that contains 1 to 3 KdNode instances
      * but skip the root node.     
@@ -1049,14 +1129,14 @@ private:
      * return the root node of the subtree
      */
 private:
-    inline KdNode<K>* rebuildSubTreeSkipRoot1to3(KdNode<K>* const node,
-                                                 size_t const nodeCount,
-                                                 size_t const dim,
-                                                 signed_size_t const p) {
+    inline KdNode<K,V>* rebuildSubTreeSkipRoot1to3(KdNode<K,V>* const node,
+                                                   size_t const nodeCount,
+                                                   size_t const dim,
+                                                   signed_size_t const p) {
 
         // Allocate a sized vector of KdNode pointers, and walk the subtree
         // to assign to each vector element a pointer to a KdNode instance.
-        vector<KdNode<K>*> kdNodes(nodeCount);
+        vector<KdNode<K,V>*> kdNodes(nodeCount);
         size_t index = 0;
         getSubTreeSkipRoot(node, kdNodes, index);
         return rebuildSubTree1to3(node, kdNodes, dim, p);
@@ -1073,7 +1153,7 @@ private:
      * return the number of nodes
      */
 private:
-    size_t countNodesSkipRoot(KdNode<K>* const node,
+    size_t countNodesSkipRoot(KdNode<K,V>* const node,
                               size_t const depth = 0) {
 
         // Initialize the count.
@@ -1107,8 +1187,8 @@ private:
      * @param depth (IN) the depth in the subtree (default 0)
      */
 private:
-    void getSubTreeSkipRoot(KdNode<K>* const node,
-                            vector<KdNode<K>*>& kdNodes,
+    void getSubTreeSkipRoot(KdNode<K,V>* const node,
+                            vector<KdNode<K,V>*>& kdNodes,
                             size_t& index,
                             size_t const depth = 0) {
 
@@ -1130,21 +1210,23 @@ private:
         }
     }
 
+#endif // ENABLE_1TO3
+
     /*
      * Count and append the tuples of nodes from a subtree into a pre-sized vector.
      * Note that the subtree is traversed in order; hence, the tuples are sorted.   
      *
      * Calling parameters:
      * 
-     * @param coordinates (MODIFIED) the vector
+     * @param coordinates (MODIFIED) a vector of key-value pairs
      * 
      * return the number of nodes
      */
 public:
-    size_t getSortedTree(vector<vector<K>>& coordinates) {
+    size_t getSortedTree(vector<pair<vector<K>, V>>& coordinates) {
 
         size_t index = 0;
-        return getSortedTree(KdTree<K>::root, coordinates, index);
+        return getSortedTree(KdTree<K,V>::root, coordinates, index);
     }
 
     /*
@@ -1154,14 +1236,14 @@ public:
      * Calling parameters:
      * 
      * @param node (IN) the root of the subtree
-     * @param coordinates (MODIFIED) the vector
+     * @param coordinates (MODIFIED) a vector of key-value pairs
      * @param index (MODIFIED) the index where the node is stored
      * 
      * return the number of nodes
      */
 private:
-    size_t getSortedTree(KdNode<K>* const node,
-                         vector<vector<K>>& coordinates,
+    size_t getSortedTree(KdNode<K,V>* const node,
+                         vector<pair<vector<K>, V>>& coordinates,
                          size_t& index) {
 
         // Initialize the count.
@@ -1172,11 +1254,13 @@ private:
             count += getSortedTree(node->ltChild, coordinates, index);
         }
 
-        // Count this node and copy its tuple.
+        // Count this node and copy its tuple and
+        // the first value in its value set.
         ++count;
-        for (size_t i = 0; i < coordinates[0].size(); ++i) {
-            coordinates[index][i] = node->tuple[i];
+        for (size_t i = 0; i < coordinates[0].first.size(); ++i) {
+            coordinates[index].first[i] = node->tuple[i];
         }
+        coordinates[index].second = *node->values.begin();
         ++index;
 
         // Obtain counts from the > child nodes and copy tuples recursively.
@@ -1197,7 +1281,7 @@ private:
      * return true if the subtree is balanced; otherwise, false
      */
 private:
-    inline static bool isBalanced(KdNode<K>* const node) {
+    inline static bool isBalanced(KdNode<K,V>* const node) {
 
         // Get and order the heights at the child nodes.
         size_t const ltHeight = getHeight(node->ltChild);
@@ -1255,7 +1339,7 @@ private:
      * @return the recomputed height at the Kdnode instance
      */
 private:
-    inline static size_t computeHeight(KdNode<K>* const node) {
+    inline static size_t computeHeight(KdNode<K,V>* const node) {
 
         return 1 + ( (getHeight(node->ltChild) > getHeight(node->gtChild))
                      ? getHeight(node->ltChild) : getHeight(node->gtChild) );
@@ -1272,15 +1356,15 @@ private:
      * @return the height at an existent node; otherwise, 0
      */
 public:
-    inline static size_t getHeight(KdNode<K>* const node) {
+    inline static size_t getHeight(KdNode<K,V>* const node) {
         if (node == nullptr) {
             return 0;
         }
         return node->height;
     }
 
-    friend class KdTree<K>;
-    friend class KdNode<K>;
+    friend class KdTree<K,V>;
+    friend class KdNode<K,V>;
 };
 
-#endif // KD_TREE_DYNAMIC_H
+#endif // KD_MAP_DYNAMIC_H
