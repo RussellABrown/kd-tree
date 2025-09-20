@@ -205,7 +205,7 @@ private:
                 ptr = ptr->gtChild;
             } else {
                 // found the key, so check for the value
-                return ptr->values.contains(value);
+                return ptr->values->contains(value);
             }
             // Permute the most significant dimension p cyclically using
             // a fast alternative to the modulus operator for p <= dim.
@@ -246,7 +246,7 @@ public:
                 KdTree<K,V>::root->tuple[i] = key[i];
             }
             // The values member field will be cleared by the ~KdNode destructor.
-            KdTree<K,V>::root->values.insert(value);
+            KdTree<K,V>::root->values->insert(value);
             inserted = changed = true;
         }
         return inserted;
@@ -293,7 +293,7 @@ private:
                     nodePtr->ltChild->tuple[i] = key[i];
                 }
                 // The values member field will be cleared by the ~KdNode destructor.
-                nodePtr->ltChild->values.insert(value);
+                nodePtr->ltChild->values->insert(value);
                 // The value was inserted and the tree height changed.
                 inserted = changed = true;
             }
@@ -310,7 +310,7 @@ private:
                     nodePtr->gtChild->tuple[i] = key[i];
                 }
                 // The values member field will be cleared by the ~KdNode destructor.
-                nodePtr->gtChild->values.insert(value);
+                nodePtr->gtChild->values->insert(value);
                 // The value was inserted and the tree height changed.
                 inserted = changed = true;
             }
@@ -318,7 +318,7 @@ private:
             // The key is in the tree, so insert the value,
             // even if the values set might already contain
             // it. The tree height doesn't change.
-            nodePtr->values.insert(value);
+            nodePtr->values->insert(value);
             inserted = true;
             changed = false;
        }
@@ -438,7 +438,7 @@ private:
             // The tree contains the key, so if clearSet is false,
             // and if the values set does not contain the value, no
             // value is removed and the tree height doesn't change.
-            if ( !clearSet && !nodePtr->values.contains(value) ) {
+            if ( !clearSet && !nodePtr->values->contains(value) ) {
                 erased = changed = false;
             } else {
                 // Either clearSet is true, or the values set
@@ -446,13 +446,13 @@ private:
                 // clear the values set; otherwise, remove the
                 // value from the values set.
                 if (clearSet) {
-                    nodePtr->values.clear();
+                    nodePtr->values->clear();
                 } else {
-                    nodePtr->values.erase(value);
+                    nodePtr->values->erase(value);
                 }
 
                 // Is the values set now empty?
-                if ( !nodePtr->values.empty() ) {
+                if ( !nodePtr->values->empty() ) {
                     // The values set is not empty, so a value was erased
                     // but the tree height has not changed.
                     erased = true;
@@ -504,7 +504,7 @@ private:
                             for (signed_size_t i = 0; i < dim; ++i) {
                                 nodePtr->tuple[i] = predecessor->tuple[i];
                             }
-                            nodePtr->values.insert(predecessor->values.begin(), predecessor->values.end());
+                            nodePtr->values->insert(predecessor->values->begin(), predecessor->values->end());
                             // value is a dummy argument because the clearSet argument is true
                             nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1, true);
 
@@ -558,7 +558,7 @@ private:
                             for (signed_size_t i = 0; i < dim; ++i) {
                                 nodePtr->tuple[i] = successor->tuple[i];
                             }
-                            nodePtr->values.insert(successor->values.begin(), successor->values.end());
+                            nodePtr->values->insert(successor->values->begin(), successor->values->end());
                             // value is a dummy argument because the clearSet argument is true
                             nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1, true);
 
@@ -628,7 +628,7 @@ private:
                                 for (signed_size_t i = 0; i < dim; ++i) {
                                     nodePtr->tuple[i] = predecessor->tuple[i];
                                 }
-                                nodePtr->values.insert(predecessor->values.begin(), predecessor->values.end());
+                                nodePtr->values->insert(predecessor->values->begin(), predecessor->values->end());
                                 // value is a dummy argument because he clearSet argument is true
                                 nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1, true);
                                 nodePtr->height = computeHeight(nodePtr);
@@ -658,7 +658,7 @@ private:
                                 for (signed_size_t i = 0; i < dim; ++i) {
                                     nodePtr->tuple[i] = successor->tuple[i];
                                 }
-                                nodePtr->values.insert(successor->values.begin(), successor->values.end());
+                                nodePtr->values->insert(successor->values->begin(), successor->values->end());
                                 // value is a dummy argument because the clearSet argument is true
                                 nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1, true);
                                 nodePtr->height = computeHeight(nodePtr);
@@ -1260,7 +1260,7 @@ private:
         for (size_t i = 0; i < coordinates[0].first.size(); ++i) {
             coordinates[index].first[i] = node->tuple[i];
         }
-        coordinates[index].second = *node->values.begin();
+        coordinates[index].second = *node->values->begin();
         ++index;
 
         // Obtain counts from the > child nodes and copy tuples recursively.

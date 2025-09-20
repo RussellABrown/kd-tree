@@ -122,15 +122,39 @@ public:
     // However, do not delete the KdNode::root if KD_MAP_DYNAMIC_H
     // is defined, because the KdTreeDynamic::rebuildSubTree function
     // requires that the k-d tree persist. Instead, the ~KdTreeDynamic
-    // destructor will delete KdNode::root 
+    // destructor will delete KdNode::root.
+    //
+    // Also, if the KdNode instances are contained by a preallocated
+    // vector, deletion of that vector will not delete the values set
+    // of each KdNode instance, so delete those values sets via the
+    // deleteValues function prior to deletion of the vector.
 #ifndef KD_MAP_DYNAMIC_H
 #ifdef PREALLOCATE
+    clearValues(root);
     delete kdNodes;
 #else
     delete root;
 #endif
 #endif
 
+  }
+
+  /*
+   * Delete the values set of each KdNode instance in the tree.
+   *
+   * Calling parameter:
+   *
+   * node - the root node of the tree
+   */
+private:
+  void deleteValues(KdNode<K,V>* const node) {
+    delete node->values;
+    if (node->ltChild != nullptr) {
+      deleteValues(node->ltChild);
+    }
+    if (node->gtChild != nullptr) {
+      deleteValues(node->gtChild);
+    }
   }
 
   /*

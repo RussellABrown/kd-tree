@@ -135,7 +135,7 @@ template <typename K, typename V>
 class KdNode {
 private:
   KdNode<K,V> *ltChild, *gtChild;
-  set<V> values;
+  set<V>* values;
 
   // A dynamic k-d tree requires a height.
   //
@@ -183,6 +183,7 @@ public:
   // KdNode constructor with calling parameters overrides
   //the default no-parameter KdNode constructor. 
   KdNode() {
+    values = new set<V>();
     ltChild = gtChild = nullptr;
   }
 
@@ -207,7 +208,8 @@ public:
     }
 
     // Insert the value into the values set.
-    values.insert(p[i].second);
+    values = new set<V>();
+    values->insert(p[i].second);
 
 #ifdef REVERSE_NEAREST_NEIGHBORS
     index = i;
@@ -217,28 +219,26 @@ public:
 
   // If PREALLOCATE is defined and KD_MAP_DYNAMIC_H is undefined,
   // the default ~KdNode destructor is used, which doesn't delete
-  // the tuple field of each KdNode instance; neither does it
-  // clear the values set. Instead, the ~KdTree destructor deletes
-  // a vector of tuples and clears each values set.
+  // the tuple field of each KdNode instance. Instead, the ~KdTree
+  // destructor deletes a vector of tuples.
   //
   // So if PREALLOCATE is undefined or KD_MAP_DYNAMIC_H is defined,
-  // delete the KdNode::tuples field and clear the values set via
-  // the following destructor. Then delete the child nodes recursively.
-#if !defined(PREALLOCATE) || defined(KD_MAP_DYNAMIC_H)
+  // delete the KdNode::tuples field and delete the child nodes recursively.
 public:
   ~KdNode() {
-    
-    // Clear the values set.
-    values.clear();
 
+    // Delete the values set.
+    delete values;
+    
+#if !defined(PREALLOCATE) || defined(KD_MAP_DYNAMIC_H)
     // Because tuple is not a member array of KdNode, deallocate it.
     delete[] tuple;
+#endif
 
     // Delete the child nodes, which performs recursive deletion.
     delete ltChild;
     delete gtChild;
   }
-#endif
 
 private:
   K const* getTuple() {
@@ -278,7 +278,7 @@ private:
         // Append the values set of the the jth element
         // of the kdNodes array (it ought to have 1 element)
         // to the end element of the kdNodes array.
-        kdNodes[end]->values.insert(kdNodes[j]->values.begin(), kdNodes[j]->values.end());
+        kdNodes[end]->values->insert(kdNodes[j]->values->begin(), kdNodes[j]->values->end());
 
         // Delete the jth element of the kdNodes array, to include
         // clearing its values set, unless PREALLOCATE is defined
@@ -286,9 +286,14 @@ private:
         // the default ~KdNode destructor will be used instead of
         // the ~KdNode destructor defined above, and in that case,
         // the ~KdTree destructor will delete all of the instances
-        // of KdNode after clearing the values set of each instance.
+        // of KdNode. However, the jth element of the kdNodes array
+        // will be unreachable by the ~KdTree destructor because
+        // it will not have been added to the tree, so clear its
+        // values set.
 #if !defined(PREALLOCATE) || defined(KD_MAP_DYNAMIC_H)
         delete kdNodes[j];
+#else
+        delete kdNodes[j]->values;
 #endif
 
       }
