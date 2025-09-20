@@ -29,9 +29,9 @@
  */
 
 /*
- * Test program for kdTreeKnlogn.h, kdTreeNlogn.h, and kdTreeYuCao.h
+ * Test program for kdTreeKnlogn.h, kdTreeNlogn.h and kdTreeYuCao.h
  *
- * Compile via: g++ -O3 -std=c++11 -pthread -W -D PREALLOCATE test_kdtree.cpp
+ * Compile via: g++ -O3 -std=c++20 -pthread -W -D PREALLOCATE test_kdtree.cpp
  *
  * Optional compilation defines are as follows.
  * 

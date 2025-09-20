@@ -29,7 +29,7 @@
  */
 
 /*
- * Test program for kdTreeDynamic.h and kdTreeNlogn.h
+ * Test program for kdTreeDynamic.h, kdTreeKnlogn.h and kdTreeNlogn.h
  *
  * Compile via: g++ -O3 -std=c++20 -pthread -W test_kdtreedynamic.cpp
  *

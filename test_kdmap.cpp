@@ -31,7 +31,7 @@
 /*
  * Test program for kdMapKnlogn.h and kdMapNlogn.h
  *
- * Compile via: g++ -O3 -std=c++17 -pthread -W -D PREALLOCATE test_kdmap.cpp
+ * Compile via: g++ -O3 -std=c++20 -pthread -W -D PREALLOCATE test_kdmap.cpp
  *
  * Optional compilation defines are as follows.
  * 

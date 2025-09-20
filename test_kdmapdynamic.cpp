@@ -29,7 +29,7 @@
  */
 
 /*
- * Test program for kdTreeDynamic.h and kdTreeNlogn.h
+ * Test program for kdMapDynamic.h, kdMapKnlogn and kdMapNlogn.h
  *
  * Compile via: g++ -O3 -std=c++20 -pthread -W test_kdmapdynamic.cpp
  *
@@ -50,7 +50,7 @@
  *                    for AVL balancing, the maximum allowed height difference between
  *                    the < and > subtrees of a node (default 1)
  * 
-* -D HISTOGRAM_SIZE=n - The size of the histogram vectors that collect balance data (default 25)
+ * -D HISTOGRAM_SIZE=n - The size of the histogram vectors that collect balance data (default 25)
  * 
  * -D MAXIMUM_SIZE=n - The size of the maximum vectors that collect maximum subtree sizes (default 25)
  * 
