@@ -6,9 +6,13 @@ https://arxiv.org/abs/2509.08148
 
 The dynamic k-d tree-building algorithms maintain a balanced k-d tree that resembles an AVL or red-black tree, and that self-balances by rebuilding a subtree that becomes unbalanced as a result of insertion or deletion of a k-dimensional tuple. The multi-threaded, static k-d tree-building algorithms described hereafter rebuild that subtree.
 
+The dynamic k-d tree implements a set. Also included is the implementation of a dynamic k-d tree-based key-to-multiple-value map.
+
 The dynamic k-d tree is implemented as the KdTreeDynamic class that is derived from the KdTree class that implements the static k-d tree. Hence, search algorithms implemented by the KdTree class, such as region search and nearest-neighbor search, may be performed for either a static k-d tree or a dynamic k-d tree. Also, it is possible to build a static k-d tree initially via one of the two the static algorithms, and thereafter modify that k-d tree via the dynamic algorithms.
 
-The test_kdtreedynamic.cpp file and associated .h files build and test a dynamic k-d tree. See the test_kdtreedynamic.cpp file for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
+The test_kdtreedynamic.cpp file and associated .h files build and test a dynamic k-d tree. The test_kdtreedynamic.stats.cpp file and associated .h files bild and test a dynamic k-d tree and optionally collect various performance statistics, including histograms. The test_kdmapdynamic.cpp file and associated .h files build and test a dynamic k-d tree-based key-to-multiple-value map.
+
+See the test_kdtreedynamic.cpp, test_kdtreedynamic.stats.cpp, and test_kdmapdynamic.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
 
 
 STATIC K-D TREE:
