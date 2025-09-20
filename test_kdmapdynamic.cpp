@@ -98,7 +98,7 @@
  * 
  * Usage:
  *
- * test_kdtree [-i I] [-n N] [-m M] [-d D] [-t T] [-s S] [-p P] [-b] [-g] [-v] [-f] [-w]
+ * test_kdtree [-i I] [-n N] [-m M] [-d D] [-t T] [-s S] [-p P] [-b] [-g] [-v] [-f] [-r]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -127,9 +127,7 @@
  * 
  * -f Search for the tuple and the next tuple after erasure of each tuple (default off)
  * 
- * -w Create a worst-case set of coordinates by walking a k-d tree in order (default off)
- * 
- * -r Reverse the order of the worst-case set of coordinates for erasure (default off)
+ * -r Reverse the order of coordinates for erasure relative to insertion (default off)
  *
  * -h Help
  */
@@ -191,6 +189,7 @@ int main(int argc, char** argv) {
   bool neighbors = false;
   bool verify = false;
   bool find = false;
+  bool reverse = true;
 
   for (signed_size_t i = 1; i < argc; ++i) {
     if (0 == strcmp(argv[i], "-i") || 0 == strcmp(argv[i], "--iterations")) {
@@ -245,6 +244,10 @@ int main(int argc, char** argv) {
       find = !find;
       continue;
     }
+    if (0 == strcmp(argv[i], "-r") || 0 == strcmp(argv[i], "--reverse")) {
+      reverse = !reverse;
+      continue;
+    }
 
     if (0 == strcmp(argv[i], "-h") || 0 == strcmp(argv[i], "--help")) {
       cout << endl << "Usage:" << endl << endl
@@ -263,6 +266,7 @@ int main(int argc, char** argv) {
            << "-g Find nearest neighbors to each point" << endl << endl
            << "-v Verify the k-d tree ordering and balance after insertion or erasure of each point" << endl << endl
            << "-f Check for the next point after deleting each point (a cheap tree-order check)" << endl << endl
+           << "-r Reverse the order of coordinates for erasure relative to insertion" << endl << endl
            << "-h List the command-line options" << endl << endl;
       exit(1);
     }
@@ -445,10 +449,6 @@ int main(int argc, char** argv) {
      }
 
     // Search for each coordinate in the k-d tree. 
-    //
-    // No need to reshuffle the coordinates prior to searching the tree
-    // for each coordinate because search does not rebalance the tree;
-    // hence, the insertion order of the coordinates is irrelevant to search.
     beginTime = steady_clock::now();
     for (size_t i = 0; i < coordinates.size(); ++i) {
       if (!tree->contains(coordinates[i])) {
@@ -479,36 +479,59 @@ int main(int argc, char** argv) {
       neighborsTimeDynamic[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
     }
 
-    // Erase each coordinate from the dynamic k-d tree,
-    // and reverse the order of the coordinates if both
-    // worst and reverse are true.
-    //
-    // Whereas test_kdtreedynamic.cpp reshuffles the coordinates prior to
-    // erasing the coordinates, reshuffling doesn't work correctly for
+    // Erase each coordinate from the dynamic k-d tree, and reverse
+    // the order of the coordinates if reverse is true.
     // this test_kdmapdynamic.cpp program, so don't reshuffle.
     beginTime = steady_clock::now();
-    for (size_t i = 0; i < coordinates.size(); ++i) {
-      if (tree->erase(coordinates[i])) {
-        if (verify) {
-          tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+    if (reverse) {
+      for (signed_size_t i = coordinates.size() - 1; i >= 0; --i) {
+        if (tree->erase(coordinates[i])) {
+          if (verify) {
+            tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+          }
+          if (find && tree->contains(coordinates[i])) {
+            cout << "\n\nfound tuple after erasing tuple:";
+            tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+            cout << endl;
+            exit(0);
         }
-        if (find && tree->contains(coordinates[i])) {
-          cout << "\n\nfound tuple after erasing tuple:";
-          tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
-          cout << endl;
-          exit(0);
+          if (find && i > 0 && !tree->contains(coordinates[i-1])) {
+            cout << "\n\nfailed to find next tuple after erasing tuple:";
+            tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+            cout << endl;
+            exit(0);
         }
-        if (find && i < coordinates.size()-1 && !tree->contains(coordinates[i+1])) {
-          cout << "\n\nfailed to find next tuple after erasing tuple:";
-          tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
-          cout << endl;
-          exit(0);
+        } else {
+            cout << "\n\nfailed to erase tuple:";
+            tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+            cout << endl;
+            exit(0);
         }
-      } else {
-          cout << "\n\nfailed to erase tuple:";
-          tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
-          cout << endl;
-          exit(0);
+      }
+    } else {
+      for (size_t i = 0; i < coordinates.size(); ++i) {
+        if (tree->erase(coordinates[i])) {
+          if (verify) {
+            tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+          }
+          if (find && tree->contains(coordinates[i])) {
+            cout << "\n\nfound tuple after erasing tuple:";
+            tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+            cout << endl;
+            exit(0);
+          }
+          if (find && i < coordinates.size()-1 && !tree->contains(coordinates[i+1])) {
+            cout << "\n\nfailed to find next tuple after erasing tuple:";
+            tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+            cout << endl;
+            exit(0);
+          }
+        } else {
+            cout << "\n\nfailed to erase tuple:";
+            tree->printTuple(coordinates[i].first); // Need to implement printTupleToStream
+            cout << endl;
+            exit(0);
+        }
       }
     }
     endTime = steady_clock::now();
