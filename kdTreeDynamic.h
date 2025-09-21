@@ -104,7 +104,7 @@ class KdTreeDynamic : public KdTree<K>
 private:
     signed_size_t maxSubmitDepth = -1;
     size_t cutoff;
-    bool inserted = false, erased = false;
+    bool inserted = false, erased = false, changed = false;
 
     /*
      * This is the basic constructor.
@@ -222,14 +222,14 @@ private:
 public:
     inline bool insert(vector<K> const& key) {
 
-        inserted = false;
+        inserted = changed = false;
         signed_size_t dim = key.size();
         if (KdTree<K>::root != nullptr) {
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = insert(KdTree<K>::root, tuple, dim, 0);
 
-            // If a node was inserted, re-compute the height.
-            if (inserted) {
+            // If the height has changed, re-compute the height.
+            if (changed) {
                 KdTree<K>::root->height = computeHeight(KdTree<K>::root);
             }
         } else {
@@ -283,7 +283,7 @@ private:
                 for (signed_size_t i = 0; i < dim; ++i) {
                     nodePtr->ltChild->tuple[i] = key[i];
                 }
-                inserted = true;
+                inserted = changed = true;
             }
         } else if (MergeSort<K>::superKeyCompare(key, nodePtr->tuple, p, dim) > 0) {
             if (nodePtr->gtChild != nullptr) {
@@ -296,16 +296,18 @@ private:
                 for (signed_size_t i = 0; i < dim; ++i) {
                     nodePtr->gtChild->tuple[i] = key[i];
                 }
-                inserted = true;
+                inserted = changed = true;
             }
         } else {
-            // For a tree, don't insert the key twice, but report
-            // an insertion for compatibility with kdMapDynamic.h
+            // The tree already contains the key, but report an
+            // insertion for compatibility with kdMapDynamic.h
+            // and specify that the tree height doesn't change.
             inserted = true;
+            changed = false;
         }
 
         // Has the height changed due to an insertion? 
-        if (inserted) {
+        if (changed) {
             // Yes, the height has changed, so recompute the height at this node.
             nodePtr->height = computeHeight(nodePtr);
 

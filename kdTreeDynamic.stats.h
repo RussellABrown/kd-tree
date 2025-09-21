@@ -104,7 +104,7 @@ class KdTreeDynamic : public KdTree<K>
 private:
     signed_size_t maxSubmitDepth = -1;
     size_t cutoff;
-    bool inserted = false, erased = false;
+    bool inserted = false, erased = false, changed = false;
 
     /*
      * This is the basic constructor.
@@ -349,14 +349,14 @@ public:
         insertBalanceCount = 0;
 #endif
 
-        inserted = false;
+        inserted = changed = false;
         signed_size_t dim = key.size();
         if (KdTree<K>::root != nullptr) {
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = insert(KdTree<K>::root, tuple, dim, 0);
 
-            // If a node was inserted, re-compute the height.
-            if (inserted) {
+            // If the height has changed, re-compute the height.
+            if (changed) {
                 KdTree<K>::root->height = computeHeight(KdTree<K>::root);
             }
         } else {
@@ -443,9 +443,11 @@ private:
                 inserted = true;
             }
         } else {
-            // For a tree, don't insert the key twice. Maybe increment
-            // a counter to record duplicate instance of the key.
-            inserted = false;
+            // The tree already contains the key, but report an
+            // insertion for compatibility with kdMapDynamic.h
+            // and specify that the tree height doesn't change.
+            inserted = true;
+            changed = false;
         }
 
         // Has the height changed due to an insertion? 
