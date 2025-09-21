@@ -320,7 +320,7 @@ private:
                 inserted = changed = true;
             }
         } else {
-            // The key is in the tree, so insert the value,
+            // The tree contains the key, so insert the value,
             // even if the values set might already contain
             // it. The tree height doesn't change.
             nodePtr->values->insert(value);
