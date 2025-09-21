@@ -355,9 +355,13 @@ public:
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = insert(KdTree<K>::root, tuple, dim, 0);
 
-            // If the height has changed, re-compute the height.
+            // If the height has changed, re-compute the height
+            // and rebalance the tree if necessary.
             if (changed) {
                 KdTree<K>::root->height = computeHeight(KdTree<K>::root);
+                if ( !isBalanced(KdTree<K>::root) ) {
+                    KdTree<K>::root = rebuildSubTree(KdTree<K>::root, 1, dim, 0);
+                }
             }
         } else {
 
@@ -498,9 +502,13 @@ public:
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = erase(KdTree<K>::root, tuple, dim, 0);
             
-            // If a node was erased, re-compute the height.
+            // If a node was erased, re-compute the height
+            // and rebalance the tree if necessary.
             if (KdTree<K>::root != nullptr && erased) {
                 KdTree<K>::root->height = computeHeight(KdTree<K>::root);
+                if ( !isBalanced(KdTree<K>::root) ) {
+                    KdTree<K>::root = rebuildSubTree(KdTree<K>::root, 2, dim, 0);
+                }
             }
         }
 

@@ -238,9 +238,13 @@ public:
         if (KdTree<K,V>::root != nullptr) {
             KdTree<K,V>::root = insert(KdTree<K,V>::root, key, value, dim, 0);
 
-            // If the height has changed, re-compute the height.
+            // If the height has changed, re-compute the height
+            // and rebalance the tree if necessary.
             if (changed) {
                 KdTree<K,V>::root->height = computeHeight(KdTree<K,V>::root);
+                if ( !isBalanced(KdTree<K,V>::root) ) {
+                    KdTree<K,V>::root = rebuildSubTree(KdTree<K,V>::root, dim, 0);
+                }
             }
         } else {
             KdTree<K,V>::root = new KdNode<K,V>();
@@ -364,9 +368,13 @@ public:
             V const value = coordinate.second;
             KdTree<K,V>::root = erase(KdTree<K,V>::root, key, value, dim, 0);
 
-            // If the height has changed, re-compute the height.
+            // If the height has changed, re-compute the height
+            // and rebalance the tree if necessary.
             if (KdTree<K,V>::root != nullptr && changed) {
                 KdTree<K,V>::root->height = computeHeight(KdTree<K,V>::root);
+                if ( !isBalanced(KdTree<K,V>::root) ) {
+                    KdTree<K,V>::root = rebuildSubTree(KdTree<K,V>::root, dim, 0);
+                }
             }
         }
         return erased;
