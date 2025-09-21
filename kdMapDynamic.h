@@ -237,6 +237,11 @@ public:
         V const value = coordinate.second;
         if (KdTree<K,V>::root != nullptr) {
             KdTree<K,V>::root = insert(KdTree<K,V>::root, key, value, dim, 0);
+
+            // If the height has changed, re-compute the height.
+            if (changed) {
+                KdTree<K,V>::root->height = computeHeight(KdTree<K,V>::root);
+            }
         } else {
             KdTree<K,V>::root = new KdNode<K,V>();
             KdTree<K,V>::root->height = 1;
@@ -358,6 +363,11 @@ public:
             K* const key = const_cast<K* const>(tuple.data());
             V const value = coordinate.second;
             KdTree<K,V>::root = erase(KdTree<K,V>::root, key, value, dim, 0);
+
+            // If the height has changed, re-compute the height.
+            if (KdTree<K,V>::root != nullptr && changed) {
+                KdTree<K,V>::root->height = computeHeight(KdTree<K,V>::root);
+            }
         }
         return erased;
     }
@@ -470,7 +480,7 @@ private:
                         // Checking the height prior to checking the countNodes result
                         // avoids a time-consuming call of countNodes for a large subtree.
 
-        #ifdef ENABLE_1TO3
+#ifdef ENABLE_1TO3
 
                         size_t nodeCount;
                         if (nodePtr->ltChild->height <= 3
@@ -489,7 +499,7 @@ private:
                             delete tempPtr;
                         } else
 
-        #endif // ENABLE_1TO3
+#endif // ENABLE_1TO3
 
                         {
                             // No, the < child subtree contains > 3 nodes. So, find
@@ -507,13 +517,21 @@ private:
                             nodePtr->values->insert(predecessor->values->begin(), predecessor->values->end());
                             // value is a dummy argument because the clearSet argument is true
                             nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1, true);
-
-                            // Compute the height at his node because erase computes
-                            // the height at the < child but not at this node. Because
-                            // the > child is null, deletion of a node from the < child
-                            // subtree can only improve the balance. Hence, there is no
-                            // need to check the balance.
                             nodePtr->height = computeHeight(nodePtr);
+
+                            // Is the subtree rooted at the one-child node still balanced?
+                            //
+                            // In principle, this test is unnecessary because the > child
+                            // subtree is empty, and deletion of a node from the < child
+                            // subtree can decrease but not increase the height of the
+                            // < child subtree, so the balance can either remain unchanged
+                            // or decrease, but not increase.
+                            if ( !isBalanced(nodePtr) ) {
+                                // No, the subtree is not balanced, so rebalance it by rebuilding it,
+                                // which recycles its nodes; hence the nodePtr argument to this erase
+                                // function might no longer point to the root of the subtree.
+                                nodePtr = rebuildSubTree(nodePtr, dim, p);
+                            }
                         }
                     }
                     // Does the node have only a > child?
@@ -524,7 +542,7 @@ private:
                         // Checking the height prior to checking the countNodes result
                         // avoids a time-consuming call of countNodes for a large subtree.
 
-        #ifdef ENABLE_1TO3
+#ifdef ENABLE_1TO3
 
                         size_t nodeCount;
                         if (nodePtr->gtChild->height <= 3
@@ -543,7 +561,7 @@ private:
                             delete tempPtr;
                         } else
 
-        #endif // ENABLE_1TO3
+#endif // ENABLE_1TO3
 
                         {
                             // No, the > child subtree contains > 3 nodes. So, find
@@ -561,13 +579,21 @@ private:
                             nodePtr->values->insert(successor->values->begin(), successor->values->end());
                             // value is a dummy argument because the clearSet argument is true
                             nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1, true);
-
-                            // Compute the height at his node because erase computes
-                            // the height at the > child but not at this node.  Because
-                            // the < child is null, deletion of a node from the > child
-                            // subtree can only improve the balance. Hence, there is no
-                            // need to check the balance.
                             nodePtr->height = computeHeight(nodePtr);
+
+                            // Is the subtree rooted at the one-child node still balanced?
+                            //
+                            // In principle, this test is unnecessary because the < child
+                            // subtree is empty, and deletion of a node from the > child
+                            // subtree can decrease but not increase the height of the
+                            // > child subtree, so the balance can either remain unchanged
+                            // or decrease, but not increase.
+                            if ( !isBalanced(nodePtr) ) {
+                                // No, the subtree is not balanced, so rebalance it by rebuilding it,
+                                // which recycles its nodes; hence the nodePtr argument to this erase
+                                // function might no longer point to the root of the subtree.
+                                nodePtr = rebuildSubTree(nodePtr, dim, p);
+                            }
                         }
                     }
                     // If the node has no children, delete the node.
@@ -575,84 +601,84 @@ private:
                         KdNode<K,V>* const tempPtr = nodePtr;
                         nodePtr = nullptr;
                         delete tempPtr;
-                    } else { 
-                        // The node has two children, so does the subtree rooted
-                        // at this node have <= 3 nodes, excluding this root node?
+                    }
+                    // The node has two children.
+                    else { 
+                        // So does the subtree rooted at this two-child node 
+                        // have <= 3 nodes, excluding this two-child node?
                         //
                         // Checking the height prior to checking the countNodesSkipRoot result
                         // avoids a time-consuming call of countNodesSkipRoot for a large subtree.
 
-        #ifdef ENABLE_1TO3
+#ifdef ENABLE_1TO3
 
                         size_t nodeCount;
                         if (nodePtr->height <= 3
                             && (nodeCount = countNodesSkipRoot(nodePtr)) <= 3)
                         {
-                            // Yes, the subtree rooted at this node contains <= 3 nodes,
-                            // excluding this root node, so rebuild the subtree excluding
-                            // this root node and delete this root node. This approach
-                            // avoids the need to find a predecessor or successor node.
-                            //
-                            // Note that rebuildSubTreeSkipRoot1to3 computes the height
-                            // of the rebuilt subtree.
+                            // Yes, the subtree rooted at this two-child node contains
+                            // <= 3 nodes, excluding this two-child node, so rebuild
+                            // the subtree excluding this two-child node and delete
+                            // this two-child node. This approach avoids the need to
+                            // find a predecessor or successor node.
                             KdNode<K,V>* const tempPtr = nodePtr;
                             nodePtr = rebuildSubTreeSkipRoot1to3(nodePtr, nodeCount, dim, p);
                             tempPtr->ltChild = tempPtr->gtChild = nullptr; // Prevent recursive deletion.
                             delete tempPtr;
                         } else
 
-        #endif // ENABLE_1TO3
+#endif // ENABLE_1TO3
 
                         {
-                            // No, the subtree rooted at this node contains > 3 nodes,
-                            // excluding this root node, so replace this node by either
-                            // its predecessor or its successor.
+                            // No, the subtree rooted at this two-child node contains
+                            // > 3 nodes, excluding this two-child node, so replace this
+                            // two-child node by either its predecessor or its successor.
                             //
                             // If ENABLE_PREFERRED_TEST is defined, select the replacement
                             // node from the taller of the child subtrees.
 
-        #ifdef ENABLE_PREFERRED_TEST
+#ifdef ENABLE_PREFERRED_TEST
 
                             if ( getHeight(nodePtr->ltChild) >= getHeight(nodePtr->gtChild) )
                             {
                                 // Find the node with the largest super-key in the
                                 // subtree rooted at the < child, which is the
                                 // predecessor node. Copy the predecessor node's tuple
-                                // and values set to the two-child node, delete the
+                                // and values set to this two-child node, delete the
                                 // predecessor node recursively (clearing its values set),
                                 // recompute the heights along the path from the
-                                // predecessor node to (but excluding) the two-child node,
-                                // and then recompute the height at the two-child node.
+                                // predecessor node to (but excluding) this two-child node,
+                                // and then recompute the height at this two-child node.
                                 KdNode<K,V>* predecessor = nodePtr->ltChild;
                                 predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                                 for (signed_size_t i = 0; i < dim; ++i) {
                                     nodePtr->tuple[i] = predecessor->tuple[i];
                                 }
                                 nodePtr->values->insert(predecessor->values->begin(), predecessor->values->end());
-                                // value is a dummy argument because he clearSet argument is true
+                                // value is a dummy argument because the clearSet argument is true
                                 nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1, true);
                                 nodePtr->height = computeHeight(nodePtr);
 
-                                // Because the two-child node has two subtrees, recursively
-                                // erasing the predecessor node can modify the balance, so
-                                // it may be necessary to rebalance the subtree rooted at
-                                // the two-child node.
+                                // Is the subtree rooted at this two-child node still balanced?
                                 if ( !isBalanced(nodePtr) ) {
+                                    // No, the subtree is not balanced, so rebalance it by rebuilding it,
+                                    // which recycles its nodes; hence the nodePtr argument to this erase
+                                    // function might no longer point to the root of the subtree.
                                     nodePtr = rebuildSubTree(nodePtr, dim, p);
                                 }
                             } else
 
-        #endif // ENABLE_PREFERRED_TEST
+#endif // ENABLE_PREFERRED_TEST
 
                             {
                                 // Find the node with the smallest super-key in the
                                 // subtree rooted at the > child, which is the
                                 // successor node. Copy the successor node's tuple
-                                // and values set to the two-child node, delete the
+                                // and values set to this two-child node, delete the
                                 // successor node recursively (clearing its values set),
                                 // recompute the heights along the path from the
-                                // successor node to (but excluding) the two-child node,
-                                // and then recompute the height at the two-child node.
+                                // successor node to (but excluding) this two-child node,
+                                // and then recompute the height at this two-child node.
                                 KdNode<K,V>* successor = nodePtr->gtChild;
                                 successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                                 for (signed_size_t i = 0; i < dim; ++i) {
@@ -663,11 +689,11 @@ private:
                                 nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1, true);
                                 nodePtr->height = computeHeight(nodePtr);
 
-                                // Because the two-child node has two subtrees, recursively
-                                // erasing the successor node can modify the balance, so
-                                // it may be necessary to rebalance the subtree rooted at
-                                // the two-child node.
+                                // Is the subtree rooted at this two-child node still balanced?
                                 if ( !isBalanced(nodePtr) ) {
+                                    // No, the subtree is not balanced, so rebalance it by rebuilding it,
+                                    // which recycles its nodes; hence the nodePtr argument to this erase
+                                    // function might no longer point to the root of the subtree.
                                     nodePtr = rebuildSubTree(nodePtr, dim, p);
                                 }
                             }

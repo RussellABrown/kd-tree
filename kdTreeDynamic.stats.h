@@ -354,6 +354,11 @@ public:
         if (KdTree<K>::root != nullptr) {
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = insert(KdTree<K>::root, tuple, dim, 0);
+
+            // If a node was inserted, re-compute the height.
+            if (inserted) {
+                KdTree<K>::root->height = computeHeight(KdTree<K>::root);
+            }
         } else {
 
 #ifdef STATISTICS
@@ -490,6 +495,11 @@ public:
             signed_size_t dim = key.size();
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = erase(KdTree<K>::root, tuple, dim, 0);
+            
+            // If a node was erased, re-compute the height.
+            if (KdTree<K>::root != nullptr && erased) {
+                KdTree<K>::root->height = computeHeight(KdTree<K>::root);
+            }
         }
 
 #ifdef STATISTICS

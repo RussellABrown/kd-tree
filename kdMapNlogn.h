@@ -130,7 +130,7 @@ public:
     // deleteValues function prior to deletion of the vector.
 #ifndef KD_MAP_DYNAMIC_H
 #ifdef PREALLOCATE
-    clearValues(root);
+    deleteValues(root);
     delete kdNodes;
 #else
     delete root;
@@ -745,173 +745,194 @@ private:
    * returns: a KdNode pointer to the root of the k-d tree
    */
 private:
-static KdNode<K,V>* buildKdTree(KdNode<K,V>** reference,
-                                KdNode<K,V>** temporary,
-                                vector<signed_size_t> const& permutation,
-                                signed_size_t start,
-                                signed_size_t end,
-                                signed_size_t size,
-                                signed_size_t dim,
-                                signed_size_t maximumSubmitDepth,
-                                signed_size_t depth) {
+  static KdNode<K,V>* buildKdTree(KdNode<K,V>** reference,
+                                  KdNode<K,V>** temporary,
+                                  vector<signed_size_t> const& permutation,
+                                  signed_size_t start,
+                                  signed_size_t end,
+                                  signed_size_t size,
+                                  signed_size_t dim,
+                                  signed_size_t maximumSubmitDepth,
+                                  signed_size_t depth) {
 
-  KdNode<K,V>* node = nullptr;
+    KdNode<K,V>* node = nullptr;
 
-  // The partition permutes as x, y, z, w... and specifies the most significant key.
-  signed_size_t const p = permutation[depth];
+    // The partition permutes as x, y, z, w... and specifies the most significant key.
+    signed_size_t const p = permutation[depth];
 
-  if (end == start) {
+    if (end == start) {
 
-    // Only one KdNode was passed to this method, so store it at this level of the tree.
-    node = reference[start];
+      // Only one KdNode was passed to this method, so store it at this level of the tree.
+      node = reference[start];
+#ifdef KD_MAP_DYNAMIC_H
+      node->height = 1;
+#endif
 
-  }
-  else if (end == start + 1) {
-
-    // Two KdNodes were passed to this method in unsorted order, so store the
-    // start KdNode at this level of the tree and determine whether to store the
-    // end KdNode as the < child or the > child.
-    node = reference[start];
-    if (MergeSort<K,V>::superKeyCompare(reference[start]->tuple, reference[end]->tuple, p, dim) > 0) {
-      node->ltChild = reference[end];
     }
-    else {
-      node->gtChild = reference[end];
-    }
+    else if (end == start + 1) {
 
-  }
-  else if (end == start + 2) {
-
-    // Three KdNodess were passed to this method in unsorted order, so compare
-    // the three KdNodes to determine which Kdnode is the median KnNode.
-    // Store the median KdNode at this level of the tree, store the smallest
-    // KdNode as the < child and store the largest KdNode as the > child.
-    signed_size_t mid = start + 1;
-    if (MergeSort<K,V>::superKeyCompare(reference[start]->tuple, reference[mid]->tuple, p, dim) < 0) {
-      // reference[start] < reference[mid]
-      if (MergeSort<K,V>::superKeyCompare(reference[mid]->tuple, reference[end]->tuple, p, dim) < 0) {
-        // reference[start] < reference[mid] < reference[end]
-        node = reference[mid];
-        node->ltChild = reference[start];
-        node->gtChild = reference[end];
+      // Two KdNodes were passed to this method in unsorted order, so store the
+      // start KdNode at this level of the tree and determine whether to store the
+      // end KdNode as the < child or the > child.
+      node = reference[start];
+      if (MergeSort<K,V>::superKeyCompare(reference[start]->tuple, reference[end]->tuple, p, dim) > 0) {
+        node->ltChild = reference[end];
+#ifdef KD_MAP_DYNAMIC_H
+        node->ltChild->height = 1;
+        node->height = 2;
+#endif
       }
       else {
-        // reference[start] < reference[mid]; reference[end] < reference[mid]
-        if (MergeSort<K,V>::superKeyCompare(reference[start]->tuple, reference[end]->tuple, p, dim) < 0) {
-          // reference[start] < reference[end] < reference[mid]
-          node = reference[end];
-          node->ltChild = reference[start];
-          node->gtChild = reference[mid];
-        }
-        else {
-          // reference[end] < reference[start] < reference[mid]
-          node = reference[start];
-          node->ltChild = reference[end];
-          node->gtChild = reference[mid];
-        }
-      }
-    }
-    else {
-      // reference[mid] < reference[start]
-      if (MergeSort<K,V>::superKeyCompare(reference[start]->tuple, reference[end]->tuple, p, dim) < 0) {
-        // reference[mid] < reference[start] < reference[end]
-        node = reference[start];
-        node->ltChild = reference[mid];
         node->gtChild = reference[end];
+#ifdef KD_MAP_DYNAMIC_H
+        node->gtChild->height = 1;
+        node->height = 2;
+#endif
       }
-      else {
-        // reference[mid] < reference[start]; reference[end] < reference[start]
+
+    }
+    else if (end == start + 2) {
+
+      // Three KdNodess were passed to this method in unsorted order, so compare
+      // the three KdNodes to determine which Kdnode is the median KnNode.
+      // Store the median KdNode at this level of the tree, store the smallest
+      // KdNode as the < child and store the largest KdNode as the > child.
+      signed_size_t mid = start + 1;
+      if (MergeSort<K,V>::superKeyCompare(reference[start]->tuple, reference[mid]->tuple, p, dim) < 0) {
+        // reference[start] < reference[mid]
         if (MergeSort<K,V>::superKeyCompare(reference[mid]->tuple, reference[end]->tuple, p, dim) < 0) {
-          // reference[mid] < reference[end] < reference[start]
-          node = reference[end];
-          node->ltChild = reference[mid];
-          node->gtChild = reference[start];
+          // reference[start] < reference[mid] < reference[end]
+          node = reference[mid];
+          node->ltChild = reference[start];
+          node->gtChild = reference[end];
         }
         else {
-          // reference[end] < reference[mid] < reference[start]
-          node = reference[mid];
-          node->ltChild = reference[end];
-          node->gtChild = reference[start];
+          // reference[start] < reference[mid]; reference[end] < reference[mid]
+          if (MergeSort<K,V>::superKeyCompare(reference[start]->tuple, reference[end]->tuple, p, dim) < 0) {
+            // reference[start] < reference[end] < reference[mid]
+            node = reference[end];
+            node->ltChild = reference[start];
+            node->gtChild = reference[mid];
+          }
+          else {
+            // reference[end] < reference[start] < reference[mid]
+            node = reference[start];
+            node->ltChild = reference[end];
+            node->gtChild = reference[mid];
+          }
         }
       }
-    }
-
-  }
-  else if (end > start + 2) {
-
-    // Four or more references were passed to this method, so calculate the offset
-    // of the median element. partition the reference array about its median element,
-    // which is the kth element as calculated below.
-    signed_size_t const n = end - start + 1;
-    signed_size_t const k = (n + 1) >> 1;
-
-    // Build the < branch of the tree with a child thread at as many levels of the
-    // tree as possible.  Create the child thread as high in the tree as possible.
-    // Are child threads available to build both branches of the tree?
-    if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
-
-      // No, child threads are not available, so find the median element then
-      // partition the reference array about it.  Store the median element
-      // from the reference array in a new KdNode.
-      signed_size_t const median = partition(reference, start, n, size, k, temporary, start, p, dim, false);
-      node = reference[median];
-
-      // Recursively build the < branch of the tree with the current thread.
-      node->ltChild = buildKdTree(reference, temporary, permutation, start,
-                                  median - 1, size, dim, maximumSubmitDepth, depth + 1);
-
-      // Then recursively build the > branch of the tree with the current thread.
-      node->gtChild = buildKdTree(reference, temporary, permutation, median + 1,
-                                  end, size, dim, maximumSubmitDepth, depth + 1);
-
-    }
-    else {
-
-      // Yes, child threads are available, so find the median element then partition
-      // the reference array about it.  Store the median element from the reference
-      // array in a new KdNode.
-      signed_size_t median = partition(reference, start, n, size, k, temporary, start, p, dim, true);
-      node = reference[median];
-
-      // Recursively build the < branch of the tree with a child thread.
-      auto buildFuture = async(launch::async, buildKdTree,
-                               reference,
-                               temporary,
-                               ref(permutation),
-                               start,
-                               median - 1,
-                               size,
-                               dim,
-                               maximumSubmitDepth,
-                               depth + 1);
-
-      // And simultaneously build the > branch of the tree with the current thread.
-      node->gtChild = buildKdTree(reference, temporary, permutation, median + 1,
-                                  end, size, dim, maximumSubmitDepth, depth + 1);
-
-      // Wait for the child thread to finish execution.
-      try {
-        node->ltChild = buildFuture.get();
+      else {
+        // reference[mid] < reference[start]
+        if (MergeSort<K,V>::superKeyCompare(reference[start]->tuple, reference[end]->tuple, p, dim) < 0) {
+          // reference[mid] < reference[start] < reference[end]
+          node = reference[start];
+          node->ltChild = reference[mid];
+          node->gtChild = reference[end];
+        }
+        else {
+          // reference[mid] < reference[start]; reference[end] < reference[start]
+          if (MergeSort<K,V>::superKeyCompare(reference[mid]->tuple, reference[end]->tuple, p, dim) < 0) {
+            // reference[mid] < reference[end] < reference[start]
+            node = reference[end];
+            node->ltChild = reference[mid];
+            node->gtChild = reference[start];
+          }
+          else {
+            // reference[end] < reference[mid] < reference[start]
+            node = reference[mid];
+            node->ltChild = reference[end];
+            node->gtChild = reference[start];
+          }
+        }
       }
-      catch (exception const& e) {
-        throw runtime_error("\n\ncaught exception for build future in buildKdTree\n");
+
+#ifdef KD_MAP_DYNAMIC_H
+      node->ltChild->height = node->gtChild->height = 1;
+      node->height = 2;
+#endif
+
+    }
+    else if (end > start + 2) {
+
+      // Four or more references were passed to this method, so calculate the offset
+      // of the median element. partition the reference array about its median element,
+      // which is the kth element as calculated below.
+      signed_size_t const n = end - start + 1;
+      signed_size_t const k = (n + 1) >> 1;
+
+      // Build the < branch of the tree with a child thread at as many levels of the
+      // tree as possible.  Create the child thread as high in the tree as possible.
+      // Are child threads available to build both branches of the tree?
+      if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
+
+        // No, child threads are not available, so find the median element then
+        // partition the reference array about it.  Store the median element
+        // from the reference array in a new KdNode.
+        signed_size_t const median = partition(reference, start, n, size, k, temporary, start, p, dim, false);
+        node = reference[median];
+
+        // Recursively build the < branch of the tree with the current thread.
+        node->ltChild = buildKdTree(reference, temporary, permutation, start,
+                                    median - 1, size, dim, maximumSubmitDepth, depth + 1);
+
+        // Then recursively build the > branch of the tree with the current thread.
+        node->gtChild = buildKdTree(reference, temporary, permutation, median + 1,
+                                    end, size, dim, maximumSubmitDepth, depth + 1);
+
       }
+      else {
+
+        // Yes, child threads are available, so find the median element then partition
+        // the reference array about it.  Store the median element from the reference
+        // array in a new KdNode.
+        signed_size_t median = partition(reference, start, n, size, k, temporary, start, p, dim, true);
+        node = reference[median];
+
+        // Recursively build the < branch of the tree with a child thread.
+        auto buildFuture = async(launch::async, buildKdTree,
+                                reference,
+                                temporary,
+                                ref(permutation),
+                                start,
+                                median - 1,
+                                size,
+                                dim,
+                                maximumSubmitDepth,
+                                depth + 1);
+
+        // And simultaneously build the > branch of the tree with the current thread.
+        node->gtChild = buildKdTree(reference, temporary, permutation, median + 1,
+                                    end, size, dim, maximumSubmitDepth, depth + 1);
+
+        // Wait for the child thread to finish execution.
+        try {
+          node->ltChild = buildFuture.get();
+        }
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for build future in buildKdTree\n");
+        }
+      }
+
+#ifdef KD_MAP_DYNAMIC_H
+      // Compute the height at this node as the recursion unwinds.
+      node->height = KdTreeDynamic<K,V>::computeHeight(node);
+#endif
+
+    }
+    else if (end < start) {
+
+      // This is an illegal condition that should never occur, so test for it last.
+      ostringstream buffer;
+      buffer << "\n\nerror has occurred at depth = " << depth << " : end = " << end
+            << "  <  start = " << start << " in buildKdTree\n";
+      throw runtime_error(buffer.str());
+
     }
 
+    // Return the pointer to the root of the k-d tree.
+    return node;
   }
-  else if (end < start) {
-
-    // This is an illegal condition that should never occur, so test for it last.
-    ostringstream buffer;
-    buffer << "\n\nerror has occurred at depth = " << depth << " : end = " << end
-           << "  <  start = " << start << " in buildKdTree\n";
-    throw runtime_error(buffer.str());
-
-  }
-
-  // Return the pointer to the root of the k-d tree.
-  return node;
-}
 
 /*
  * The buildKdTreePresorted function method builds a k-d tree by using
@@ -933,111 +954,111 @@ static KdNode<K,V>* buildKdTree(KdNode<K,V>** reference,
  * returns a KdNode pointer to the root of the k-d tree
  */
 private:
-static KdNode<K,V>* buildKdTreePresorted(KdNode<K,V>** reference,
-                                         KdNode<K,V>** temporary,
-                                         vector<signed_size_t> const& permutation,
-                                         signed_size_t start,
-                                         signed_size_t end,
-                                         signed_size_t size,
-                                         signed_size_t dim,
-                                         signed_size_t maximumSubmitDepth) {
+  static KdNode<K,V>* buildKdTreePresorted(KdNode<K,V>** reference,
+                                          KdNode<K,V>** temporary,
+                                          vector<signed_size_t> const& permutation,
+                                          signed_size_t start,
+                                          signed_size_t end,
+                                          signed_size_t size,
+                                          signed_size_t dim,
+                                          signed_size_t maximumSubmitDepth) {
 
-  KdNode<K,V>* node = nullptr;
+    KdNode<K,V>* node = nullptr;
 
-  // It is assumed that the reference array has been pre-sorted using the x:y:z:w... super key.
-  signed_size_t const depth = 0;
+    // It is assumed that the reference array has been pre-sorted using the x:y:z:w... super key.
+    signed_size_t const depth = 0;
 
-  if (end == start) {
+    if (end == start) {
 
-    // Only one KdNode was passed to this method, so store it at this level of the tree.
-    node = reference[start];
-
-  }
-  else if (end == start + 1) {
-
-    // Two KdNodes were passed to this method in sorted order, so store the start
-    // element at this level of the tree and store the end element as the > child. 
-    node = reference[start];
-    node->gtChild = reference[end];
-
-  }
-  else if (end == start + 2) {
-
-    // Three KdNodes were passed to this method in sorted order, so
-    // store the median element at this level of the tree, store the start
-    // element as the < child and store the end element as the > child.
-    node = reference[start + 1];
-    node->ltChild = reference[start];
-    node->gtChild = reference[end];
-
-  }
-  else if (end > start + 2) {
-
-    // Four or more KdNodes were passed to this method, so use the median element of
-    // the pre-sorted reference array to partition the reference array.
-    signed_size_t const n = end - start + 1;
-    signed_size_t const median = (n + 1) >> 1;
-    node = reference[median];
-
-    // Build the < branch of the tree with a child thread at as many levels of the
-    // tree as possible.  Create the child thread as high in the tree as possible.
-    // Are child threads available to build both branches of the tree?
-    if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
-
-      // No, child threads are not available, so recursively build the < branch
-      // of the tree with the current thread.
-      node->ltChild = buildKdTree(reference, temporary, permutation, start, median - 1,
-                                  size, dim, maximumSubmitDepth, depth + 1);
-
-      // Then recursively build the > branch of the tree with the current thread.
-      node->gtChild = buildKdTree(reference, temporary, permutation, median + 1, end,
-                                  size, dim, maximumSubmitDepth, depth + 1);
+      // Only one KdNode was passed to this method, so store it at this level of the tree.
+      node = reference[start];
 
     }
-    else {
+    else if (end == start + 1) {
 
-      // Yes, child threads are available, so recursively build the < branch
-      // of the tree with a child thread. The recursive call to buildKdTree
-      // must be placed in a lambda expression because buildKdTree is a template
-      // not a function.
-      auto buildFuture = async(launch::async, buildKdTree,
-                               reference,
-                               temporary,
-                               ref(permutation),
-                               start,
-                               median - 1,
-                               size,
-                               dim,
-                               maximumSubmitDepth,
-                               depth + 1);
+      // Two KdNodes were passed to this method in sorted order, so store the start
+      // element at this level of the tree and store the end element as the > child. 
+      node = reference[start];
+      node->gtChild = reference[end];
 
-      // And simultaneously build the > branch of the tree with the current thread.
-      node->gtChild = buildKdTree(reference, temporary, permutation, median + 1,
-                                  end, size, dim, maximumSubmitDepth, depth + 1);
+    }
+    else if (end == start + 2) {
 
-      // Wait for the child thread to finish execution.
-      try {
-        node->ltChild = buildFuture.get();
+      // Three KdNodes were passed to this method in sorted order, so
+      // store the median element at this level of the tree, store the start
+      // element as the < child and store the end element as the > child.
+      node = reference[start + 1];
+      node->ltChild = reference[start];
+      node->gtChild = reference[end];
+
+    }
+    else if (end > start + 2) {
+
+      // Four or more KdNodes were passed to this method, so use the median element of
+      // the pre-sorted reference array to partition the reference array.
+      signed_size_t const n = end - start + 1;
+      signed_size_t const median = (n + 1) >> 1;
+      node = reference[median];
+
+      // Build the < branch of the tree with a child thread at as many levels of the
+      // tree as possible.  Create the child thread as high in the tree as possible.
+      // Are child threads available to build both branches of the tree?
+      if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
+
+        // No, child threads are not available, so recursively build the < branch
+        // of the tree with the current thread.
+        node->ltChild = buildKdTree(reference, temporary, permutation, start, median - 1,
+                                    size, dim, maximumSubmitDepth, depth + 1);
+
+        // Then recursively build the > branch of the tree with the current thread.
+        node->gtChild = buildKdTree(reference, temporary, permutation, median + 1, end,
+                                    size, dim, maximumSubmitDepth, depth + 1);
+
       }
-      catch (exception const& e) {
-        throw runtime_error("\n\ncaught exception for build future in buildKdTreePresorted\n");
+      else {
+
+        // Yes, child threads are available, so recursively build the < branch
+        // of the tree with a child thread. The recursive call to buildKdTree
+        // must be placed in a lambda expression because buildKdTree is a template
+        // not a function.
+        auto buildFuture = async(launch::async, buildKdTree,
+                                reference,
+                                temporary,
+                                ref(permutation),
+                                start,
+                                median - 1,
+                                size,
+                                dim,
+                                maximumSubmitDepth,
+                                depth + 1);
+
+        // And simultaneously build the > branch of the tree with the current thread.
+        node->gtChild = buildKdTree(reference, temporary, permutation, median + 1,
+                                    end, size, dim, maximumSubmitDepth, depth + 1);
+
+        // Wait for the child thread to finish execution.
+        try {
+          node->ltChild = buildFuture.get();
+        }
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for build future in buildKdTreePresorted\n");
+        }
       }
+
+    }
+    else if (end < start) {
+
+      // This is an illegal condition that should never occur, so test for it last.
+      ostringstream buffer;
+      buffer << "\n\nerror has occurred at depth = " << depth << " : end = " << end
+            << "  <  start = " << start << " in buildKdTreePresorted\n";
+      throw runtime_error(buffer.str());
+
     }
 
+    // Return the pointer to the root of the k-d tree.
+    return node;
   }
-  else if (end < start) {
-
-    // This is an illegal condition that should never occur, so test for it last.
-    ostringstream buffer;
-    buffer << "\n\nerror has occurred at depth = " << depth << " : end = " << end
-           << "  <  start = " << start << " in buildKdTreePresorted\n";
-    throw runtime_error(buffer.str());
-
-  }
-
-  // Return the pointer to the root of the k-d tree.
-  return node;
-}
 
   /*
    * The createKdTree function performs the necessary initialization then calls the buildKdTree function.

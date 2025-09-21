@@ -227,6 +227,11 @@ public:
         if (KdTree<K>::root != nullptr) {
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = insert(KdTree<K>::root, tuple, dim, 0);
+
+            // If a node was inserted, re-compute the height.
+            if (inserted) {
+                KdTree<K>::root->height = computeHeight(KdTree<K>::root);
+            }
         } else {
             KdTree<K>::root = new KdNode<K>();
             KdTree<K>::root->height = 1;
@@ -294,9 +299,9 @@ private:
                 inserted = true;
             }
         } else {
-            // For a tree, don't insert the key twice. Maybe increment
-            // a counter to record duplicate instance of the key.
-            inserted = false;
+            // For a tree, don't insert the key twice, but report
+            // an insertion for compatibility with kdMapDynamic.h
+            inserted = true;
         }
 
         // Has the height changed due to an insertion? 
@@ -332,7 +337,12 @@ public:
             signed_size_t dim = key.size();
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = erase(KdTree<K>::root, tuple, dim, 0);
-        }
+            
+            // If a node was erased, re-compute the height.
+            if (KdTree<K>::root != nullptr && erased) {
+                KdTree<K>::root->height = computeHeight(KdTree<K>::root);
+            }
+         }
         return erased;
     }
 
@@ -450,13 +460,15 @@ private:
                         nodePtr->tuple[i] = predecessor->tuple[i];
                     }
                     nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
-
-                    // Compute the height at his node because erase computes
-                    // the height at the < child but not at this node. Note that,
-                    // because the > child is null, deletion of a node from the
-                    // < child can only improve the balance. Hence, there is no
-                    // need to check the balance.
                     nodePtr->height = computeHeight(nodePtr);
+
+                    // Is the subtree rooted at the one-child node still balanced?
+                    if ( !isBalanced(nodePtr) ) {
+                        // No, the subtree is not balanced, so rebalance it by rebuilding it,
+                        // which recycles its nodes; hence the nodePtr argument to this erase
+                        // function might no longer point to the root of the subtree.
+                        nodePtr = rebuildSubTree(nodePtr, dim, p);
+                    }
                 }
             }
             // Does the node have only a > child?
@@ -501,13 +513,15 @@ private:
                         nodePtr->tuple[i] = successor->tuple[i];
                     }
                     nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
-
-                    // Compute the height at his node because erase computes
-                    // the height at the > child but not at this node. Note that,
-                    // because the < child is null, deletion of a node from the
-                    // > child can only improve the balance. Hence, there is no
-                    // need to check the balance.
                     nodePtr->height = computeHeight(nodePtr);
+
+                    // Is the subtree rooted at the one-child node still balanced?
+                    if ( !isBalanced(nodePtr) ) {
+                        // No, the subtree is not balanced, so rebalance it by rebuilding it,
+                        // which recycles its nodes; hence the nodePtr argument to this erase
+                        // function might no longer point to the root of the subtree.
+                        nodePtr = rebuildSubTree(nodePtr, dim, p);
+                    }
                 }
             }
             // If the node has no children, delete the node.
@@ -570,10 +584,15 @@ private:
                         }
                         nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
                         nodePtr->height = computeHeight(nodePtr);
+
+                        // Is the subtree rooted at the two-child node still balanced?
                         if ( !isBalanced(nodePtr) ) {
+                            // No, the subtree is not balanced, so rebalance it by rebuilding it,
+                            // which recycles its nodes; hence the nodePtr argument to this erase
+                            // function might no longer point to the root of the subtree.
                             nodePtr = rebuildSubTree(nodePtr, dim, p);
                         }
-                    } else
+                     } else
 
 #endif // ENABLE_PREFERRED_TEST
 
@@ -592,10 +611,15 @@ private:
                         }
                         nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
                         nodePtr->height = computeHeight(nodePtr);
+
+                        // Is the subtree rooted at the two-child node still balanced?
                         if ( !isBalanced(nodePtr) ) {
+                            // No, the subtree is not balanced, so rebalance it by rebuilding it,
+                            // which recycles its nodes; hence the nodePtr argument to this erase
+                            // function might no longer point to the root of the subtree.
                             nodePtr = rebuildSubTree(nodePtr, dim, p);
                         }
-                    }
+                   }
                 }
             }
         }
