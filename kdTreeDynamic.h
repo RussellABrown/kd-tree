@@ -463,6 +463,12 @@ private:
                     nodePtr->height = computeHeight(nodePtr);
 
                     // Is the subtree rooted at the one-child node still balanced?
+                    //
+                    // In principle, this test is unnecessary because the > child
+                    // subtree is empty, and deletion of a node from the < child
+                    // subtree can decrease but not increase the height of the
+                    // < child subtree, so the balance can either remain unchanged
+                    // or decrease, but not increase.
                     if ( !isBalanced(nodePtr) ) {
                         // No, the subtree is not balanced, so rebalance it by rebuilding it,
                         // which recycles its nodes; hence the nodePtr argument to this erase
@@ -516,6 +522,12 @@ private:
                     nodePtr->height = computeHeight(nodePtr);
 
                     // Is the subtree rooted at the one-child node still balanced?
+                    //
+                    // In principle, this test is unnecessary because the < child
+                    // subtree is empty, and deletion of a node from the > child
+                    // subtree can decrease but not increase the height of the
+                    // > child subtree, so the balance can either remain unchanged
+                    // or decrease, but not increase.
                     if ( !isBalanced(nodePtr) ) {
                         // No, the subtree is not balanced, so rebalance it by rebuilding it,
                         // which recycles its nodes; hence the nodePtr argument to this erase
@@ -573,10 +585,10 @@ private:
                         // Find the node with the largest super-key in the
                         // subtree rooted at the < child, which is the
                         // predecessor node. Copy the predecessor node's tuple
-                        // to the two-child node, delete the predecessor node,
+                        // to this two-child node, delete the predecessor node,
                         // recompute the heights along the path from the
-                        // predecessor node to (but excluding) the two-child node,
-                        // and then recompute the height at the two-child node.
+                        // predecessor node to (but excluding) this two-child node,
+                        // and then recompute the height at this two-child node.
                         KdNode<K>* predecessor = nodePtr->ltChild;
                         predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                         for (signed_size_t i = 0; i < dim; ++i) {
@@ -585,7 +597,7 @@ private:
                         nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
                         nodePtr->height = computeHeight(nodePtr);
 
-                        // Is the subtree rooted at the two-child node still balanced?
+                        // Is the subtree rooted at this two-child node still balanced?
                         if ( !isBalanced(nodePtr) ) {
                             // No, the subtree is not balanced, so rebalance it by rebuilding it,
                             // which recycles its nodes; hence the nodePtr argument to this erase
@@ -600,10 +612,10 @@ private:
                         // Find the node with the smallest super-key in the
                         // subtree rooted at the > child, which is the
                         // successor node. Copy the successor node's tuple
-                        // to the two-child node, delete the successor node,
+                        // to this two-child node, delete the successor node,
                         // recompute the heights along the path from the
-                        // successor node to (but excluding) the two-child node,
-                        // and then recompute the height at the two-child node.
+                        // successor node to (but excluding) this two-child node,
+                        // and then recompute the height at this two-child node.
                         KdNode<K>* successor = nodePtr->gtChild;
                         successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                         for (signed_size_t i = 0; i < dim; ++i) {
@@ -612,7 +624,7 @@ private:
                         nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
                         nodePtr->height = computeHeight(nodePtr);
 
-                        // Is the subtree rooted at the two-child node still balanced?
+                        // Is the subtree rooted at this two-child node still balanced?
                         if ( !isBalanced(nodePtr) ) {
                             // No, the subtree is not balanced, so rebalance it by rebuilding it,
                             // which recycles its nodes; hence the nodePtr argument to this erase
