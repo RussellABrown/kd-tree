@@ -716,18 +716,27 @@ private:
                     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                     eraseRecursiveTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 #endif
-                    // Compute the height at his node because erase computes
-                    // the height at the < child but not at this node. Note that,
-                    // because the > child is null, deletion of a node from the
-                    // < child subtree can only improve the balance. So there is no
-                    // need to check the balance. However, check the balance and
-                    // report an error if the subtree rooted at this node is unbalanced.
-                    nodePtr->height = computeHeight(nodePtr);
+                    // Assuming that the subtree rooted at the one-child
+                    // node was balanced prior to deletion of a node
+                    // from the subtree rooted at the < child, the
+                    // subtree rooted at the one-child node remains
+                    // balanced. The > child subtree is empty, and
+                    // deletion of a node from the < child subtree
+                    // can decrease but not increase the height of that
+                    // subtree. Hence, the balance at the one-child node
+                    // can either remain unchanged or decrease.
+                    //
+                    // Test the above reasoning and report an error
+                    // if the subtree rooted at the one-child node
+                    // is not balanced.
                     if ( !isBalanced(nodePtr) ) {
                         ostringstream buffer;
                         buffer << "subtree is unbalanced after deletion of node from < child" << endl;
                         throw runtime_error(buffer.str());
                     }
+
+                    // The subtree is balanced, so compute the height at the one-child node.
+                    nodePtr->height = computeHeight(nodePtr);
                 }
             }
             // Does the node have only a > child?
@@ -799,18 +808,27 @@ private:
                     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                     eraseRecursiveTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 #endif
-                    // Compute the height at his node because erase computes
-                    // the height at the > child but not at this node. Note that,
-                    // because the < child is null, deletion of a node from the
-                    // > child subtree can only improve the balance. So there is no
-                    // need to check the balance. However, check the balance and
-                    // report an error if the subtree rooted at this node is unbalanced.
-                    nodePtr->height = computeHeight(nodePtr);
+                    // Assuming that the subtree rooted at the one-child
+                    // node was balanced prior to deletion of a node
+                    // from the subtree rooted at the > child, the
+                    // subtree rooted at the one-child node remains
+                    // balanced. The < child subtree is empty, and
+                    // deletion of a node from the > child subtree
+                    // can decrease but not increase the height of that
+                    // subtree. Hence, the balance at the one-child node
+                    // can either remain unchanged or decrease.
+                    //
+                    // Test the above reasoning and report an error
+                    // if the subtree rooted at the one-child node
+                    // is not balanced.
                     if ( !isBalanced(nodePtr) ) {
                         ostringstream buffer;
                         buffer << "subtree is unbalanced after deletion of node from > child" << endl;
                         throw runtime_error(buffer.str());
                     }
+
+                    // The subtree is balanced, so compute the height at the one-child node.
+                    nodePtr->height = computeHeight(nodePtr);
                 }
             }
             // If the node has no children, delete the node.
@@ -921,8 +939,18 @@ private:
                         duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                         eraseRecursiveTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 #endif
-                        nodePtr->height = computeHeight(nodePtr);
-                        if ( !isBalanced(nodePtr) ) {
+
+                        // The height may have changed, so if the subtree
+                        // rooted at this two-child node remains balanced,
+                        // compute the height at this node; otherwise,
+                        // rebuild the subtree to rebalance it, which also
+                        // computes the height. Because rebuilding the subtree
+                        // recycles its nodes, the node argument to this
+                        // erase function might no longer specify the root
+                        // of the subtree.
+                        if ( isBalanced(nodePtr) ) {
+                            nodePtr->height = computeHeight(nodePtr);
+                        } else {
 #ifndef STATISTICS
                             nodePtr = rebuildSubTree(nodePtr, 2, dim, p);
 #else
@@ -934,7 +962,7 @@ private:
                             eraseBalanceTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 #endif
                         }
-
+                        
 #if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
                         cout << "erase: predecessor = ";
                         KdTree<K>::printTuple(nodePtr->tuple, dim);
@@ -982,8 +1010,18 @@ private:
                         duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                         eraseRecursiveTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 #endif
-                        nodePtr->height = computeHeight(nodePtr);
-                        if ( !isBalanced(nodePtr) ) {
+
+                        // The height may have changed, so if the subtree
+                        // rooted at this two-child node remains balanced,
+                        // compute the height at this node; otherwise,
+                        // rebuild the subtree to rebalance it, which also
+                        // computes the height. Because rebuilding the subtree
+                        // recycles its nodes, the node argument to this
+                        // erase function might no longer specify the root
+                        // of the subtree.
+                        if ( isBalanced(nodePtr) ) {
+                            nodePtr->height = computeHeight(nodePtr);
+                        } else {
 #ifndef STATISTICS
                             nodePtr = rebuildSubTree(nodePtr, 2, dim, p);
 #else

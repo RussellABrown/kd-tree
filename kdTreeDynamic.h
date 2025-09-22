@@ -487,19 +487,29 @@ private:
                         nodePtr->tuple[i] = predecessor->tuple[i];
                     }
                     nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
-                    nodePtr->height = computeHeight(nodePtr);
 
-                    // Is the subtree rooted at the one-child node still balanced?
+                    // Assuming that the subtree rooted at the one-child
+                    // node was balanced prior to deletion of a node
+                    // from the subtree rooted at the < child, the
+                    // subtree rooted at the one-child node remains
+                    // balanced. The > child subtree is empty, and
+                    // deletion of a node from the < child subtree
+                    // can decrease but not increase the height of that
+                    // subtree. Hence, the balance at the one-child node
+                    // can either remain unchanged or decrease.
                     //
-                    // In principle, this test is unnecessary because the > child
-                    // subtree is empty, and deletion of a node from the < child
-                    // subtree can decrease but not increase the height of the
-                    // < child subtree, so the balance can either remain unchanged
-                    // or decrease, but not increase.
-                    if ( !isBalanced(nodePtr) ) {
-                        // No, the subtree is not balanced, so rebalance it by rebuilding it,
-                        // which recycles its nodes; hence the nodePtr argument to this erase
-                        // function might no longer point to the root of the subtree.
+                    // Notwithstanding the above reasoning, assume that
+                    // the balance may have increased. If the subtree
+                    // rooted at the one-child node remains balanced,
+                    // compute the height at that node; otherwise,
+                    // rebuild the subtree to rebalance it, which also
+                    // computes the height. Because rebuilding the subtree
+                    // recycles its nodes, the node argument to this
+                    // erase function might no longer specify the root
+                    // of the subtree.
+                    if ( isBalanced(nodePtr) ) {
+                        nodePtr->height = computeHeight(nodePtr);
+                    } else {
                         nodePtr = rebuildSubTree(nodePtr, dim, p);
                     }
                 }
@@ -537,28 +547,37 @@ private:
                     // No, the > child subtree contains > 3 nodes. So, find
                     // the immediate successor node, copy the tuple from that
                     // successor node to the one-child node, delete the
-                    // successor node, recompute the height along the path
-                    // back to the > child (including that child), and then
-                    // recompute the height at the one-child node.
+                    // successor node, and recompute the height along the
+                    // path back to the > child (including that child).
                     KdNode<K>* successor = nodePtr->gtChild;
                     successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                     for (signed_size_t i = 0; i < dim; ++i) {
                         nodePtr->tuple[i] = successor->tuple[i];
                     }
                     nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
-                    nodePtr->height = computeHeight(nodePtr);
 
-                    // Is the subtree rooted at the one-child node still balanced?
+                    // Assuming that the subtree rooted at the one-child
+                    // node was balanced prior to deletion of a node
+                    // from the subtree rooted at the > child, the
+                    // subtree rooted at the one-child node remains
+                    // balanced. The < child subtree is empty, and
+                    // deletion of a node from the > child subtree
+                    // can decrease but not increase the height of that
+                    // subtree. Hence, the balance at the one-child node
+                    // can either remain unchanged or decrease.
                     //
-                    // In principle, this test is unnecessary because the < child
-                    // subtree is empty, and deletion of a node from the > child
-                    // subtree can decrease but not increase the height of the
-                    // > child subtree, so the balance can either remain unchanged
-                    // or decrease, but not increase.
-                    if ( !isBalanced(nodePtr) ) {
-                        // No, the subtree is not balanced, so rebalance it by rebuilding it,
-                        // which recycles its nodes; hence the nodePtr argument to this erase
-                        // function might no longer point to the root of the subtree.
+                    // Notwithstanding the above reasoning, assume that
+                    // the balance may have increased. If the subtree
+                    // rooted at the one-child node remains balanced,
+                    // compute the height at that node; otherwise,
+                    // rebuild the subtree to rebalance it, which also
+                    // computes the height. Because rebuilding the subtree
+                    // recycles its nodes, the node argument to this
+                    // erase function might no longer specify the root
+                    // of the subtree.
+                    if ( isBalanced(nodePtr) ) {
+                        nodePtr->height = computeHeight(nodePtr);
+                    } else {
                         nodePtr = rebuildSubTree(nodePtr, dim, p);
                     }
                 }
@@ -613,25 +632,29 @@ private:
                         // subtree rooted at the < child, which is the
                         // predecessor node. Copy the predecessor node's tuple
                         // to this two-child node, delete the predecessor node,
-                        // recompute the heights along the path from the
-                        // predecessor node to (but excluding) this two-child node,
-                        // and then recompute the height at this two-child node.
+                        // and recompute the heights along the path from the
+                        // predecessor node to (but excluding) this two-child node.
                         KdNode<K>* predecessor = nodePtr->ltChild;
                         predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                         for (signed_size_t i = 0; i < dim; ++i) {
                             nodePtr->tuple[i] = predecessor->tuple[i];
                         }
                         nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
-                        nodePtr->height = computeHeight(nodePtr);
 
-                        // Is the subtree rooted at this two-child node still balanced?
-                        if ( !isBalanced(nodePtr) ) {
-                            // No, the subtree is not balanced, so rebalance it by rebuilding it,
-                            // which recycles its nodes; hence the nodePtr argument to this erase
-                            // function might no longer point to the root of the subtree.
+                        // The height may have changed, so if the subtree
+                        // rooted at this two-child node remains balanced,
+                        // compute the height at this node; otherwise,
+                        // rebuild the subtree to rebalance it, which also
+                        // computes the height. Because rebuilding the subtree
+                        // recycles its nodes, the node argument to this
+                        // erase function might no longer specify the root
+                        // of the subtree.
+                        if ( isBalanced(nodePtr) ) {
+                            nodePtr->height = computeHeight(nodePtr);
+                        } else {
                             nodePtr = rebuildSubTree(nodePtr, dim, p);
                         }
-                     } else
+                    } else
 
 #endif // ENABLE_PREFERRED_TEST
 
@@ -640,22 +663,26 @@ private:
                         // subtree rooted at the > child, which is the
                         // successor node. Copy the successor node's tuple
                         // to this two-child node, delete the successor node,
-                        // recompute the heights along the path from the
-                        // successor node to (but excluding) this two-child node,
-                        // and then recompute the height at this two-child node.
+                        // and recompute the heights along the path from the
+                        // successor node to (but excluding) this two-child node.
                         KdNode<K>* successor = nodePtr->gtChild;
                         successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                         for (signed_size_t i = 0; i < dim; ++i) {
                             nodePtr->tuple[i] = successor->tuple[i];
                         }
                         nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
-                        nodePtr->height = computeHeight(nodePtr);
 
-                        // Is the subtree rooted at this two-child node still balanced?
-                        if ( !isBalanced(nodePtr) ) {
-                            // No, the subtree is not balanced, so rebalance it by rebuilding it,
-                            // which recycles its nodes; hence the nodePtr argument to this erase
-                            // function might no longer point to the root of the subtree.
+                        // The height may have changed, so if the subtree
+                        // rooted at this two-child node remains balanced,
+                        // compute the height at this node; otherwise,
+                        // rebuild the subtree to rebalance it, which also
+                        // computes the height. Because rebuilding the subtree
+                        // recycles its nodes, the node argument to this
+                        // erase function might no longer specify the root
+                        // of the subtree.
+                        if ( isBalanced(nodePtr) ) {
+                            nodePtr->height = computeHeight(nodePtr);
+                        } else {
                             nodePtr = rebuildSubTree(nodePtr, dim, p);
                         }
                    }
