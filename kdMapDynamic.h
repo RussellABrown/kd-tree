@@ -238,11 +238,15 @@ public:
         if (KdTree<K,V>::root != nullptr) {
             KdTree<K,V>::root = insert(KdTree<K,V>::root, key, value, dim, 0);
 
-            // If the height has changed, re-compute the height
-            // and rebalance the tree if necessary.
+            // Has the height changed due to an insertion?
             if (changed) {
-                KdTree<K,V>::root->height = computeHeight(KdTree<K,V>::root);
-                if ( !isBalanced(KdTree<K,V>::root) ) {
+                // Yes, the height has changed, so if the tree
+                // remains balanced, compute the height at the
+                // root node; otherwise rebuild the subtree to
+                // rebalance it, which also computes the height.
+                if ( isBalanced(KdTree<K,V>::root) ) {
+                    KdTree<K,V>::root->height = computeHeight(KdTree<K,V>::root);
+                } else {
                     KdTree<K,V>::root = rebuildSubTree(KdTree<K,V>::root, dim, 0);
                 }
             }
@@ -332,19 +336,22 @@ private:
             changed = false;
        }
 
-        // Has the height changed due to an insertion? 
+        // Has the height changed due to an insertion?
         if (changed) {
-            // Yes, the height has changed, so recompute the height at this node.
-            nodePtr->height = computeHeight(nodePtr);
-
-            // Is the subtree still balanced?
-            if ( !isBalanced(nodePtr) ) {
-                // No, the subtree is not balanced, so rebalance it by rebuilding it,
-                // which recycles its nodes; hence the node argument to this insert
-                // function might no longer point to the root of the subtree.
+            // Yes, the height has changed, so if the subtree
+            // rooted at this node remains balanced, compute
+            // the height at this node; otherwise rebuild the
+            // subtree to rebalance it, which also computes
+            // the height. Because rebuilding the subtree
+            // recycles its nodes, the node argument to this
+            // insert function might no longer specify the
+            // root of the subtree.
+            if ( isBalanced(nodePtr) ) {
+                nodePtr->height = computeHeight(nodePtr);
+            } else {
                 nodePtr = rebuildSubTree(nodePtr, dim, p);
             }
-        }
+       }
         return nodePtr;
     }
 
@@ -368,11 +375,15 @@ public:
             V const value = coordinate.second;
             KdTree<K,V>::root = erase(KdTree<K,V>::root, key, value, dim, 0);
 
-            // If the height has changed, re-compute the height
-            // and rebalance the tree if necessary.
+            // Has the height changed due to an erasure?
             if (KdTree<K,V>::root != nullptr && changed) {
-                KdTree<K,V>::root->height = computeHeight(KdTree<K,V>::root);
-                if ( !isBalanced(KdTree<K,V>::root) ) {
+                // Yes, the height has changed, so if the tree
+                // remains balanced, compute the height at the
+                // root node; otherwise rebuild the subtree to
+                // rebalance it, which also computes the height.
+                if ( isBalanced(KdTree<K,V>::root) ) {
+                    KdTree<K,V>::root->height = computeHeight(KdTree<K,V>::root);
+                } else {
                     KdTree<K,V>::root = rebuildSubTree(KdTree<K,V>::root, dim, 0);
                 }
             }
@@ -415,15 +426,18 @@ private:
                 nodePtr->ltChild = erase(nodePtr->ltChild, key, value, dim, p+1, clearSet);
 
                 // Has the height changed due to an erasure? 
-                if (changed) {
-                    // Yes, the height has changed, so recompute the height at this node.
-                    nodePtr->height = computeHeight(nodePtr);
-
-                    // Is the subtree still balanced?
-                    if ( !isBalanced(nodePtr) ) {
-                        // No, the subtree is not balanced, so rebalance it by rebuilding it,
-                        // which recycles its nodes; hence the nodePtr argument to this erase
-                        // function might no longer point to the root of the subtree.
+                if (erased) {
+                    // Yes, the height has changed, so if the subtree
+                    // rooted at this node remains balanced, compute
+                    // the height at this node; otherwise rebuild the
+                    // subtree to rebalance it, which also computes
+                    // the height. Because rebuilding the subtree
+                    // recycles its nodes, the node argument to this
+                    // insert function might no longer specify the
+                    // root of the subtree.
+                    if ( isBalanced(nodePtr) ) {
+                        nodePtr->height = computeHeight(nodePtr);
+                    } else {
                         nodePtr = rebuildSubTree(nodePtr, dim, p);
                     }
                 }
@@ -436,15 +450,18 @@ private:
                 nodePtr->gtChild = erase(nodePtr->gtChild, key, value, dim, p+1, clearSet);
              
                 // Has the height changed due to an erasure? 
-                if (changed) {
-                    // Yes, the height has changed, so recompute the height at this node.
-                    nodePtr->height = computeHeight(nodePtr);
-
-                    // Is the subtree still balanced?
-                    if ( !isBalanced(nodePtr) ) {
-                        // No, the subtree is not balanced, so rebalance it by rebuilding it,
-                        // which recycles its nodes; hence the nodePtr argument to this erase
-                        // function is might no longer point to the root of the subtree.
+                if (erased) {
+                    // Yes, the height has changed, so if the subtree
+                    // rooted at this node remains balanced, compute
+                    // the height at this node; otherwise rebuild the
+                    // subtree to rebalance it, which also computes
+                    // the height. Because rebuilding the subtree
+                    // recycles its nodes, the node argument to this
+                    // insert function might no longer specify the
+                    // root of the subtree.
+                    if ( isBalanced(nodePtr) ) {
+                        nodePtr->height = computeHeight(nodePtr);
+                    } else {
                         nodePtr = rebuildSubTree(nodePtr, dim, p);
                     }
                 }
