@@ -432,7 +432,7 @@ int main(int argc, char** argv) {
   vector<double> verifyTime(iterations);
   vector<double> eraseTime(iterations);
   vector<double> containsTime(iterations);
-  vector<double> neighborsTimeBalanced(iterations);
+  vector<double> neighborsTimeStatic(iterations);
   vector<double> neighborsTimeDynamic(iterations);
 
 #ifdef STATISTICS
@@ -496,8 +496,8 @@ int main(int argc, char** argv) {
   }
 
   // Iterate the construction of the k-d tree to improve statistics.
-  signed_size_t numberOfNodes = 0;
-  size_t treeHeight = 0;
+  signed_size_t numberOfNodes = 0, staticNumberOfNodes = 0;
+  size_t treeHeight = 0, staticTreeHeight = 0;
   std::mt19937_64 g(std::mt19937_64::default_seed);
   for (size_t k = 0; k < iterations; ++k) {
 
@@ -527,6 +527,10 @@ int main(int argc, char** argv) {
       // Record the time for k-d tree creation, ignoring verifyTime and unsortTime.
       createTime[k] = allocateTime + sortTime + removeTime + kdTime + deallocateTime;
 
+      // Record the number of nodes and the tree height for the static tree.
+      staticNumberOfNodes = numNodes;
+      staticTreeHeight = KdTreeDynamic<kdKey_t>::getHeight(tree->getRoot());
+
       // Find numNeighbors nearest neighbors to each coordinate.
       if (neighbors) {
         forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
@@ -541,7 +545,7 @@ int main(int argc, char** argv) {
         }
         auto endTime = steady_clock::now();
         auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-        neighborsTimeBalanced[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+        neighborsTimeStatic[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
       }
 
       // No further need for the balanced k-d tree, so delete it.
@@ -719,10 +723,10 @@ int main(int argc, char** argv) {
   }
 
   // Report the k-d tree statistics.
-  cout << endl << "number of nodes = " << numberOfNodes
+  cout << endl << "dynamic tree:" << endl << endl;
+  cout << "number of nodes = " << numberOfNodes
                << "  k-d tree height = " << treeHeight << endl << endl;
 
-  cout << "dynamic tree:" << endl;
   auto timePair = calcMeanStd<double>(insertTime);
   cout << "insert time = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
@@ -747,12 +751,15 @@ int main(int argc, char** argv) {
   cout << endl;
 
   if (balanced) {
-    cout << "static tree:" << endl;
+    cout << "static tree:" << endl << endl;
+    cout << "number of nodes = " << staticNumberOfNodes
+                << "  k-d tree height = " << staticTreeHeight << endl << endl;
+
     timePair = calcMeanStd<double>(createTime);
     cout << "create time = " << fixed << setprecision(4) << timePair.first
         << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
     if (neighbors) {
-      timePair = calcMeanStd<double>(neighborsTimeBalanced);
+      timePair = calcMeanStd<double>(neighborsTimeStatic);
       cout << "neighbors time = " << fixed << setprecision(4) << timePair.first
           << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
     }

@@ -963,13 +963,22 @@ private:
 
       // Only one reference was passed to this method, so store it at this level of the tree.
       node = KdNode<K>::getKdNode(reference, kdNodes, start);
-    } else if (end == start + 1) {
+#ifdef KD_TREE_DYNAMIC_H
+      node->height = 1;
+#endif
+
+} else if (end == start + 1) {
 
       // Two references were passed to this method in sorted order, so store the start
       // element at this level of the tree and store the end element as the > child. 
       node = KdNode<K>::getKdNode(reference, kdNodes, start);
       node->gtChild = KdNode<K>::getKdNode(reference, kdNodes, end);
-    } else if (end == start + 2) {
+#ifdef KD_TREE_DYNAMIC_H
+        node->gtChild->height = 1;
+        node->height = 2;
+#endif
+
+} else if (end == start + 2) {
 
       // Three references were passed to this method in sorted order, so
       // store the median element at this level of the tree, store the start
@@ -977,6 +986,10 @@ private:
       node = KdNode<K>::getKdNode(reference, kdNodes, start + 1);
       node->ltChild = KdNode<K>::getKdNode(reference, kdNodes, start);
       node->gtChild = KdNode<K>::getKdNode(reference, kdNodes, end);
+#ifdef KD_TREE_DYNAMIC_H
+      node->ltChild->height = node->gtChild->height = 1;
+      node->height = 2;
+#endif
 
     } else if (end > start + 2) {
 
@@ -1030,6 +1043,11 @@ private:
           throw runtime_error("\n\ncaught exception for build future in buildKdTreePresorted\n");
         }
       }
+#ifdef KD_TREE_DYNAMIC_H
+      // Compute the height at this node as the recursion unwinds.
+      node->height = KdTreeDynamic<K>::computeHeight(node);
+#endif
+
     } else if (end < start) {
 
       // This is an illegal condition that should never occur, so test for it last.

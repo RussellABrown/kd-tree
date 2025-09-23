@@ -913,7 +913,6 @@ private:
           throw runtime_error("\n\ncaught exception for build future in buildKdTree\n");
         }
       }
-
 #ifdef KD_MAP_DYNAMIC_H
       // Compute the height at this node as the recursion unwinds.
       node->height = KdTreeDynamic<K,V>::computeHeight(node);
@@ -972,6 +971,9 @@ private:
 
       // Only one KdNode was passed to this method, so store it at this level of the tree.
       node = reference[start];
+#ifdef KD_MAP_DYNAMIC_H
+      node->height = 1;
+#endif
 
     }
     else if (end == start + 1) {
@@ -980,6 +982,10 @@ private:
       // element at this level of the tree and store the end element as the > child. 
       node = reference[start];
       node->gtChild = reference[end];
+#ifdef KD_MAP_DYNAMIC_H
+        node->gtChild->height = 1;
+        node->height = 2;
+#endif
 
     }
     else if (end == start + 2) {
@@ -990,6 +996,10 @@ private:
       node = reference[start + 1];
       node->ltChild = reference[start];
       node->gtChild = reference[end];
+#ifdef KD_MAP_DYNAMIC_H
+      node->ltChild->height = node->gtChild->height = 1;
+      node->height = 2;
+#endif
 
     }
     else if (end > start + 2) {
@@ -1044,6 +1054,10 @@ private:
           throw runtime_error("\n\ncaught exception for build future in buildKdTreePresorted\n");
         }
       }
+#ifdef KD_MAP_DYNAMIC_H
+      // Compute the height at this node as the recursion unwinds.
+      node->height = KdTreeDynamic<K,V>::computeHeight(node);
+#endif
 
     }
     else if (end < start) {
