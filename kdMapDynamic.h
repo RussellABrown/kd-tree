@@ -531,9 +531,8 @@ private:
                             // the immediate predecessor node, copy the tuple and the
                             // values set from that predecessor node to the one-child
                             // node, delete the predecessor node recursively (clearing
-                            // its values set), recompute the height along the path back
-                            // to the < child (including that child), and then recompute
-                            // the height at the one-child node.
+                            // its values set), and recompute the height along the path
+                            // back to the < child, including that child.
                             KdNode<K,V>* predecessor = nodePtr->ltChild;
                             predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                             for (signed_size_t i = 0; i < dim; ++i) {
@@ -603,9 +602,8 @@ private:
                             // the immediate successor node, copy the tuple and the
                             // values set from that successor node to the one-child
                             // node, delete the successor node recursively (clearing
-                            // its values set), recompute the height along the path back
-                            // to the > child (including that child), and then recompute
-                            // the height at the one-child node.
+                            // its values set), and recompute the height along the path
+                            // back to the > child, including that child.
                            KdNode<K,V>* successor = nodePtr->gtChild;
                             successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                             for (signed_size_t i = 0; i < dim; ++i) {
@@ -691,9 +689,8 @@ private:
                                 // predecessor node. Copy the predecessor node's tuple
                                 // and values set to this two-child node, delete the
                                 // predecessor node recursively (clearing its values set),
-                                // recompute the heights along the path from the
-                                // predecessor node to (but excluding) this two-child node,
-                                // and then recompute the height at this two-child node.
+                                // and recompute the heights along the path from the
+                                // predecessor node to (but excluding) this two-child node.
                                 KdNode<K,V>* predecessor = nodePtr->ltChild;
                                 predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                                 for (signed_size_t i = 0; i < dim; ++i) {
@@ -726,9 +723,8 @@ private:
                                 // successor node. Copy the successor node's tuple
                                 // and values set to this two-child node, delete the
                                 // successor node recursively (clearing its values set),
-                                // recompute the heights along the path from the
-                                // successor node to (but excluding) this two-child node,
-                                // and then recompute the height at this two-child node.
+                                // and recompute the heights along the path from the
+                                // successor node to (but excluding) this two-child node.
                                 KdNode<K,V>* successor = nodePtr->gtChild;
                                 successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                                 for (signed_size_t i = 0; i < dim; ++i) {

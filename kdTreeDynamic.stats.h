@@ -690,9 +690,8 @@ private:
                     // No, the < child subtree contains > 3 nodes. So, find
                     // the immediate predecessor node, copy the tuple from that
                     // predecessor node to the one-child node, delete the
-                    // predecessor node, recompute the height along the path
-                    // back to the < child (including that child), and then
-                    // recompute the height at the one-child node.
+                    // predecessor node, and recompute the height along the
+                    // path back to the < child, including that child.
                     KdNode<K>* predecessor = nodePtr->ltChild;
 #ifndef STATISTICS
                     predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
@@ -782,9 +781,8 @@ private:
                     // No, the > child subtree contains > 3 nodes. So, find
                     // the immediate successor node, copy the tuple from that
                     // successor node to the one-child node, delete the
-                    // successor node, recompute the height along the path
-                    // back to the > child (including that child), and then
-                    // recompute the height at the one-child node.
+                    // successor node, and recompute the height along the
+                    // path back to the > child, including that child.
                     KdNode<K>* successor = nodePtr->gtChild;
 #ifndef STATISTICS
                     successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
@@ -913,9 +911,8 @@ private:
                         // subtree rooted at the < child, which is the
                         // predecessor node. Copy the predecessor node's tuple
                         // to the two-child node, delete the predecessor node,
-                        // recompute the heights along the path from the
-                        // predecessor node to (but excluding) the two-child node,
-                        // and then recompute the height at the two-child node.
+                        // and recompute the heights along the path from the
+                        // predecessor node to (but excluding) the two-child node.
                         KdNode<K>* predecessor = nodePtr->ltChild;
 #ifndef STATISTICS
                         predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
@@ -984,9 +981,8 @@ private:
                         // subtree rooted at the > child, which is the
                         // successor node. Copy the successor node's tuple
                         // to the two-child node, delete the successor node,
-                        // recompute the heights along the path from the
-                        // successor node to (but excluding) the two-child node,
-                        // and then recompute the height at the two-child node.
+                        // and recompute the heights along the path from the
+                        // successor node to (but excluding) the two-child node.
                         KdNode<K>* successor = nodePtr->gtChild;
 #ifndef STATISTICS
                         successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);

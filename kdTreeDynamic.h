@@ -478,9 +478,8 @@ private:
                     // No, the < child subtree contains > 3 nodes. So, find
                     // the immediate predecessor node, copy the tuple from that
                     // predecessor node to the one-child node, delete the
-                    // predecessor node, recompute the height along the path
-                    // back to the < child (including that child), and then
-                    // recompute the height at the one-child node.
+                    // predecessor node, and recompute the height along the path
+                    // back to the < child, including that child.
                     KdNode<K>* predecessor = nodePtr->ltChild;
                     predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                     for (signed_size_t i = 0; i < dim; ++i) {
@@ -548,7 +547,7 @@ private:
                     // the immediate successor node, copy the tuple from that
                     // successor node to the one-child node, delete the
                     // successor node, and recompute the height along the
-                    // path back to the > child (including that child).
+                    // path back to the > child, including that child.
                     KdNode<K>* successor = nodePtr->gtChild;
                     successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                     for (signed_size_t i = 0; i < dim; ++i) {
