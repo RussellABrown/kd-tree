@@ -1358,21 +1358,13 @@ private:
             // Do not use mutiple threads to build the subtree, even
             // though multiple threads area available, if the size of the
             // subtree is too small to justify spawning child threads.
-            signed_size_t numNodes;
-            double allocateTime, sortTime, removeTime, kdTime,
-                verifyTime, deallocateTime, unsortTime;
-
             KdTree<K>* subTree;
             if (count < cutoff) {
                 subTree =
-                    KdTree<K>::createKdTree(kdNodes, dim, -1, numNodes,
-                                            allocateTime, sortTime, removeTime, kdTime,
-                                            verifyTime, deallocateTime, unsortTime, p);
+                    KdTree<K>::createKdTree(kdNodes, dim, -1, p);
             } else {
                 subTree =
-                    KdTree<K>::createKdTree(kdNodes, dim, maxSubmitDepth, numNodes,
-                                            allocateTime, sortTime, removeTime, kdTime,
-                                            verifyTime, deallocateTime, unsortTime, p);
+                    KdTree<K>::createKdTree(kdNodes, dim, maxSubmitDepth, p);
                 }
 
 #if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)

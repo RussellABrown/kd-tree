@@ -1076,14 +1076,13 @@ private:
 
   /*
    * The createKdTree function performs the necessary initialization then calls the buildKdTree function.
+   * This version of createKdTree is called from the KdTreeDynamic::rebuildSubtree function.
    *
    * Calling parameters:
    *
    * kdNodes - a vector<KdNode<K>*> whose KdNodes store the (x, y, z, w...) coordinates
    * dim - the number of dimensions (required when KD_MAP_DYNAMIC_H is defined)
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
-   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times returned by reference
    * p - the leading dimension
    *
    * returns: a KdNode pointer to the root of the k-d tree
@@ -1092,20 +1091,12 @@ public:
   static KdTree<K,V>* createKdTree(vector<KdNode<K,V>*> const& kdNodes,
                                    size_t const dim,
                                    signed_size_t const maximumSubmitDepth,
-                                   signed_size_t& numberOfNodes,
-                                   double& allocateTime,
-                                   double& sortTime,
-                                   double& removeTime,
-                                   double& kdTime,
-                                   double& verifyTime,
-                                   double& deallocateTime,
-                                   signed_size_t const p) {
+                                  signed_size_t const p) {
 
     // Create a KdTree instance.
     auto tree = new KdTree();
 
     // Allocate two references arrays.
-    auto beginTime = steady_clock::now();
     size_t numDimensions = dim;
     KdNode<K,V>*** references = new KdNode<K,V>**[2];
     for (size_t i = 0; i < 2; ++i) {
@@ -1121,17 +1112,10 @@ public:
     for (size_t i = 0; i < kdNodes.size(); ++i) {
       references[0][i] = kdNodes[i];
     }
-    auto endTime = steady_clock::now();
-    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     // For a dynamic k-d tree, it is unnecessary to sort the first references
     // array and remove duplicate coordinates, so merely specify the end index.
     signed_size_t end = kdNodes.size() - 1;
-    removeTime = sortTime = 0.0;
-
-    // Start the timer to time building the k-d tree.
-    beginTime = steady_clock::now();
 
     // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() )
     // or log2( kdNodes.size() ), depending on whether KD_MAP_DYNAMIC_H is defined,
@@ -1159,25 +1143,13 @@ public:
     // call the KdNode::buildKdTree function instead of KdNode::buildKdTreePresorted.
     tree->root = buildKdTree(references[0], references[1], permutation, 0, end,
                              kdNodes.size(), numDimensions, maximumSubmitDepth, 0);
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-    // For a dynamic k-d tree, do not verify the sub-tree;
-    // instead, assign the number of nodes.
-    numberOfNodes = kdNodes.size();
-    verifyTime = 0.0;
-    
     // Delete the references arrays but not the KdNodes instances that they point to
     // because those KdNodes instances will be deleted by the ~KdTree destructor.
-    beginTime = steady_clock::now();
     for (size_t i = 0; i < 2; ++i) {
       delete[] references[i];
     }
     delete[] references;
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     // Return the pointer to the KdTree instance.
     return tree;
