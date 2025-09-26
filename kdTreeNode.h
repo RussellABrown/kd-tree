@@ -605,56 +605,35 @@ private:
       // so prepare to search the < branch with a child thread.
       future<void> searchFuture;
 
-      // Search the < branch?
-      if (searchLT) {
-        
-        // Yes, search the < branch asynchronously with a child thread.
-        // A lamba is required because this regionSearch function is not
-        // static. The use of std::ref may be unnecessary in view of the
-        // [&] lambda argument specification.
-        list<KdNode<K>*> ltResult;
-        searchFuture = async(launch::async, [&] {
-                                              ltChild->regionSearch(ref(ltResult),
-                                                                    ref(queryLower),
-                                                                    ref(queryUpper),
-                                                                    maximumSubmitDepth,
-                                                                    depth+1,
-                                                                    p+1,
-                                                                    ref(enable));
-                                            });
-        // Search the > branch?
-        list<KdNode<K>*> gtResult;
-        if (searchGT) {
-          
-          // Yes, search the > branch  with the master thread.
-          gtChild->regionSearch(gtResult, queryLower, queryUpper, maximumSubmitDepth, depth+1, p+1, enable);
-        }
+      // Search the < branch asynchronously with a child thread.
+      // A lamba is required because this regionSearch function is not
+      // static. The use of std::ref may be unnecessary in view of the
+      // [&] lambda argument specification.
+      list<KdNode<K>*> ltResult;
+      searchFuture = async(launch::async, [&] {
+                                               ltChild->regionSearch(ref(ltResult),
+                                                                     ref(queryLower),
+                                                                     ref(queryUpper),
+                                                                     maximumSubmitDepth,
+                                                                     depth+1,
+                                                                     p+1,
+                                                                     ref(enable));
+                                              });
+      // Search the > branch.
+      list<KdNode<K>*> gtResult;
+      gtChild->regionSearch(gtResult, queryLower, queryUpper, maximumSubmitDepth, depth+1, p+1, enable);
 
-        // Get the result of searching the < branch with the child thread.
-        try {
-          searchFuture.get();
-        }
-        catch (exception const& e) {
-          throw runtime_error("\n\ncaught exception for search future in regionSearch\n");
-        }
-
-        // Append the results of searching the < and > branches to the result (if any) for this KdNode.
-        result.splice(result.end(), ltResult);
-        result.splice(result.end(), gtResult);
-
-      } else {
-
-        // No, don't search the < branch. Search the > branch?
-        list<KdNode<K>*> gtResult;
-        if (searchGT) {
-          
-          // Yes, search the > branch  with the master thread.
-          gtChild->regionSearch(gtResult, queryLower, queryUpper, maximumSubmitDepth, depth+1, p+1, enable);
-        }
-
-        // Append the result of searching the > branch to the result (if any) for this KdNode.
-        result.splice(result.end(), gtResult);
+      // Get the result of searching the < branch with the child thread.
+      try {
+        searchFuture.get();
       }
+      catch (exception const& e) {
+        throw runtime_error("\n\ncaught exception for search future in regionSearch\n");
+      }
+
+      // Append the results of searching the < and > branches to the result (if any) for this KdNode.
+      result.splice(result.end(), ltResult);
+      result.splice(result.end(), gtResult);
 
     } else {
       
@@ -671,7 +650,6 @@ private:
         gtChild->regionSearch(gtResult, queryLower, queryUpper, maximumSubmitDepth, depth+1, p+1, enable);
         result.splice(result.end(), gtResult);
       }
-
     }
   }
 

@@ -1091,7 +1091,7 @@ public:
   static KdTree<K,V>* createKdTree(vector<KdNode<K,V>*> const& kdNodes,
                                    size_t const dim,
                                    signed_size_t const maximumSubmitDepth,
-                                  signed_size_t const p) {
+                                   signed_size_t const p) {
 
     // Create a KdTree instance.
     auto tree = new KdTree();

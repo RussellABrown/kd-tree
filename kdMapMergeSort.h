@@ -651,7 +651,6 @@ private:
     }
   }
 
-
   friend class KdNode<K,V>;
   friend class KdTree<K,V>;
   friend class KdTreeDynamic<K,V>;
