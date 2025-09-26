@@ -334,7 +334,7 @@ private:
             nodePtr->values->insert(value);
             inserted = true;
             changed = false;
-       }
+        }
 
         // Has the height changed due to an insertion?
         if (changed) {
@@ -351,7 +351,7 @@ private:
             } else {
                 nodePtr = rebuildSubTree(nodePtr, dim, p);
             }
-       }
+        }
         return nodePtr;
     }
 
@@ -964,14 +964,7 @@ private:
         {
             // No, the subtree contains more than 3 KdNodes,
             // so rebuild the subtree via KdTree::createKdTree.
-
-            // Check the count and kdNodes.size() for consistency.
-            if (count != kdNodes.size()) {
-                ostringstream buffer;
-                buffer << "count = " << count << "  size = " << kdNodes.size() << endl;
-                throw runtime_error(buffer.str());
-            }
-
+            //
             // Call KdTree::createKdTree to rebuild the subtree, which
             // invalidates the node argument to this rebuildSubTree function.
             //
@@ -1280,65 +1273,6 @@ private:
     }
 
 #endif // ENABLE_1TO3
-
-    /*
-     * Count and append the tuples of nodes from a subtree into a pre-sized vector.
-     * Note that the subtree is traversed in order; hence, the tuples are sorted.   
-     *
-     * Calling parameters:
-     * 
-     * @param coordinates (MODIFIED) a vector of key-value pairs
-     * 
-     * return the number of nodes
-     */
-public:
-    size_t getSortedTree(vector<pair<vector<K>, V>>& coordinates) {
-
-        size_t index = 0;
-        return getSortedTree(KdTree<K,V>::root, coordinates, index);
-    }
-
-    /*
-     * Count and append the tuples of nodes from a subtree into a pre-sized vector.
-     * Note that the subtree is traversed in order; hence, the tuples are sorted.   
-     *
-     * Calling parameters:
-     * 
-     * @param node (IN) the root of the subtree
-     * @param coordinates (MODIFIED) a vector of key-value pairs
-     * @param index (MODIFIED) the index where the node is stored
-     * 
-     * return the number of nodes
-     */
-private:
-    size_t getSortedTree(KdNode<K,V>* const node,
-                         vector<pair<vector<K>, V>>& coordinates,
-                         size_t& index) {
-
-        // Initialize the count.
-        size_t count = 0;
-
-        // Obtain counts from < child nodes and copy tuples recursively.
-        if (node->ltChild != nullptr) {
-            count += getSortedTree(node->ltChild, coordinates, index);
-        }
-
-        // Count this node and copy its tuple and
-        // the first value in its value set.
-        ++count;
-        for (size_t i = 0; i < coordinates[0].first.size(); ++i) {
-            coordinates[index].first[i] = node->tuple[i];
-        }
-        coordinates[index].second = *node->values->begin();
-        ++index;
-
-        // Obtain counts from the > child nodes and copy tuples recursively.
-        if (node->gtChild != nullptr) {
-            count += getSortedTree(node->gtChild, coordinates, index);
-        }
-
-        return count;
-    }
 
     /*
      * Determine whether a subtree is balanced.
