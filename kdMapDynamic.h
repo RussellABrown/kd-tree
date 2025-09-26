@@ -538,6 +538,7 @@ private:
                             for (signed_size_t i = 0; i < dim; ++i) {
                                 nodePtr->tuple[i] = predecessor->tuple[i];
                             }
+                            nodePtr->values->clear();
                             nodePtr->values->insert(predecessor->values->begin(), predecessor->values->end());
                             // value is a dummy argument because the clearSet argument is true
                             nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1, true);
@@ -604,11 +605,12 @@ private:
                             // node, delete the successor node recursively (clearing
                             // its values set), and recompute the height along the path
                             // back to the > child, including that child.
-                           KdNode<K,V>* successor = nodePtr->gtChild;
+                            KdNode<K,V>* successor = nodePtr->gtChild;
                             successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                             for (signed_size_t i = 0; i < dim; ++i) {
                                 nodePtr->tuple[i] = successor->tuple[i];
                             }
+                            nodePtr->values->clear();
                             nodePtr->values->insert(successor->values->begin(), successor->values->end());
                             // value is a dummy argument because the clearSet argument is true
                             nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1, true);
@@ -696,6 +698,7 @@ private:
                                 for (signed_size_t i = 0; i < dim; ++i) {
                                     nodePtr->tuple[i] = predecessor->tuple[i];
                                 }
+                                nodePtr->values->clear();
                                 nodePtr->values->insert(predecessor->values->begin(), predecessor->values->end());
                                 // value is a dummy argument because the clearSet argument is true
                                 nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1, true);
@@ -730,6 +733,7 @@ private:
                                 for (signed_size_t i = 0; i < dim; ++i) {
                                     nodePtr->tuple[i] = successor->tuple[i];
                                 }
+                                nodePtr->values->clear();
                                 nodePtr->values->insert(successor->values->begin(), successor->values->end());
                                 // value is a dummy argument because the clearSet argument is true
                                 nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1, true);
