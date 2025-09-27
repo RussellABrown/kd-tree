@@ -556,24 +556,24 @@ int main(int argc, char** argv) {
 
   auto timePair = calcMeanStd<double>(insertTime);
   cout << "insert time = " << fixed << setprecision(4) << timePair.first
-       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+       << setprecision(4) << "  std dev = " << timePair.second << " s" << endl;
 
   timePair = calcMeanStd<double>(verifyTime);
   cout << "verify time = " << fixed << setprecision(4) << timePair.first
-       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+       << setprecision(4) << "  std dev = " << timePair.second << " s" << endl;
 
   timePair = calcMeanStd<double>(containsTime);
   cout << "search time = " << fixed << setprecision(4) << timePair.first
-       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+       << setprecision(4) << "  std dev = " << timePair.second << " s" << endl;
 
   timePair = calcMeanStd<double>(eraseTime);
   cout << "delete time = " << fixed << setprecision(4) << timePair.first
-       << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+       << setprecision(4) << "  std dev = " << timePair.second << " s" << endl;
 
   if (neighbors) {
     timePair = calcMeanStd<double>(neighborsTimeDynamic);
     cout << "neighbors time = " << fixed << setprecision(4) << timePair.first
-        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+        << setprecision(4) << "  std dev = " << timePair.second << " s" << endl;
   }
   cout << endl;
 
@@ -584,11 +584,11 @@ int main(int argc, char** argv) {
 
     timePair = calcMeanStd<double>(createTime);
     cout << "create time = " << fixed << setprecision(4) << timePair.first
-        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+        << setprecision(4) << "  std dev = " << timePair.second << " s" << endl;
     if (neighbors) {
       timePair = calcMeanStd<double>(neighborsTimeStatic);
       cout << "neighbors time = " << fixed << setprecision(4) << timePair.first
-          << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
+          << setprecision(4) << "  std dev = " << timePair.second << " s" << endl;
     }
     cout << endl;
   }

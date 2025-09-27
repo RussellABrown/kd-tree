@@ -927,7 +927,7 @@ private:
     }
 
     /*
-     * Rebuild a subtree to rebalance it.     
+     * Rebuild a subtree to rebalance it.
      *
      * Calling parameters:
      * 
@@ -950,20 +950,16 @@ private:
         size_t index = 0;
         getSubTree(node, kdNodes, index);
 
-#ifndef ENABLE_1To3
+#ifdef ENABLE_1TO3
 
         // Does the subtree contain 3 KdNodes or fewer?
-        //
-        // Note that there is no need for this test if
-        // ENABLE_1TO3 is defined because, in that case,
-        // rebuildSubTree1to3 is called for 3 nodes or fewer.
         if (count <= 3) {
             // Yes, so rebuild the subtree by explicitily comparing the
             // nodes' super-keys.
              return rebuildSubTree1to3(node, kdNodes, dim, p);
         } else
 
-#endif
+#endif // ENABLE_1TO3
         
         {
             // No, the subtree contains more than 3 KdNodes,
