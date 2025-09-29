@@ -240,7 +240,7 @@ private:
         // those reference arrays are already sorted.
         if (depth < dim - 1) {
           startIndex = dim - depth;
-          auto const  dst = references[permutation.at(depth).at(0)];
+          auto const dst = references[permutation.at(depth).at(0)];
           auto const tmp = references[permutation.at(depth).at(1)];
           for (int i = start; i <= end; ++i) {
             dst[i] = reference[i];
@@ -579,10 +579,10 @@ public:
       for (size_t i = 1;  i < numDimensions; ++i) {
         size_t j = (i + p0) % numDimensions;  // this is the coordinate index following the primary
         indices[k] = current[j];  // write the reference index for that coordinate to the indices array
-        swap(current, numDimensions, j);  // this keeps track of where the coordinate will have been have been swapped to.
+        swap(current, numDimensions, j);  // keep track of where the coordinate will have been have been swapped to
         ++k;
       }
-      permutation[depth] = indices;  // write the index array to he current level of the permutation array
+      permutation[depth] = indices;  // write the index vector to he current level of the permutation vector
     }
 
     // Build the k-d tree with multiple threads if possible.
