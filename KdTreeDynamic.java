@@ -45,30 +45,28 @@ import java.util.TreeSet;
  */
 public class KdTreeDynamic extends KdTree {
 
-    private int maxSubmitDepth = -1;
-    private int cutoff = Constants.MULTI_THREAD_CUTOFF;
+    protected int cutoff = Constants.MULTI_THREAD_CUTOFF;
     private boolean inserted = false, erased = false, changed = false;
-    private ExecutorService executor;
 
     // This constructor does not set KdTree.root
-    KdTreeDynamic(final int maxSubmitDepth,
-                  final int cutoff,
-                  final ExecutorService executor)
+    KdTreeDynamic(final int numDimensions,
+                  final ExecutorService executor,
+                  final int maxSubmitDepth,
+                  final int cutoff)
     {
-        this.maxSubmitDepth = maxSubmitDepth;
+        super(numDimensions, executor, maxSubmitDepth);
         this.cutoff = cutoff;
-        this.executor = executor;
     }
 
-    // This constructor set KdTree.root
-    KdTreeDynamic(final int maxSubmitDepth,
-                  final int cutoff,
+    // This constructor sets KdTree.root
+    KdTreeDynamic(final int numDimensions,
                   final ExecutorService executor,
+                  final int maxSubmitDepth,
+                  final int cutoff,
                   KdNode node)
     {
-        this.maxSubmitDepth = maxSubmitDepth;
+        super(numDimensions, executor, maxSubmitDepth);
         this.cutoff = cutoff;
-        this.executor = executor;
         root = node; // the root of the KdTree instance
     }
 

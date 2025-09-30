@@ -802,7 +802,7 @@ public class KdTreeNlogn
             
         // Build the k-d tree with multiple threads if possible. For a dynamic k-d tree,
         // call the KdNode::buildKdTree function instead of KdNode::buildKdTreePresorted.
-        final KdTree tree = new KdTree();
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreeNlogn(reference, temporary, permutation, 0,
                                      end, executor, maximumSubmitDepth, 0);
             
@@ -883,14 +883,14 @@ public class KdTreeNlogn
         // keys so that each key is used as the most significant key of the
         // super key, beginning with key=0 at the first level of tree building.
         long kdTime = System.currentTimeMillis();
-        final KdTree tree = new KdTree();
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreePresorted(reference, temporary, permutation, 0,
                                          end, executor, maximumSubmitDepth);
         kdTime = System.currentTimeMillis() - kdTime;
             
         // Verify the k-d tree via hierarchical multi-threading if possible.
         long verifyTime = System.currentTimeMillis();
-        nN[0] = tree.verifyKdTree(permutation, executor, maximumSubmitDepth, 0);
+        nN[0] = tree.verifyKdTree(permutation);
         verifyTime = System.currentTimeMillis() - verifyTime;
 
         // Return the number of nodes and the execution by reference via arrays.

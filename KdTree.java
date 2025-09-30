@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.TreeSet;
 
 /**
@@ -46,7 +47,19 @@ import java.util.TreeSet;
  */
 public class KdTree {
     
-   protected KdNode root;
+    protected KdNode root = null;
+    protected int numDimensions = 3;
+    protected ExecutorService executor = null;
+    protected int maxSubmitDepth = -1;
+
+    public KdTree(final int numDimensions,
+                  final ExecutorService executor,
+                  final int maxSubmitDepth)
+    {
+                  this.numDimensions = numDimensions;
+                  this.executor = executor;
+                  this.maxSubmitDepth = maxSubmitDepth;
+    }
 
     protected int getTreeHeight()
     {
@@ -123,20 +136,15 @@ public class KdTree {
      * </p>
      * 
      * @param permutation - an array that indicates permutation of the reference arrays
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
-    protected int verifyKdTree(final int[] permutation,
-                               final ExecutorService executor,
-                               final int maximumSubmitDepth,
-                               final int depth)
+    protected int verifyKdTree(final int[] permutation)
     {
         if (root == null) {
             return 0;
         } else {
-            return root.verifyKdTree(permutation, executor, maximumSubmitDepth, depth);
+            return root.verifyKdTree(permutation, executor, maxSubmitDepth, 0);
         }
     }
 
@@ -146,23 +154,56 @@ public class KdTree {
      * are correctly sorted relative to that node.
      * </p>
      * 
-     * @param dim - the number of dimensions
+     * @param permutation - an array that indicates permutation of the reference arrays
+     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
+     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param depth - the depth in the k-d tree
+     * @return the number of nodes in the k-d tree
+     */
+    private int verifyKdTree(final int[] permutation,
+                             final ExecutorService executor,
+                             final int maximumSubmitDepth,
+                             final int depth)
+    {
+        return root.verifyKdTree(permutation, executor, maximumSubmitDepth, depth);
+     }
+
+    /**
+     * <p>
+     * The {@code verifyKdTree} method checks that the children of each node of the k-d tree
+     * are correctly sorted relative to that node.
+     * </p>
+     * 
+     * @param numDimsneions - the number of dimensions
      * @param p - the leading dimension that permutes cyclically
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
-    protected int verifyKdTree(final int dim,
-                               final int p,
-                               final ExecutorService executor,
-                               final int maximumSubmitDepth,
-                               final int depth)
+    private int verifyKdTree(final int numDimensions,
+                             final int p,
+                             final ExecutorService executor,
+                             final int maximumSubmitDepth,
+                             final int depth)
+    {
+        return root.verifyKdTree(numDimensions, p, executor, maximumSubmitDepth, depth);
+    }
+
+    /**
+     * <p>
+     * The {@code verifyKdTree} method checks that the children of each node of the k-d tree
+     * are correctly sorted relative to that node.
+     * </p>
+     * 
+    * @return the number of nodes in the k-d tree
+     */
+    protected int verifyKdTree()
     {
         if (root == null) {
             return 0;
         } else {
-            return root.verifyKdTree(dim, p, executor, maximumSubmitDepth, depth);
+            return verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, 0);
         }
     }
 
@@ -172,7 +213,6 @@ public class KdTree {
      * that lie within a cutoff distance from a query node in all k dimensions.
      * </p>
      *
-     * @param result - a {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
      * @param queryLower - the query lower bound array
      * @param queryUpper - the query upper bound array
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
@@ -180,78 +220,29 @@ public class KdTree {
      * @param p - the leading dimension that permutes cyclically
      * @param depth - the depth in the k-d tree
      * @param enableAll - enable or disable all of the k dimensions
-     * @return the size of the {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
-     */
-    protected int searchKdTree(final LinkedList<KdNode> result,
-                               final long[] queryLower,
-                               final long[] queryUpper,
-                               final ExecutorService executor,
-                               final int maximumSubmitDepth,
-                               final int p,
-                               final int depth,
-                               final boolean enableAll)
-    {
-        return root.searchKdTree(result, queryLower, queryUpper, executor,
-                                 maximumSubmitDepth, p, depth, enableAll);
-    }
-
-    /**
-     * <p>
-     * The {@code searchKdTree} method searches the k-d tree to find the KdNodes
-     * that lie within a cutoff distance from a query node in all k dimensions.
-     * </p>
-     *
-     * @param result - a {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
-     * @param queryLower - the query lower bound array
-     * @param queryUpper - the query upper bound array
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param p - the leading dimension that permutes cyclically
-     * @param depth - the depth in the k-d tree
-     * @param enable - enable search culling on a per-component basis
      * @return the size of the {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
      *         instead of returning void that doesn't appear to be
      *         an acceptable return value for the Callable.call method
      */
-    protected int searchKdTree(final LinkedList<KdNode> result,
-                               final long[] queryLower,
-                               final long[] queryUpper,
-                               final ExecutorService executor,
-                               final int maximumSubmitDepth,
-                               final int p,
-                               final int depth,
-                               final boolean[] enable)
+    protected List<KdNode> searchKdTree(final long[] queryLower,
+                                        final long[] queryUpper,
+                                        final ExecutorService executor,
+                                        final int maximumSubmitDepth,
+                                        final int p,
+                                        final int depth,
+                                        final boolean enableAll)
     {
-        return root.searchKdTree(result, queryLower, queryUpper, executor,
-                                 maximumSubmitDepth, p, depth, enable);
-    }
+        if (root == null) {
+            return null;
+        }
 
-    /**
-     * <p>
-     * The {@code searchKdTree} method searches the k-d tree and finds the KdNodes
-     * that lie within a cutoff distance from a query node in all k dimensions.
-     * </p>
-     *
-     * @param queryLower - the query lower bound array
-     * @param queryUpper - the query upper bound array
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param p - the leading dimension that permutes cyclically
-     * @param depth - the depth in the k-d tree
-     * @param enableAll - enable or disable all of the k dimensions
-     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
-     * that contains the k-d nodes that lie within the cutoff distance of the query node
-     */
-    protected ArrayList<KdNode> searchKdTree(final long[] queryLower,
-                                             final long[] queryUpper,
-                                             final ExecutorService executor,
-                                             final int maximumSubmitDepth,
-                                             final int p,
-                                             final int depth,
-                                             final boolean enableAll)
-    {
-        return searchKdTree(queryLower, queryUpper, executor,
-                            maximumSubmitDepth, p, depth, enableAll);
+        if (Constants.ENABLE_LINKED_LIST) {
+            return root.searchKdTreeLL(queryLower, queryUpper, executor,
+                                       maximumSubmitDepth, p, depth, enableAll);
+        } else {
+            return root.searchKdTreeAL(queryLower, queryUpper, executor,
+                                       maximumSubmitDepth, p, depth, enableAll);
+        }
     }
 
     /**
@@ -270,16 +261,25 @@ public class KdTree {
      * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
      * that contains the k-d nodes that lie within the cutoff distance of the query node
      */
-    protected ArrayList<KdNode> searchKdTree(final long[] queryLower,
-                                             final long[] queryUpper,
-                                             final ExecutorService executor,
-                                             final int maximumSubmitDepth,
-                                             final int p,
-                                             final int depth,
-                                             final boolean[] enable)
+    protected List<KdNode> searchKdTree(final long[] queryLower,
+                                        final long[] queryUpper,
+                                        final ExecutorService executor,
+                                        final int maximumSubmitDepth,
+                                        final int p,
+                                        final int depth,
+                                        final boolean[] enable)
     {
-        return root.searchKdTree(queryLower, queryUpper, executor,
-                                 maximumSubmitDepth, p, depth, enable);
+        if (root == null) {
+            return null;
+        }
+
+        if (Constants.ENABLE_LINKED_LIST) {
+            return root.searchKdTreeLL(queryLower, queryUpper, executor,
+                                       maximumSubmitDepth, p, depth, enable);
+        } else {
+            return root.searchKdTreeAL(queryLower, queryUpper, executor,
+                                       maximumSubmitDepth, p, depth, enable);
+        }
     }
 
     /**
@@ -297,7 +297,9 @@ public class KdTree {
     protected void nearestNeighbor(final NearestNeighborList nnList,
                                    final int p)
     {
-        root.nearestNeighbor(nnList, p);
+        if (root != null) {
+            root.nearestNeighbor(nnList, p);
+        }
     }
 
     /**
@@ -313,7 +315,9 @@ public class KdTree {
     protected void bruteNeighbor(final NearestNeighborList nnList,
                                  final int p)
     {
-        root.bruteNeighbor(nnList, p);
+        if (root != null) {
+            root.bruteNeighbor(nnList, p);
+        }
     }
 
     /**

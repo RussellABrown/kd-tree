@@ -671,7 +671,7 @@ public class KdTreeKnlogn
         }
 
         // Build the k-d tree via heirarchical multi-threading if possible.
-        final KdTree tree = new KdTree();
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreeKnlogn(references, permutation, 0, end,
                                       executor, maximumSubmitDepth, 0);
                 
@@ -777,14 +777,14 @@ public class KdTreeKnlogn
 
         // Build the k-d tree via heirarchical multi-threading if possible.
         long kdTime = System.currentTimeMillis();
-        final KdTree tree = new KdTree();
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreeKnlogn(references, permutation, 0, end,
                                       executor, maximumSubmitDepth, 0);
         kdTime = System.currentTimeMillis() - kdTime;
         
         // Verify the k-d tree via hierarchical multi-threading if possible and report the number of nodes.
         long verifyTime = System.currentTimeMillis();
-        nN[0] = tree.verifyKdTree(permutationVerify, executor, maximumSubmitDepth, 0);
+        nN[0] = tree.verifyKdTree(permutationVerify);
         verifyTime = System.currentTimeMillis() - verifyTime;
        
         iT[0] = (double) initTime / 1000.;

@@ -75,9 +75,12 @@
  *                algorithm, independent of the number of threads specified by the
  *                -t command-line option (see below).
  * 
- *MERGE_CUTOFF - An integer the specifies the number of nodes above which multiple
+ * MERGE_CUTOFF - An integer the specifies the number of nodes above which multiple
  *               threads are used for merge sort, independent of the number of threads
  *               specified by the -t command-line option (see below).
+ * 
+ * ENABLE_LINKED_LIST - If true, use the LinkedList version of region search
+ *                      instead of the ArrayList version.
  * 
  * 
  * Usage:
@@ -420,7 +423,7 @@ public class TestKdTreeDynamic {
         }
 
         // Create an instance of KdTreeDynamic.
-        final KdTreeDynamic tree = new KdTreeDynamic(maximumSubmitDepth, cutoff, executor);
+        final KdTreeDynamic tree = new KdTreeDynamic(numDimensions, executor, maximumSubmitDepth, cutoff);
 
         // These variables will be modified by building and testing the k-d tree.
         int treeHeight = 0, staticTreeHeight = 0, numberOfNodes = 0, staticNumberOfNodes;
@@ -449,7 +452,7 @@ public class TestKdTreeDynamic {
             for (int i = 0; i < coordinates.length; ++i) {
                 if (tree.insert(coordinates[i])) {
                     if (verify) {
-                        tree.verifyKdTree(numDimensions, 0, executor, maximumSubmitDepth, 0);
+                        tree.verifyKdTree();
                     }
                 } else {
                     throw new RuntimeException("failed to insert tuple " + i);
@@ -460,7 +463,7 @@ public class TestKdTreeDynamic {
 
             // Verify correct order of each node in the k-d tree and count the nodes.
             long vTime = System.currentTimeMillis();
-            numberOfNodes = tree.verifyKdTree(numDimensions, 0, executor, maximumSubmitDepth, 0);
+            numberOfNodes = tree.verifyKdTree();
             vTime = System.currentTimeMillis() - vTime;
             verifyTime[k] += (double) vTime / Constants.MILLISECONDS_TO_SECONDS;
 
@@ -485,16 +488,14 @@ public class TestKdTreeDynamic {
             if (region) {
                 // Search the tree to get the list of KdNodes
                 long rsTime = System.currentTimeMillis();
-                LinkedList<KdNode> regionNodes = new LinkedList<KdNode>();
-                tree.searchKdTree(regionNodes, queryLower, queryUpper, executor, maximumSubmitDepth, 0, 0, true);
+                List<KdNode> regionNodes = tree.searchKdTree(queryLower, queryUpper, executor, maximumSubmitDepth, 0, 0, true);
                 rsTime = System.currentTimeMillis() - rsTime;
                 regionSearchTime[k] += (double) rsTime / Constants.MILLISECONDS_TO_SECONDS;
                 numRegionNodes = regionNodes.size();
 
                 // Search the tree again to get the list of KdNodes.
                 long bsTime = System.currentTimeMillis();
-                LinkedList<KdNode> bruteNodes = new LinkedList<KdNode>();
-                tree.searchKdTree(bruteNodes, queryLower, queryUpper, executor, maximumSubmitDepth, 0, 0, false);
+                List<KdNode> bruteNodes = tree.searchKdTree(queryLower, queryUpper, executor, maximumSubmitDepth, 0, 0, false);
                 bsTime = System.currentTimeMillis() - bsTime;
                 regionBruteTime[k] += (double) bsTime / Constants.MILLISECONDS_TO_SECONDS;
 
@@ -546,7 +547,7 @@ public class TestKdTreeDynamic {
                 for (int i = coordinates.length - 1; i >= 0; --i) {
                     if (tree.erase(coordinates[i])) {
                         if (verify) {
-                            tree.verifyKdTree(numDimensions, 0, executor, maximumSubmitDepth, 0);
+                            tree.verifyKdTree();
                         }
                         if (find && tree.contains(coordinates[i])) {
                             throw new RuntimeException("found tuple after erasing tuple " + i);
@@ -562,7 +563,7 @@ public class TestKdTreeDynamic {
                 for (int i = 0; i < coordinates.length; ++i) {
                     if (tree.erase(coordinates[i])) {
                     if (verify) {
-                        tree.verifyKdTree(numDimensions, 0, executor, maximumSubmitDepth, 0);
+                        tree.verifyKdTree();
                     }
                     if (find && tree.contains(coordinates[i])) {
                         throw new RuntimeException("found tuple after erasing tuple " + i);
@@ -600,7 +601,7 @@ public class TestKdTreeDynamic {
                 createTime[k] = iT[0] + sT[0] + rT[0] + kT[0] + vT[0];
 
                 // Check that the two versions of verifyKdTree report the same number of nodes.
-                staticNumberOfNodes = staticTree.verifyKdTree(numDimensions, 0, executor, maximumSubmitDepth, 0);
+                staticNumberOfNodes = staticTree.verifyKdTree();
                 if (nN[0] != numberOfNodes) {
                     throw new RuntimeException("number of nodes from createKdTree = " + nN[0] +
                                             "  != number of nodes from returned root = " + numberOfNodes);

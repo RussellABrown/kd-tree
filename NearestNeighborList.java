@@ -29,7 +29,8 @@
  */
 
 import java.math.BigInteger;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author Russell A. Brown
@@ -73,7 +74,8 @@ public class NearestNeighborList {
      * @param query - array containing the point to which the nearest neighbors will be found
      * @param numNeighbors - number of nearest neighbors to be found and hence size of the list
      */
-    public NearestNeighborList( final long query[], final int numNeighbors) {
+    public NearestNeighborList( final long query[], final int numNeighbors)
+    {
         this.nodes = new KdNode[numNeighbors];  // list of KdNodes
         this.dists = new BigInteger[numNeighbors];  // corresponding list of distances
         this.reqDepth = numNeighbors;
@@ -87,7 +89,8 @@ public class NearestNeighborList {
         }
     }
 
-    public NearestNeighborList(final long query[], final int numNeighbors, final boolean enable[]) {
+    public NearestNeighborList(final long query[], final int numNeighbors, final boolean enable[])
+    {
         this.nodes = new KdNode[numNeighbors];  // list of KdNodes
         this.dists = new BigInteger[numNeighbors];  // corresponding list of distances
         this.reqDepth = numNeighbors;
@@ -103,18 +106,34 @@ public class NearestNeighborList {
 
     /**
      * <p>
+     * The {@code getNearestNeighbors} method returns a list of {@code KdNode} nearest neighbors.
+     * <p>
+     * 
+     * @return an {@link java.util.ArrayList List}{@code <}{@link KdNode}{@code >}
+     */
+    protected List getNearestNeighbors()
+    {
+        ArrayList<KdNode> list = new ArrayList<KdNode>(curDepth);
+        for (int i = 0; i < curDepth; ++i) {
+            list.add(nodes[i]);
+        }
+        return list;
+    }
+
+    /**
+     * <p>
      * The {@code add} Adds a newNode to this NearestNeighborList if its distance to the
      * query point is less than curMaxDistance
      * </p>
      *
      * @param newNode - KdNode to potentially be added to the list
      */
-    protected void add(final KdNode newNode) {
-
+    protected void add(final KdNode newNode)
+    {
         // Calculate the distance squared by subtracting the query coordinate
         // from the tuple coordinate and summing the squared differences.
         BigInteger dist = BigInteger.ZERO;
-        for (int i = 0; i < newNode.tuple.length; i++) {
+        for (int i = 0; i < newNode.tuple.length; ++i) {
             if (enable[i]) {
                 final long coor = newNode.tuple[i] - query[i];
                 final BigInteger square =
@@ -141,7 +160,7 @@ public class NearestNeighborList {
             }
             // Next move the stuff in and after the insertion point down one place...
             if (curDepth < reqDepth) curDepth++;
-            for (int i = curDepth-1;  i > pos; i--) {
+            for (int i = curDepth-1;  i > pos; --i) {
                 nodes[i] = nodes[i-1];
                 dists[i] = dists[i-1];
             }

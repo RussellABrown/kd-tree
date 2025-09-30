@@ -35,6 +35,7 @@ import java.util.concurrent.Future;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.TreeSet;
 
 /**
@@ -296,13 +297,12 @@ public class KdNode {
         };
     }
 
-    /**
+   /**
      * <p>
-     * The {@code searchKdTree} method searches the k-d tree to find the KdNodes
+     * The {@code searchKdTreeAL} method searches the k-d tree to find the KdNodes
      * that lie within a cutoff distance from a query node in all k dimensions.
      * </p>
      *
-     * @param result - a {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
      * @param queryLower - the query lower bound array
      * @param queryUpper - the query upper bound array
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
@@ -310,57 +310,219 @@ public class KdNode {
      * @param p - the leading dimension that permutes cyclically
      * @param depth - the depth in the k-d tree
      * @param enableAll - enable or disable all of the k dimensions
-     * @return the size of the {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
+     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
+     * that contains the k-d nodes that lie within the cutoff distance of the query node
      */
-    protected int searchKdTree(final LinkedList<KdNode> result,
-                               final long[] queryLower,
-                               final long[] queryUpper,
-                               final ExecutorService executor,
-                               final int maximumSubmitDepth,
-                               final int p,
-                               final int depth,
-                               final boolean enableAll)
+    protected List<KdNode> searchKdTreeAL(final long[] queryLower,
+                                          final long[] queryUpper,
+                                          final ExecutorService executor,
+                                          final int maximumSubmitDepth,
+                                          final int p,
+                                          final int depth,
+                                          final boolean enableAll)
     {
         // Create an enable array of all elements equal to enableAll, and call searchKdTree.
         boolean[] enable = new boolean[queryLower.length];
         Arrays.fill(enable, enableAll);
-        return searchKdTree(result, queryLower, queryUpper, executor,
-                            maximumSubmitDepth, p, depth, enable);
+        return searchKdTreeAL(queryLower, queryUpper, executor,
+                              maximumSubmitDepth, p, depth, enable);
     }
 
     /**
      * <p>
-     * The {@code searchKdTree} method searches the k-d tree to find the KdNodes
+     * The {@code searchKdTreeAL} method searches the k-d tree to find the KdNodes
      * that lie within a cutoff distance from a query node in all k dimensions.
      * </p>
      *
-     * @param result - a {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
      * @param queryLower - the query lower bound array
      * @param queryUpper - the query upper bound array
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
      * @param q - the leading dimension that permutes cyclically
      * @param depth - the depth in the k-d tree
-     * @param enable - enable each of the k dimensions on an individual basis
-     * @return the size of the {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
-     *         instead of returning void that doesn't appear to be
-     *         an acceptable return value for the Callable.call method
+     * @param enable - enable search culling on a per-component basis
+     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
+     * that contains the k-d nodes that lie within the cutoff distance of the query node
      */
-    protected int searchKdTree(final LinkedList<KdNode> result,
-                               final long[] queryLower,
-                               final long[] queryUpper,
-                               final ExecutorService executor,
-                               final int maximumSubmitDepth,
-                               final int q,
-                               final int depth,
-                               final boolean[] enable)
-    {
+    protected List<KdNode> searchKdTreeAL(final long[] queryLower,
+                                          final long[] queryUpper,
+                                          final ExecutorService executor,
+                                          final int maximumSubmitDepth,
+                                          final int q,
+                                          final int depth,
+                                          final boolean[] enable) {
+
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus opeator for p <= dim.
         final int p = (q < queryLower.length) ? q : 0;
 
         // If the distance from the query node is inside the hyper-rectangle
-        // in all k dimensions, prepend the k-d node to the results list.
+        // in all k dimensions, append the k-d node to a list.
+        final ArrayList<KdNode> result = new ArrayList<KdNode>();
+        boolean inside = true;
+        for (int i = 0; i < tuple.length; i++) {
+            if (tuple[i] < queryLower[i] || tuple[i] > queryUpper[i]) {
+                inside = false;
+                break;
+            }
+        }
+        if (inside) {
+            result.add(this);
+        }
+
+        // Determine whether to search the < and > branches of the k-d tree.
+        // If the partition dimension is not enabled, both branches are searched.
+        final boolean searchLT = ltChild != null
+                                            && (MergeSort.superKeyCompare(tuple, queryLower, p) >= 0
+                                            || !enable[p]);
+        final boolean searchGT = gtChild != null
+                                            && (MergeSort.superKeyCompare(tuple, queryUpper, p) <= 0
+                                            || !enable[p]);
+
+        // Do both branches require searching and is a child thread available?
+        if (searchLT && searchGT && maximumSubmitDepth >= 0 && depth <= maximumSubmitDepth) {
+
+            // Yes, both branches of the tree require searching and a child thread is available,
+            // so search the < branch with a child thread.
+            Future<List<KdNode>> future =
+                executor.submit( ltChild.searchKdTreeALWithThread(queryLower, queryUpper, executor,
+                                                                  maximumSubmitDepth, p+1, depth+1, enable) );
+
+            // Search the > branch with the master thread.
+            List<KdNode> gtResult = gtChild.searchKdTreeAL(queryLower, queryUpper, executor,
+                                                           maximumSubmitDepth, p+1, depth+1, enable);
+
+            // Get the result of searching the < branch with the child thread.
+            List<KdNode> ltResult = null;
+            try {
+                ltResult = future.get();
+            } catch (Exception e) {
+                throw new RuntimeException( "future exception for < subtree: " + e.getMessage() );
+            }
+
+            // Append the results of searching the < and > branches to the result (if any) for this KdNode.
+            result.addAll(ltResult);
+            result.addAll(gtResult);
+
+        } else {
+        
+            // No, both branches do not require searching. Search the < branch with the master thread?
+            if (searchLT) {
+                List<KdNode> ltResult = ltChild.searchKdTreeAL(queryLower, queryUpper, executor,
+                                                               maximumSubmitDepth, p+1, depth+1, enable);
+
+                // Append the result of searching the < branch to the result (if any) for this KdNode.
+                result.addAll(ltResult);
+            }
+
+            // Search the > branch with the master thread?
+            if (searchGT) {
+                List<KdNode> gtResult =  gtChild.searchKdTreeAL(queryLower, queryUpper, executor,
+                                                                maximumSubmitDepth, p+1, depth+1, enable);
+
+                // Append the result of searching the > branch to the result (if any) for this KdNode.
+                result.addAll(gtResult);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * <p>
+     * The {@code searchKdTreeALWithThread} method returns a
+     * {@link java.util.concurrent.Callable Callable} whose call() method executes the 
+     * {@link KdNode#searchKdTree searchKdTree} method.
+     * </p>
+     * 
+     * @param queryLower - the query lower bound array
+     * @param queryUpper - the query upper bound array
+     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
+     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param p - the leading dimension that permutes cyclically
+     * @param depth - the depth in the k-d tree
+     * @param enable - enable search culling on a per-component basis
+     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
+     * that contains the k-d nodes that lie within the cutoff distance of the query node
+     */
+    public Callable<List<KdNode>> searchKdTreeALWithThread(final long[] queryLower,
+                                                           final long[] queryUpper,
+                                                           final ExecutorService executor,
+                                                           final int maximumSubmitDepth,
+                                                           final int p,
+                                                           final int depth,
+                                                           final boolean[] enable) {
+        
+        return new Callable<List<KdNode>>() {
+            @Override
+            public List<KdNode> call() {
+                return searchKdTreeAL(queryLower, queryUpper, executor,
+                                      maximumSubmitDepth, p, depth, enable);
+            }
+        };
+    }
+
+   /**
+     * <p>
+     * The {@code searchKdTreeLL} method searches the k-d tree to find the KdNodes
+     * that lie within a cutoff distance from a query node in all k dimensions.
+     * </p>
+     *
+     * @param queryLower - the query lower bound array
+     * @param queryUpper - the query upper bound array
+     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
+     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param p - the leading dimension that permutes cyclically
+     * @param depth - the depth in the k-d tree
+     * @param enableAll - enable or disable all of the k dimensions
+     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
+     * that contains the k-d nodes that lie within the cutoff distance of the query node
+     */
+    protected List<KdNode> searchKdTreeLL(final long[] queryLower,
+                                          final long[] queryUpper,
+                                          final ExecutorService executor,
+                                          final int maximumSubmitDepth,
+                                          final int p,
+                                          final int depth,
+                                          final boolean enableAll)
+    {
+        // Create an enable array of all elements equal to enableAll, and call searchKdTree.
+        boolean[] enable = new boolean[queryLower.length];
+        Arrays.fill(enable, enableAll);
+        return searchKdTreeLL(queryLower, queryUpper, executor,
+                             maximumSubmitDepth, p, depth, enable);
+    }
+
+    /**
+     * <p>
+     * The {@code searchKdTreeLL} method searches the k-d tree to find the KdNodes
+     * that lie within a cutoff distance from a query node in all k dimensions.
+     * </p>
+     *
+     * @param queryLower - the query lower bound array
+     * @param queryUpper - the query upper bound array
+     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
+     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param q - the leading dimension that permutes cyclically
+     * @param depth - the depth in the k-d tree
+     * @param enable - enable search culling on a per-component basis
+     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
+     * that contains the k-d nodes that lie within the cutoff distance of the query node
+     */
+    protected List<KdNode> searchKdTreeLL(final long[] queryLower,
+                                          final long[] queryUpper,
+                                          final ExecutorService executor,
+                                          final int maximumSubmitDepth,
+                                          final int q,
+                                          final int depth,
+                                          final boolean[] enable) {
+
+        // Permute the most significant dimension p cyclically using
+        // a fast alternative to the modulus opeator for p <= dim.
+        final int p = (q < queryLower.length) ? q : 0;
+
+        // If the distance from the query node is inside the hyper-rectangle
+        // in all k dimensions, prepend the k-d node to a list.
+        final LinkedList<KdNode> result = new LinkedList<KdNode>();
         boolean inside = true;
         for (int i = 0; i < tuple.length; i++) {
             if (tuple[i] < queryLower[i] || tuple[i] > queryUpper[i]) {
@@ -385,30 +547,24 @@ public class KdNode {
         if (searchLT && searchGT && maximumSubmitDepth >= 0 && depth <= maximumSubmitDepth) {
 
             // Yes, both branches of the tree require searching and a child thread is available,
-            // so prepare to search the < branch with a child thread.
-            Future<Integer> future = null;
+            // so search the < branch with a child thread.
+            Future<List<KdNode>> future =
+                executor.submit( ltChild.searchKdTreeLLWithThread(queryLower, queryUpper, executor,
+                                                                  maximumSubmitDepth, p+1, depth+1, enable) );
 
-            // Search the < branch with a child thread.
-            LinkedList<KdNode> ltResult = new LinkedList<KdNode>();
-            future =
-                executor.submit( ltChild.searchKdTreeWithThread(ltResult, queryLower, queryUpper, executor,
-                                                                maximumSubmitDepth, p+1, depth+1, enable) );
-
-            // Search the > branch with the master thread?
-            LinkedList<KdNode> gtResult = new LinkedList<KdNode>();
-            if (searchGT) {
-                gtChild.searchKdTree(gtResult, queryLower, queryUpper, executor,
-                                     maximumSubmitDepth, p+1, depth+1, enable);
-            }
+            // Search the > branch with the master thread.
+            List<KdNode> gtResult = gtChild.searchKdTreeLL(queryLower, queryUpper, executor,
+                                                           maximumSubmitDepth, p+1, depth+1, enable);
 
             // Get the result of searching the < branch with the child thread.
+            List<KdNode> ltResult = null;
             try {
-                future.get();
+                ltResult = future.get();
             } catch (Exception e) {
-                throw new RuntimeException( "future exception: " + e.getMessage() );
+                throw new RuntimeException( "future exception for < subtree: " + e.getMessage() );
             }
 
-            // Append the results of searching the < and > branches to the result (if any) for this KdNode.
+            // Prepend the results of searching the < and > branches to the result (if any) for this KdNode.
             for (KdNode item : ltResult) {
                 result.addFirst(item);
             }
@@ -420,11 +576,10 @@ public class KdNode {
         
             // No, both branches do not require searching. Search the < branch with the master thread?
             if (searchLT) {
-                LinkedList<KdNode> ltResult = new LinkedList<KdNode>();
-                ltChild.searchKdTree(ltResult, queryLower, queryUpper, executor,
-                                     maximumSubmitDepth, p+1, depth+1, enable);
+                List<KdNode> ltResult = ltChild.searchKdTreeLL(queryLower, queryUpper, executor,
+                                                               maximumSubmitDepth, p+1, depth+1, enable);
 
-                // Append the result of searching the < branch to the result (if any) for this KdNode.
+                // Prepend the result of searching the < branch to the result (if any) for this KdNode.
                 for (KdNode item : ltResult) {
                     result.addFirst(item);
                 }
@@ -432,165 +587,13 @@ public class KdNode {
 
             // Search the > branch with the master thread?
             if (searchGT) {
-                LinkedList<KdNode> gtResult = new LinkedList<KdNode>();
-                gtChild.searchKdTree(gtResult, queryLower, queryUpper, executor,
-                                     maximumSubmitDepth, p+1, depth+1, enable);
+                List<KdNode> gtResult =  gtChild.searchKdTreeLL(queryLower, queryUpper, executor,
+                                                                maximumSubmitDepth, p+1, depth+1, enable);
 
-                // Append the result of searching the > branch to the result (if any) for this KdNode.
+                // Prepend the result of searching the > branch to the result (if any) for this KdNode.
                 for (KdNode item : gtResult) {
                     result.addFirst(item);
                 }
-            }
-        }
-        return result.size();
-    }
-
-    /**
-     * <p>
-     * The {@code searchKdTreeWithThread} method returns a
-     * {@link java.util.concurrent.Callable Callable} whose call() method executes the 
-     * {@link KdNode#searchKdTree searchKdTree} method.
-     * </p>
-     * 
-     * @param result - a {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
-     * @param queryLower - the query lower bound array
-     * @param queryUpper - the query upper bound array
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param p - the leading dimension that permutes cyclically
-     * @param depth - the depth in the k-d tree
-     * @param enable - enable search culling on a per-component basis
-     * @return the size of the {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
-     * that contains the k-d nodes that lie within the cutoff distance of the query node
-     */
-    public Callable<Integer> searchKdTreeWithThread(final LinkedList<KdNode> result,
-                                                    final long[] queryLower,
-                                                    final long[] queryUpper,
-                                                    final ExecutorService executor,
-                                                    final int maximumSubmitDepth,
-                                                    final int p,
-                                                    final int depth,
-                                                    final boolean[] enable) {
-        
-        return new Callable<Integer>() {
-            @Override
-                public Integer call() {
-                    return searchKdTree(result, queryLower, queryUpper, executor,
-                                        maximumSubmitDepth, p, depth, enable);
-            }
-        };
-    }
-
-   /**
-     * <p>
-     * The {@code searchKdTree} method searches the k-d tree to find the KdNodes
-     * that lie within a cutoff distance from a query node in all k dimensions.
-     * </p>
-     *
-     * @param queryLower - the query lower bound array
-     * @param queryUpper - the query upper bound array
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param p - the leading dimension that permutes cyclically
-     * @param depth - the depth in the k-d tree
-     * @param enableAll - enable or disable all of the k dimensions
-     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
-     * that contains the k-d nodes that lie within the cutoff distance of the query node
-     */
-    protected ArrayList<KdNode> searchKdTree(final long[] queryLower,
-                                             final long[] queryUpper,
-                                             final ExecutorService executor,
-                                             final int maximumSubmitDepth,
-                                             final int p,
-                                             final int depth,
-                                             final boolean enableAll)
-    {
-        // Create an enable array of all elements equal to enableAll, and call searchKdTree.
-        boolean[] enable = new boolean[queryLower.length];
-        Arrays.fill(enable, enableAll);
-        return searchKdTree(queryLower, queryUpper, executor,
-                            maximumSubmitDepth, p, depth, enable);
-    }
-
-    /**
-     * <p>
-     * The {@code searchKdTree} method searches the k-d tree to find the KdNodes
-     * that lie within a cutoff distance from a query node in all k dimensions.
-     * </p>
-     *
-     * @param queryLower - the query lower bound array
-     * @param queryUpper - the query upper bound array
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param q - the leading dimension that permutes cyclically
-     * @param depth - the depth in the k-d tree
-     * @param enable - enable search culling on a per-component basis
-     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
-     * that contains the k-d nodes that lie within the cutoff distance of the query node
-     */
-    protected ArrayList<KdNode> searchKdTree(final long[] queryLower,
-                                             final long[] queryUpper,
-                                             final ExecutorService executor,
-                                             final int maximumSubmitDepth,
-                                             final int q,
-                                             final int depth,
-                                             final boolean[] enable) {
-
-        // Permute the most significant dimension p cyclically using
-        // a fast alternative to the modulus opeator for p <= dim.
-        final int p = (q < queryLower.length) ? q : 0;
-
-        // If the distance from the query node is inside the hyper-rectangle
-        // in all k dimensions, add the k-d node to a list.
-        final ArrayList<KdNode> result = new ArrayList<KdNode>();
-        boolean inside = true;
-        for (int i = 0; i < tuple.length; i++) {
-            if (tuple[i] < queryLower[i] || tuple[i] > queryUpper[i]) {
-                inside = false;
-                break;
-            }
-        }
-        if (inside) {
-            result.add(this);
-        }
-
-        // Search the < branch of the k-d tree if the partition coordinate of the query point
-        // is greater than the lower side of the query hyper-rectangle for this dimension,
-        // or if this component of the query is not enabled for region search.
-        Future<ArrayList<KdNode>> future = null;
-        if (ltChild != null) {
-            if (MergeSort.superKeyCompare(tuple, queryLower, p) >= 0L || !enable[p]) {
-            
-                // Search the < branch with a child thread at as many levels of the tree as possible.
-                // Create the child threads as high in the tree as possible for greater utilization.
-                // If maxSubmitDepth == -1, there are no child threads.
-                if (maximumSubmitDepth > -1 && depth <= maximumSubmitDepth) {
-                    future =
-                        executor.submit( ltChild.searchKdTreeWithThread(queryLower, queryUpper, executor,
-                                                                        maximumSubmitDepth, p+1, depth+1, enable) );
-                } else {
-                    result.addAll( ltChild.searchKdTree(queryLower, queryUpper, executor,
-                                                        maximumSubmitDepth, p+1, depth+1, enable) );
-                }
-            }
-        }
-
-        // Search the > branch of the k-d tree if the partition coordinate of the query point
-        // is less than the upper edge of the query hyper-rectangle for this dimension,
-        // or if this component of the query is not enabled for region search.
-        if (gtChild != null) {
-            if (MergeSort.superKeyCompare(tuple, queryUpper, p) <= 0L || !enable[p]) {
-                result.addAll( gtChild.searchKdTree(queryLower, queryUpper, executor,
-                                                    maximumSubmitDepth, p+1, depth+1, enable) );
-            }
-        }
-        
-        // If a child thread searched the < branch, get the result.
-        if (future != null) {
-            try {
-                result.addAll( future.get() );
-            } catch (Exception e) {
-                throw new RuntimeException( "future exception: " + e.getMessage() );
             }
         }
         return result;
@@ -598,7 +601,7 @@ public class KdNode {
 
     /**
      * <p>
-     * The {@code searchKdTreeWithThread} method returns a
+     * The {@code searchKdTreeLLWithThread} method returns a
      * {@link java.util.concurrent.Callable Callable} whose call() method executes the 
      * {@link KdNode#searchKdTree searchKdTree} method.
      * </p>
@@ -613,19 +616,19 @@ public class KdNode {
      * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
      * that contains the k-d nodes that lie within the cutoff distance of the query node
      */
-    public Callable<ArrayList<KdNode>> searchKdTreeWithThread(final long[] queryLower,
-                                                              final long[] queryUpper,
-                                                              final ExecutorService executor,
-                                                              final int maximumSubmitDepth,
-                                                              final int p,
-                                                              final int depth,
-                                                              final boolean[] enable) {
+    public Callable<List<KdNode>> searchKdTreeLLWithThread(final long[] queryLower,
+                                                                final long[] queryUpper,
+                                                                final ExecutorService executor,
+                                                                final int maximumSubmitDepth,
+                                                                final int p,
+                                                                final int depth,
+                                                                final boolean[] enable) {
         
-        return new Callable<ArrayList<KdNode>>() {
+        return new Callable<List<KdNode>>() {
             @Override
-                public ArrayList<KdNode> call() {
-                    return searchKdTree(queryLower, queryUpper, executor,
-                                        maximumSubmitDepth, p, depth, enable);
+            public List<KdNode> call() {
+                return searchKdTreeLL(queryLower, queryUpper, executor,
+                                      maximumSubmitDepth, p, depth, enable);
             }
         };
     }
