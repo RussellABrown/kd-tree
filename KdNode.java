@@ -28,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import java.math.BigInteger;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -639,11 +640,9 @@ public class KdNode {
      *
      * @param nnList - Instance of the NearestNeighborList.
      * @param q - the leading dimension that permutes cyclically
-     * @param depth - the depth in the k-d tree
      */
     protected void nearestNeighbor(final NearestNeighborList nnList,
-                                   final int q,
-                                   final int depth) {
+                                   final int q) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus opeator for p <= dim.
@@ -657,15 +656,17 @@ public class KdNode {
         // earlier, thus reducing the likelihood of adding more distant points that get kicked out of the list later.
         if (comparison < 0L) {
             if (ltChild != null) {  // if not at the bottom of the tree yet descend the near branch unconditionally
-                ltChild.nearestNeighbor(nnList, p+1, depth+1);
+                ltChild.nearestNeighbor(nnList, p+1);
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
             // nearestNeighborList or if this component of the query is not enabled for nearest neighbor search.
             // If so, then add the node and descend the farther branch.
-            if (tuple[p] - nnList.query[p] <= nnList.curMaxDist || !nnList.enable[p]) {
+            final long coor = tuple[p] - nnList.query[p];
+            final BigInteger square = BigInteger.valueOf(coor).multiply(BigInteger.valueOf(coor));
+            if (square.compareTo(nnList.curMaxDist) < 0 || !nnList.enable[p]) {
                 nnList.add(this);  // add the current node to the list
                 if (gtChild != null) { // and if not at the bottom, descend the far branch
-                    gtChild.nearestNeighbor(nnList, p+1, depth+1);
+                    gtChild.nearestNeighbor(nnList, p+1);
                 }
             }
         }
@@ -674,15 +675,17 @@ public class KdNode {
         // earlier, thus reducing the likelihood of adding more distant points that get kicked out of the list later.
         else if (comparison > 0L) {
             if (gtChild != null) {  // if not at the bottom of the tree yet descend the near branch unconditionally
-                gtChild.nearestNeighbor(nnList, p+1, depth+1);
+                gtChild.nearestNeighbor(nnList, p+1);
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
             // nearestNeighborList or if this component of the query is not enabled for nearest neighbor search.
             // If so, then add the node and descend the farther branch.
-            if (nnList.query[p] - tuple[p] <= nnList.curMaxDist || !nnList.enable[p]) {
+            final long coor = nnList.query[p] - tuple[p];
+            final BigInteger square = BigInteger.valueOf(coor).multiply(BigInteger.valueOf(coor));
+            if (square.compareTo(nnList.curMaxDist) < 0 || !nnList.enable[p]) {
                 nnList.add(this);
                 if (ltChild != null) {
-                    ltChild.nearestNeighbor(nnList, p+1, depth+1);
+                    ltChild.nearestNeighbor(nnList, p+1);
                 }
             }
         }
@@ -693,13 +696,54 @@ public class KdNode {
         else {
             nnList.add(this);
             if (ltChild != null) {
-                ltChild.nearestNeighbor(nnList, p+1, depth+1);
+                ltChild.nearestNeighbor(nnList, p+1);
             }
             if (gtChild != null) {
-                gtChild.nearestNeighbor(nnList, p+1, depth+1);
+                gtChild.nearestNeighbor(nnList, p+1);
             }
         }
         return;
+    }
+
+    /**
+     * <p>
+     * The {@code bruteNeighbor} method is used to search the tree for all possible M
+     * nearest geometric neighbors by adding them the the NearestNeighborList.  It
+     * searches all branches of the tree in a brute-force manner.
+     * </p>
+     *
+     * @param nnList - Instance of the NearestNeighborList.
+     * @param q - the leading dimension that permutes cyclically
+     */
+    protected void bruteNeighbor(final NearestNeighborList nnList,
+                                 final int q) {
+
+        // Permute the most significant dimension p cyclically using
+        // a fast alternative to the modulus opeator for p <= dim.
+        final int p = (q < nnList.query.length) ? q : 0;
+
+        // Compare the query point to the node point.
+        long comparison = MergeSort.superKeyCompare(nnList.query, tuple, p);
+
+        // if not at the bottom of the tree yet descend the < branch unconditionally.
+        if (ltChild != null) {  
+            ltChild.bruteNeighbor(nnList, p+1);
+        }
+
+        // if not at the bottom of the tree yet descend the > branch unconditionally.
+        if (gtChild != null) {  
+            gtChild.bruteNeighbor(nnList, p+1);
+        }
+
+        // Check to see if the current node is closer to the query point than the farthest item in the
+        // nearestNeighborList and if so, then add the node.
+        final long coor = tuple[p] - nnList.query[p];
+        final BigInteger square = BigInteger.valueOf(coor).multiply(BigInteger.valueOf(coor));
+        if (square.compareTo(nnList.curMaxDist) <= 0 || !nnList.enable[p]) {
+            nnList.add(this);  // add the current node to the list
+        }
+
+       return;
     }
 
     /**

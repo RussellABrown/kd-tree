@@ -28,6 +28,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import java.math.BigInteger;
+import java.util.LinkedList;
+
 /**
  * @author Russell A. Brown
  */
@@ -54,12 +57,12 @@
  * <p>
  */
 public class NearestNeighborList {
-    protected long query[]; // point for the which the nearest neighbors will be found
+    protected long[] query; // point for the which the nearest neighbors will be found
     private int reqDepth; // requested number of nearest neighbors and therefore size of the above arrays
-    protected KdNode nodes[];  // set of nodes that are the nearest neighbors
-    private long dists[]; // set of distances from the query point to the above nodes
+    protected KdNode[] nodes;  // set of nodes that are the nearest neighbors
+    protected BigInteger[] dists; // set of distances from the query point to the above nodes
     protected int curDepth; // number of nearest nodes/distances on the list
-    protected long curMaxDist; // distance to the last (and farthest) KdNode on the list
+    protected BigInteger curMaxDist; // distance to the last (and farthest) KdNode on the list
     protected boolean enable[];  // enable or disable each of the k dimensions
 
     /**
@@ -69,28 +72,27 @@ public class NearestNeighborList {
      *
      * @param query - array containing the point to which the nearest neighbors will be found
      * @param numNeighbors - number of nearest neighbors to be found and hence size of the list
-     * @param enableAll - enable or disable all of the k dimensions
      */
-    public NearestNeighborList( final long query[], final int numNeighbors, final boolean enableAll) {
+    public NearestNeighborList( final long query[], final int numNeighbors) {
         this.nodes = new KdNode[numNeighbors];  // list of KdNodes
-        this.dists = new long[numNeighbors];  // corresponding list of distances
+        this.dists = new BigInteger[numNeighbors];  // corresponding list of distances
         this.reqDepth = numNeighbors;
         this.curDepth = 0;  // the list is initially empty
-        this.curMaxDist = Long.MAX_VALUE; // set current max distance to largest possible value
+        this.curMaxDist = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(Long.MAX_VALUE));
         this.query = new long[query.length];
         this.enable = new boolean[query.length];
        for (int i = 0; i < query.length; i++) {
             this.query[i] = query[i];
-            this.enable[i] = enableAll;
+            this.enable[i] = true;
         }
     }
 
     public NearestNeighborList(final long query[], final int numNeighbors, final boolean enable[]) {
         this.nodes = new KdNode[numNeighbors];  // list of KdNodes
-        this.dists = new long[numNeighbors];  // corresponding list of distances
+        this.dists = new BigInteger[numNeighbors];  // corresponding list of distances
         this.reqDepth = numNeighbors;
         this.curDepth = 0;  // the list is initially empty
-        this.curMaxDist = Long.MAX_VALUE; // set current max distance to largest possible value
+        this.curMaxDist = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(Long.MAX_VALUE));
         this.query = new long[query.length];
         this.enable = new boolean[query.length];
         for (int i = 0; i < query.length; i++) {
@@ -109,41 +111,43 @@ public class NearestNeighborList {
      */
     protected void add(final KdNode newNode) {
 
-        // find the distance by subtracting the query from the tuple and
-        // calculating the sqrt of the sum of the squares
-        double dDist = 0.0;
+        // Calculate the distance squared by subtracting the query coordinate
+        // from the tuple coordinate and summing the squared differences.
+        BigInteger dist = BigInteger.ZERO;
         for (int i = 0; i < newNode.tuple.length; i++) {
             if (enable[i]) {
-                long comp = newNode.tuple[i] - query[i];
-                dDist += (double)comp * (double)comp;
+                final long coor = newNode.tuple[i] - query[i];
+                final BigInteger square =
+                    BigInteger.valueOf(coor).multiply(BigInteger.valueOf(coor));
+                dist = dist.add(square);
             }
         }
-        int lDist = (int)Math.sqrt(dDist);
-
-        // check to see if this point should be added to the list
-        if ( lDist < curMaxDist ) {
-            // need to add the point to the list so do an insertion sort
-            // first do a binary search to find the index (pos) where the new value needs to be inserted.
+        // Check to see if this tuple should be added to the list.
+        if ( dist.compareTo(curMaxDist) < 0 ) {
+            // Need to add the tuple to the list, so do an insertion sort;
+            // first do a binary search to find the index (pos) where the
+            // new value is to be inserted.
             int pos = 0;
-            if (curDepth > 0 && lDist > dists[0]) {
+            if (curDepth > 0 && dist.compareTo(dists[0]) > 0) {
                 int stride = (Integer.highestOneBit(curDepth-1) << 1);
                 for (; stride > 0 && curDepth > 0; stride >>= 1) {
                     int newPos = pos + stride;
                     newPos = newPos > curDepth - 1 ? curDepth - 1 : newPos;
-                    if (lDist > dists[newPos])
+                    if (dist.compareTo(dists[newPos]) > 0) {
                         pos = newPos;
+                    }
                 }
                 pos++;
             }
-            // next move the stuff in and after the insertion point down one place
+            // Next move the stuff in and after the insertion point down one place...
             if (curDepth < reqDepth) curDepth++;
             for (int i = curDepth-1;  i > pos; i--) {
                 nodes[i] = nodes[i-1];
                 dists[i] = dists[i-1];
             }
-            // and put the new data in the open spot
+            // ...and put the new data in the open spot
             nodes[pos] = newNode;
-            dists[pos] = lDist;
+            dists[pos] = dist;
             // if the list is full, replace the current max distance of the list to the last entry.
             if (curDepth == reqDepth) {
                 curMaxDist = dists[reqDepth-1];

@@ -295,10 +295,25 @@ public class KdTree {
      * @param depth - the depth in the k-d tree
      */
     protected void nearestNeighbor(final NearestNeighborList nnList,
-                                   final int p,
-                                   final int depth)
+                                   final int p)
     {
-        root.nearestNeighbor(nnList, p, depth);
+        root.nearestNeighbor(nnList, p);
+    }
+
+    /**
+     * <p>
+     * The {@code bruteNeighbor} method is used to search the tree for all possible M
+     * nearest geometric neighbors by adding them the the NearestNeighborList.  It
+     * searches all branches of the tree in a brute-force manner.
+     * </p>
+     *
+     * @param nnList - Instance of the NearestNeighborList.
+     * @param p - the leading dimension that permutes cyclically
+     */
+    protected void bruteNeighbor(final NearestNeighborList nnList,
+                                 final int p)
+    {
+        root.bruteNeighbor(nnList, p);
     }
 
     /**
