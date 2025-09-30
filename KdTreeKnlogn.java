@@ -28,12 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import java.lang.System;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
@@ -48,6 +44,246 @@ import java.util.concurrent.Future;
  */
 public class KdTreeKnlogn
 {
+    /**
+     * <p>
+     * The {@code createKdTreeKnlogn} method builds a k-d tree from a KdNode[]
+     * where the coordinates of each point are stored in KdNode.tuple
+     * </p>
+     *  
+     * @param kdNodes - a KdNode[]
+     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
+     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param p - the leading dimension that permutes cyclically
+     * @returns a {@code KdTree} instance
+     */
+    protected static KdTree createKdTreeKnlogn(final KdNode[] kdNodes,
+                                               final ExecutorService executor,
+                                               final int maximumSubmitDepth,
+                                               final int p)
+    {
+        // Allocate the references arrays including one additional array.
+        final int numPoints = kdNodes.length;
+        final int numDimensions = kdNodes[0].tuple.length;
+        final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
+
+        // Don't allocate KdNodes instances for the pth references array
+        // (where p is the leading dimension) instead of the first
+        // references array to permit KdTreeDynamic.balanceSubtree
+        // to build a sub-tree whose root node has a non-zero
+        // partition coordinate.
+        //
+        // Copy references from the KdNode instances of the kdNodes array.
+        // These references will be re-ordered by the MergeSort methods.
+        for (int i = 0; i < numPoints; ++i) {
+            references[p][i] = kdNodes[i];
+        }
+
+        // Sort the pth references array using multiple threads, where p
+        // is the leading dimension. Importantly, or compatibility with the
+        // permutation array initialized below, use the pth dimension as
+        // the leading key of the super key. Also, only the pth references
+        // array has been populated with KdNode instances.
+        MergeSort.mergeSortReferenceAscending(references[p], references[numDimensions],
+                                              0, numPoints - 1,
+                                              p, executor, maximumSubmitDepth, 0);
+
+        // For a dynamic k-d tree, it is unnecessary to sort the reference array.
+        // and remove duplicate coordinates, so merely specify the end index,
+        // which is an inlusive index instead of a node count.
+        int end = numPoints - 1;            
+
+        // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
+        int maxDepth = 1;
+        int size = numPoints;
+        while (size > 0) {
+            ++maxDepth;
+            size >>= 1;
+        }
+
+        // It is unnecessary to compute the partition coordinate upon each recursive call of
+        // the buildKdTree function because that coordinate depends only on the depth of
+        // recursion, so it may be pre-computed and stored in the permutation array.
+        //
+        // first create an array the tracks which reference array contains each coordinate.
+        // index 0 is for x, index 1 is for y ... index dim (i.e., numDimensions) is the
+        // reference array that MergeSort::mergeSortReferenceAscending used as a temporary array.
+        final int[] current = new int[numDimensions + 1];
+        for (int i = 0;  i <= numDimensions; ++i) {
+            current[i] = i;
+        }
+        final int[] indices = new int[numDimensions + 2];
+
+        // Create a 2D 'permutation' array from the 'indices' array to specify permutation
+        // of the reference arrays and of the partition coordinate.
+        final int[][] permutation = new int[maxDepth][numDimensions + 2];
+
+        // Fill the permutation array by calculating the permutation of the indices array
+        // and the the partition coordinate of the tuple at each depth in the tree.
+        for (int depth = 0; depth < maxDepth; ++depth) {
+            int p0 = (depth + p) % numDimensions;
+            // The last entry of the indices array contains the partition coordinate.
+            indices[numDimensions + 1] = p0;
+            // The penultimate entry of the indices array specifies the source reference array.
+            indices[numDimensions] = current[p0];
+            // The first entry of the indices array specifies the temporary reference array.
+            indices[0] = current[numDimensions];
+            int k = 1;
+            // do the partitioning swaps
+            for (int i = 1;  i < numDimensions; ++i) {
+                int j = (i + p0) % numDimensions;  // this is the coordinate index following the primary
+                indices[k] = current[j];           // write the reference index for that coordinate to the indices array
+                swap(current, numDimensions, j);   // this keeps track of where the coordinate will have been have been swapped to.
+                ++k;
+            }
+            // Copy the elements from the indices array to the current row of the permutation array.
+            for (int i = 0; i < indices.length; ++i) {
+                permutation[depth][i] = indices[i];
+            }
+        }
+
+        // Build the k-d tree via heirarchical multi-threading if possible.
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+        tree.root = buildKdTreeKnlogn(references, permutation, 0, end,
+                                      executor, maximumSubmitDepth, 0);
+                
+        // Return the tree.
+        return tree;
+    }
+    
+    /**
+     * <p>
+     * The {@code createKdTree} method builds a k-d tree from a Pair<Long[], String>[]
+     * where the coordinates of each point are stored in Pair.key (a Long[]).
+     * </p>
+     *  
+     * @param coordinates - a Pair<key, value>[]
+     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
+     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param nN, iT, sT, rT, kT, vT - single element arrays for returning values by reference
+     * @returns a {@code KdTree} instance
+     */
+    protected static KdTree createKdTreeKnlogn(final Pair[] coordinates,
+                                               final ExecutorService executor,
+                                               final int maximumSubmitDepth,
+                                               long[] nN,
+                                               double[] iT,
+                                               double[] sT,
+                                               double[] rT,
+                                               double[] kT,
+                                               double[] vT)
+    {
+        // Allocate the references arrays including one additional array.
+        long initTime = System.currentTimeMillis();
+        final int numPoints = coordinates.length;
+        final int numDimensions = coordinates[0].getKey().length;
+        final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
+
+        // Allocate KdNodes instances for the first references array.
+        // Copy references from the KdNode instances of the kdNodes array.
+        // These pointers will be re-ordered by the MergeSort methods.
+        for (int i = 0; i < numPoints; ++i) {
+            references[0][i] = new KdNode(numDimensions);
+            for (int j = 0; j < numDimensions; ++j) {
+                references[0][i].tuple[j] = coordinates[i].getKey()[j];
+            }
+            references[0][i].values.add(coordinates[i].getValue());
+        }
+        initTime = System.currentTimeMillis() - initTime;
+
+        // Sort the first reference array using the first dimension (0) as the most significant
+        // key of the super key.
+        long sortTime = System.currentTimeMillis();
+        MergeSort.mergeSortReferenceAscending(references[0], references[numDimensions], 0, numPoints - 1,
+                                              0, executor, maximumSubmitDepth, 0);
+        sortTime = System.currentTimeMillis() - sortTime;
+
+        // Remove references to duplicate tuples via one pass through the sorted reference array.
+        // The same most significant key of the super key should be used for sort and de-duping.
+        long removeTime = System.currentTimeMillis();
+        final int end = MergeSort.removeDuplicates(references[0], 0);
+        removeTime = System.currentTimeMillis() - removeTime;
+
+        // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
+        int maxDepth = 1;
+        int size = numPoints;
+        while (size > 0) {
+        ++maxDepth;
+        size >>= 1;
+        }
+
+        // It is unnecessary to compute either the permutation of the reference array or
+        // the partition coordinate upon each recursive call of the buildKdTree function
+        // because both depend only on the depth of recursion, so they may be pre-computed.
+        //
+        // Because this array is initialized with 0, 1, 2, 3, 0, 1, 2, 3, etc. (for
+        // e.g. 4-dimensional data), the leading key of the super key will be 0 at the
+        // first level of the nascent tree, consistent with having sorted the reference
+        // array above using 0 as the leading key of the super key.
+        //
+        // Begin by creating an 'indices' array.
+        int[] indices = new int[numDimensions + 2];
+        for (int i = 0; i < indices.length - 1; ++i) {
+            indices[i] = i;
+        }
+
+        // Create a 2D 'permutation' array from the 'indices' array to specify permutation
+        // of the reference arrays and of the partition coordinate.
+        final int[][] permutation = new int[maxDepth][numDimensions + 2];
+        final int[] permutationVerify = new int[maxDepth];
+
+        // Fill the permutation array by calculating the permutation of the indices array
+        // and the the partition coordinate of the tuple at each depth in the tree.
+        for (int i = 0; i < maxDepth; ++i) {
+            // The last entry of the indices array contains the partition coordinate.
+            indices[numDimensions + 1] = permutationVerify[i] = i % numDimensions;
+            // Swap the first and second to the last elements of the indices array.
+            swap(indices, 0, numDimensions);
+            // Copy the elements of the indices array to one row of the permutation array.
+            for (int j = 0; j < numDimensions + 2; ++j) {
+                permutation[i][j] = indices[j];
+            }
+            // Swap the third and second to the last elements of the indices array.
+            swap(indices, numDimensions - 1, numDimensions);
+        }
+
+        // Build the k-d tree via heirarchical multi-threading if possible.
+        long kdTime = System.currentTimeMillis();
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+        tree.root = buildKdTreeKnlogn(references, permutation, 0, end,
+                                      executor, maximumSubmitDepth, 0);
+        kdTime = System.currentTimeMillis() - kdTime;
+        
+        // Verify the k-d tree via hierarchical multi-threading if possible and report the number of nodes.
+        long verifyTime = System.currentTimeMillis();
+        nN[0] = tree.verifyKdTree(permutationVerify);
+        verifyTime = System.currentTimeMillis() - verifyTime;
+       
+        iT[0] = (double) initTime / 1000.;
+        sT[0] = (double) sortTime / 1000.;
+        rT[0] = (double) removeTime / 1000.;
+        kT[0] = (double) kdTime / 1000.;
+        vT[0] = verifyTime / 1000.;
+        
+        // Return the tree.
+        return tree;
+    }
+        
+    /*
+    * The swap function swaps two elements in an array.
+    *
+    * calling parameters:
+    *
+    * a - the array
+    * i - the index of the first element
+    * j - the index of the second element
+    */
+    private static void swap(int a[], int i, int j)
+    {
+        int t = a[i];
+        a[i] = a[j];
+        a[j] = t;
+    }
+    
     /**
      * <p>
      * The {@code buildKdTreeKnlogn} method builds a k-d tree by recursively
@@ -557,244 +793,4 @@ public class KdTreeKnlogn
         }
     }
     
-    /*
-    * The swap function swaps two elements in an array.
-    *
-    * calling parameters:
-    *
-    * a - the array
-    * i - the index of the first element
-    * j - the index of the second element
-    */
-    private static void swap(int a[], int i, int j)
-    {
-        int t = a[i];
-        a[i] = a[j];
-        a[j] = t;
-    }
-    
-    /**
-     * <p>
-     * The {@code createKdTreeKnlogn} method builds a k-d tree from a KdNode[]
-     * where the coordinates of each point are stored in KdNode.tuple
-     * </p>
-     *  
-     * @param kdNodes - a KdNode[]
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param p - the leading dimension that permutes cyclically
-     * @returns a {@code KdTree} instance
-     */
-    protected static KdTree createKdTreeKnlogn(final KdNode[] kdNodes,
-                                               final ExecutorService executor,
-                                               final int maximumSubmitDepth,
-                                               final int p)
-    {
-        // Allocate the references arrays including one additional array.
-        final int numPoints = kdNodes.length;
-        final int numDimensions = kdNodes[0].tuple.length;
-        final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
-
-        // Don't allocate KdNodes instances for the pth references array
-        // (where p is the leading dimension) instead of the first
-        // references array to permit KdTreeDynamic.balanceSubtree
-        // to build a sub-tree whose root node has a non-zero
-        // partition coordinate.
-        //
-        // Copy references from the KdNode instances of the kdNodes array.
-        // These references will be re-ordered by the MergeSort methods.
-        for (int i = 0; i < numPoints; ++i) {
-            references[p][i] = kdNodes[i];
-        }
-
-        // Sort the pth references array using multiple threads, where p
-        // is the leading dimension. Importantly, or compatibility with the
-        // permutation array initialized below, use the pth dimension as
-        // the leading key of the super key. Also, only the pth references
-        // array has been populated with KdNode instances.
-        MergeSort.mergeSortReferenceAscending(references[p], references[numDimensions],
-                                              0, numPoints - 1,
-                                              p, executor, maximumSubmitDepth, 0);
-
-        // For a dynamic k-d tree, it is unnecessary to sort the reference array.
-        // and remove duplicate coordinates, so merely specify the end index,
-        // which is an inlusive index instead of a node count.
-        int end = numPoints - 1;            
-
-        // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
-        int maxDepth = 1;
-        int size = numPoints;
-        while (size > 0) {
-            ++maxDepth;
-            size >>= 1;
-        }
-
-        // It is unnecessary to compute the partition coordinate upon each recursive call of
-        // the buildKdTree function because that coordinate depends only on the depth of
-        // recursion, so it may be pre-computed and stored in the permutation array.
-        //
-        // first create an array the tracks which reference array contains each coordinate.
-        // index 0 is for x, index 1 is for y ... index dim (i.e., numDimensions) is the
-        // reference array that MergeSort::mergeSortReferenceAscending used as a temporary array.
-        final int[] current = new int[numDimensions + 1];
-        for (int i = 0;  i <= numDimensions; ++i) {
-            current[i] = i;
-        }
-        final int[] indices = new int[numDimensions + 2];
-
-        // Create a 2D 'permutation' array from the 'indices' array to specify permutation
-        // of the reference arrays and of the partition coordinate.
-        final int[][] permutation = new int[maxDepth][numDimensions + 2];
-
-        // Fill the permutation array by calculating the permutation of the indices array
-        // and the the partition coordinate of the tuple at each depth in the tree.
-        for (int depth = 0; depth < maxDepth; ++depth) {
-            int p0 = (depth + p) % numDimensions;
-            // The last entry of the indices array contains the partition coordinate.
-            indices[numDimensions + 1] = p0;
-            // The penultimate entry of the indices array specifies the source reference array.
-            indices[numDimensions] = current[p0];
-            // The first entry of the indices array specifies the temporary reference array.
-            indices[0] = current[numDimensions];
-            int k = 1;
-            // do the partitioning swaps
-            for (int i = 1;  i < numDimensions; ++i) {
-                int j = (i + p0) % numDimensions;  // this is the coordinate index following the primary
-                indices[k] = current[j];           // write the reference index for that coordinate to the indices array
-                swap(current, numDimensions, j);   // this keeps track of where the coordinate will have been have been swapped to.
-                ++k;
-            }
-            // Copy the elements from the indices array to the current row of the permutation array.
-            for (int i = 0; i < indices.length; ++i) {
-                permutation[depth][i] = indices[i];
-            }
-        }
-
-        // Build the k-d tree via heirarchical multi-threading if possible.
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
-        tree.root = buildKdTreeKnlogn(references, permutation, 0, end,
-                                      executor, maximumSubmitDepth, 0);
-                
-        // Return the tree.
-        return tree;
-    }
-    
-    /**
-     * <p>
-     * The {@code createKdTree} method builds a k-d tree from a Pair<Long[], String>[]
-     * where the coordinates of each point are stored in Pair.key (a Long[]).
-     * </p>
-     *  
-     * @param coordinates - a Pair<key, value>[]
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param nN, iT, sT, rT, kT, vT - single element arrays for returning values by reference
-     * @returns a {@code KdTree} instance
-     */
-    protected static KdTree createKdTreeKnlogn(final Pair[] coordinates,
-                                               final ExecutorService executor,
-                                               final int maximumSubmitDepth,
-                                               long[] nN,
-                                               double[] iT,
-                                               double[] sT,
-                                               double[] rT,
-                                               double[] kT,
-                                               double[] vT)
-    {
-        // Allocate the references arrays including one additional array.
-        long initTime = System.currentTimeMillis();
-        final int numPoints = coordinates.length;
-        final int numDimensions = coordinates[0].getKey().length;
-        final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
-
-        // Allocate KdNodes instances for the first references array.
-        // Copy references from the KdNode instances of the kdNodes array.
-        // These pointers will be re-ordered by the MergeSort methods.
-        for (int i = 0; i < numPoints; ++i) {
-            references[0][i] = new KdNode(numDimensions);
-            for (int j = 0; j < numDimensions; ++j) {
-                references[0][i].tuple[j] = coordinates[i].getKey()[j];
-            }
-            references[0][i].values.add(coordinates[i].getValue());
-        }
-        initTime = System.currentTimeMillis() - initTime;
-
-        // Sort the first reference array using the first dimension (0) as the most significant
-        // key of the super key.
-        long sortTime = System.currentTimeMillis();
-        MergeSort.mergeSortReferenceAscending(references[0], references[numDimensions], 0, numPoints - 1,
-                                              0, executor, maximumSubmitDepth, 0);
-        sortTime = System.currentTimeMillis() - sortTime;
-
-        // Remove references to duplicate tuples via one pass through the sorted reference array.
-        // The same most significant key of the super key should be used for sort and de-duping.
-        long removeTime = System.currentTimeMillis();
-        final int end = MergeSort.removeDuplicates(references[0], 0);
-        removeTime = System.currentTimeMillis() - removeTime;
-
-        // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
-        int maxDepth = 1;
-        int size = numPoints;
-        while (size > 0) {
-        ++maxDepth;
-        size >>= 1;
-        }
-
-        // It is unnecessary to compute either the permutation of the reference array or
-        // the partition coordinate upon each recursive call of the buildKdTree function
-        // because both depend only on the depth of recursion, so they may be pre-computed.
-        //
-        // Because this array is initialized with 0, 1, 2, 3, 0, 1, 2, 3, etc. (for
-        // e.g. 4-dimensional data), the leading key of the super key will be 0 at the
-        // first level of the nascent tree, consistent with having sorted the reference
-        // array above using 0 as the leading key of the super key.
-        //
-        // Begin by creating an 'indices' array.
-        int[] indices = new int[numDimensions + 2];
-        for (int i = 0; i < indices.length - 1; ++i) {
-            indices[i] = i;
-        }
-
-        // Create a 2D 'permutation' array from the 'indices' array to specify permutation
-        // of the reference arrays and of the partition coordinate.
-        final int[][] permutation = new int[maxDepth][numDimensions + 2];
-        final int[] permutationVerify = new int[maxDepth];
-
-        // Fill the permutation array by calculating the permutation of the indices array
-        // and the the partition coordinate of the tuple at each depth in the tree.
-        for (int i = 0; i < maxDepth; ++i) {
-            // The last entry of the indices array contains the partition coordinate.
-            indices[numDimensions + 1] = permutationVerify[i] = i % numDimensions;
-            // Swap the first and second to the last elements of the indices array.
-            swap(indices, 0, numDimensions);
-            // Copy the elements of the indices array to one row of the permutation array.
-            for (int j = 0; j < numDimensions + 2; ++j) {
-                permutation[i][j] = indices[j];
-            }
-            // Swap the third and second to the last elements of the indices array.
-            swap(indices, numDimensions - 1, numDimensions);
-        }
-
-        // Build the k-d tree via heirarchical multi-threading if possible.
-        long kdTime = System.currentTimeMillis();
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
-        tree.root = buildKdTreeKnlogn(references, permutation, 0, end,
-                                      executor, maximumSubmitDepth, 0);
-        kdTime = System.currentTimeMillis() - kdTime;
-        
-        // Verify the k-d tree via hierarchical multi-threading if possible and report the number of nodes.
-        long verifyTime = System.currentTimeMillis();
-        nN[0] = tree.verifyKdTree(permutationVerify);
-        verifyTime = System.currentTimeMillis() - verifyTime;
-       
-        iT[0] = (double) initTime / 1000.;
-        sT[0] = (double) sortTime / 1000.;
-        rT[0] = (double) removeTime / 1000.;
-        kT[0] = (double) kdTime / 1000.;
-        vT[0] = verifyTime / 1000.;
-        
-        // Return the tree.
-        return tree;
-    }
-        
 } // class KdTreeKnlogn

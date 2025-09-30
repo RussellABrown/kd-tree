@@ -41,18 +41,18 @@ import java.util.concurrent.Future;
  * The {@code MergeSort} class contains multi-threaded merge sort methods.
  * </p>
  */
-public class MergeSort {
-		
+public class MergeSort
+{
     /**
      * <p>
-     * The {@code superKeyCompare} method compares two int[] in as few coordinates as possible
+     * The {@code superKeyCompare} method compares two long[] in as few coordinates as possible
      * and uses the sorting or partition coordinate as the most significant coordinate.
      * </p>
      * 
-     * @param a - a int[]
-     * @param b - a int[]
+     * @param a - a long[]
+     * @param b - a long[]
      * @param p - the most significant dimension
-     * @returns an int that represents the result of comparing two super keys
+     * @returns a long that represents the result of comparing two super keys
      */
    protected static long superKeyCompare(final long[] a,
                                          final long[] b,
@@ -98,122 +98,6 @@ public class MergeSort {
             }
         }
         return end;
-    }
-
-    /**
-     * <p> The {@code mergeResultsAscending} method compares the results in the source array in order of
-     * ascending address and merges them into the destination array in order of ascending value.
-     * </p>
-     * 
-     * @param destination - a KdNode[] from which to merge results
-     * @param source - a KdNode[] into which to merge results
-     * @param iStart - the initial value of the i-index
-     * @param jStart - the initial value of the j-index
-     * @param kStart - the initial value of the k-index
-     * @param kEnd - the final value of the k-index
-     * @param p - the sorting partition (x, y, z, w...)
-     */
-    private static void mergeResultsAscending(final KdNode[] destination,
-                                              final KdNode[] source,
-                                              final int iStart,
-                                              final int jStart,
-                                              final int kStart,
-                                              final int kEnd,
-                                              final int p) {
-        
-        for (int i = iStart, j = jStart, k = kStart; k <= kEnd; k++) {
-            destination[k] = (superKeyCompare(source[i].tuple, source[j].tuple, p) <= 0) ? source[i++] : source[j--];
-        }
-    }
-
-    /**
-     * <p> The {@code mergeResultsDescending} method compares the results in the source array in order of
-     * ascending address and merges them into the destination array in order of descending value.
-     * </p>
-     * 
-     * @param destination - a KdNode[] from which to merge results
-     * @param source - a KdNode[] into which to merge results
-     * @param iStart - the initial value of the i-index
-     * @param jStart - the initial value of the j-index
-     * @param kStart - the initial value of the k-index
-     * @param kEnd - the final value of the k-index
-     * @param p - the sorting partition (x, y, z, w...)
-     */
-    private static void mergeResultsDescending(final KdNode[] destination,
-                                               final KdNode[] source,
-                                               final int iStart,
-                                               final int jStart,
-                                               final int kStart,
-                                               final int kEnd,
-                                               final int p) {
-        
-        for (int i = iStart, j = jStart, k = kStart; k <= kEnd; k++) {
-            destination[k] = (superKeyCompare(source[i].tuple, source[j].tuple, p) >= 0) ? source[i++] : source[j--];
-        }
-    }
-
-    /**
-     * <p>
-     * The {@code mergeResultsAscendingWithThread} method returns a
-     * {@link java.util.concurrent.Callable Callable} whose call() method executes the 
-     * {@link KdNode#mergeResultsAscending mergeResultsAscending} method.
-     * </p>
-     * 
-     * @param destination - a KdNode[] from which to merge results
-     * @param source - a KdNode[] into which to merge results
-     * @param iStart - the initial value of the i-index
-     * @param jStart - the initial value of the j-index
-     * @param kStart - the initial value of the k-index
-     * @param kEnd - the final value of the k-index
-     * @param p - the sorting partition (x, y, z, w...)
-     */
-    private static Callable<Void> mergeResultsAscendingWithThread(final KdNode[] destination,
-                                                                  final KdNode[] source,
-                                                                  final int iStart,
-                                                                  final int jStart,
-                                                                  final int kStart,
-                                                                  final int kEnd,
-                                                                  final int p) {
-        
-        return new Callable<Void>() {
-            @Override
-                public Void call() {
-                mergeResultsAscending(destination, source, iStart, jStart, kStart, kEnd, p);
-                return null;
-            }
-        };
-    }
-
-    /**
-     * <p>
-     * The {@code mergeResultsDescendingWithThread} method returns a
-     * {@link java.util.concurrent.Callable Callable} whose call() method executes the 
-     * {@link KdNode#mergeResultsDescending mergeResultsDescending} method.
-     * </p>
-     * 
-     * @param destination - a KdNode[] from which to merge results
-     * @param source - a KdNode[] into which to merge results
-     * @param iStart - the initial value of the i-index
-     * @param jStart - the initial value of the j-index
-     * @param kStart - the initial value of the k-index
-     * @param kEnd - the final value of the k-index
-     * @param p - the sorting partition (x, y, z, w...)
-     */
-    private static Callable<Void> mergeResultsDescendingWithThread(final KdNode[] destination,
-                                                                   final KdNode[] source,
-                                                                   final int iStart,
-                                                                   final int jStart,
-                                                                   final int kStart,
-                                                                   final int kEnd,
-                                                                   final int p) {
-        
-        return new Callable<Void>() {
-            @Override
-                public Void call() {
-                mergeResultsDescending(destination, source, iStart, jStart, kStart, kEnd, p);
-                return null;
-            }
-        };
     }
 
     /**
@@ -693,6 +577,122 @@ public class MergeSort {
     }
     
     /**
+     * <p> The {@code mergeResultsAscending} method compares the results in the source array in order of
+     * ascending address and merges them into the destination array in order of ascending value.
+     * </p>
+     * 
+     * @param destination - a KdNode[] from which to merge results
+     * @param source - a KdNode[] into which to merge results
+     * @param iStart - the initial value of the i-index
+     * @param jStart - the initial value of the j-index
+     * @param kStart - the initial value of the k-index
+     * @param kEnd - the final value of the k-index
+     * @param p - the sorting partition (x, y, z, w...)
+     */
+    private static void mergeResultsAscending(final KdNode[] destination,
+                                              final KdNode[] source,
+                                              final int iStart,
+                                              final int jStart,
+                                              final int kStart,
+                                              final int kEnd,
+                                              final int p) {
+        
+        for (int i = iStart, j = jStart, k = kStart; k <= kEnd; k++) {
+            destination[k] = (superKeyCompare(source[i].tuple, source[j].tuple, p) <= 0) ? source[i++] : source[j--];
+        }
+    }
+
+    /**
+     * <p> The {@code mergeResultsDescending} method compares the results in the source array in order of
+     * ascending address and merges them into the destination array in order of descending value.
+     * </p>
+     * 
+     * @param destination - a KdNode[] from which to merge results
+     * @param source - a KdNode[] into which to merge results
+     * @param iStart - the initial value of the i-index
+     * @param jStart - the initial value of the j-index
+     * @param kStart - the initial value of the k-index
+     * @param kEnd - the final value of the k-index
+     * @param p - the sorting partition (x, y, z, w...)
+     */
+    private static void mergeResultsDescending(final KdNode[] destination,
+                                               final KdNode[] source,
+                                               final int iStart,
+                                               final int jStart,
+                                               final int kStart,
+                                               final int kEnd,
+                                               final int p) {
+        
+        for (int i = iStart, j = jStart, k = kStart; k <= kEnd; k++) {
+            destination[k] = (superKeyCompare(source[i].tuple, source[j].tuple, p) >= 0) ? source[i++] : source[j--];
+        }
+    }
+
+    /**
+     * <p>
+     * The {@code mergeResultsAscendingWithThread} method returns a
+     * {@link java.util.concurrent.Callable Callable} whose call() method executes the 
+     * {@link KdNode#mergeResultsAscending mergeResultsAscending} method.
+     * </p>
+     * 
+     * @param destination - a KdNode[] from which to merge results
+     * @param source - a KdNode[] into which to merge results
+     * @param iStart - the initial value of the i-index
+     * @param jStart - the initial value of the j-index
+     * @param kStart - the initial value of the k-index
+     * @param kEnd - the final value of the k-index
+     * @param p - the sorting partition (x, y, z, w...)
+     */
+    private static Callable<Void> mergeResultsAscendingWithThread(final KdNode[] destination,
+                                                                  final KdNode[] source,
+                                                                  final int iStart,
+                                                                  final int jStart,
+                                                                  final int kStart,
+                                                                  final int kEnd,
+                                                                  final int p) {
+        
+        return new Callable<Void>() {
+            @Override
+            public Void call() {
+                mergeResultsAscending(destination, source, iStart, jStart, kStart, kEnd, p);
+                return null;
+            }
+        };
+    }
+
+    /**
+     * <p>
+     * The {@code mergeResultsDescendingWithThread} method returns a
+     * {@link java.util.concurrent.Callable Callable} whose call() method executes the 
+     * {@link KdNode#mergeResultsDescending mergeResultsDescending} method.
+     * </p>
+     * 
+     * @param destination - a KdNode[] from which to merge results
+     * @param source - a KdNode[] into which to merge results
+     * @param iStart - the initial value of the i-index
+     * @param jStart - the initial value of the j-index
+     * @param kStart - the initial value of the k-index
+     * @param kEnd - the final value of the k-index
+     * @param p - the sorting partition (x, y, z, w...)
+     */
+    private static Callable<Void> mergeResultsDescendingWithThread(final KdNode[] destination,
+                                                                   final KdNode[] source,
+                                                                   final int iStart,
+                                                                   final int jStart,
+                                                                   final int kStart,
+                                                                   final int kEnd,
+                                                                   final int p) {
+        
+        return new Callable<Void>() {
+            @Override
+            public Void call() {
+                mergeResultsDescending(destination, source, iStart, jStart, kStart, kEnd, p);
+                return null;
+            }
+        };
+    }
+
+    /**
      * <p>
      * The {@code mergeSortReferenceAscendingWithThread} method returns a
      * {@link java.util.concurrent.Callable Callable} whose call() method executes the 
@@ -720,11 +720,11 @@ public class MergeSort {
         
         return new Callable<Void>() {
             @Override
-                public Void call() {
+            public Void call() {
                 mergeSortReferenceAscending(reference, temporary, low, high, p, executor, maximumSubmitDepth, depth);
                 return null;
             }
-        };
+            };
     }
 
     /**
@@ -755,7 +755,7 @@ public class MergeSort {
         
         return new Callable<Void>() {
             @Override
-                public Void call() {
+            public Void call() {
                 mergeSortReferenceDescending(reference, temporary, low, high, p, executor, maximumSubmitDepth, depth);
                 return null;
             }
@@ -790,7 +790,7 @@ public class MergeSort {
         
         return new Callable<Void>() {
             @Override
-                public Void call() {
+            public Void call() {
                 mergeSortTemporaryAscending(reference, temporary, low, high, p, executor, maximumSubmitDepth, depth);
                 return null;
             }
@@ -826,9 +826,9 @@ public class MergeSort {
         return new Callable<Void>() {
             @Override
                 public Void call() {
-                mergeSortTemporaryDescending(reference, temporary, low, high, p, executor, maximumSubmitDepth, depth);
-                return null;
-            }
+                    mergeSortTemporaryDescending(reference, temporary, low, high, p, executor, maximumSubmitDepth, depth);
+                    return null;
+                }
         };
     }
 } // class MergeSort
