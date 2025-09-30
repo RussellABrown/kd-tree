@@ -18,6 +18,10 @@ The test_kdmapdynamic.cpp file and associated .h files (kdMapDynamic.h, kdMapNod
 
 See the test_kdtreedynamic.cpp, test_kdtreedynamic.stats.cpp, and test_kdmapdynamic.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
 
+The TestKdTreeDynamic.java file and associated .java files (KdTreeDynamic.java, KdTree.java, KdTreeNlogn.java, KdTreeKnlogn.java, KdNode.java, MergeSort.java, NearestNeighborList.java, Pair.java and Constants.java) build and test a dynamic k-d tree-based key-to-multiple-value map. See the comments in TestKdTreeDynamic.java for an explanation of the configuration constants in Constants.java.
+
+The KdTreeDynamic class extends the KdTree class.
+
 
 STATIC K-D TREE:
 
@@ -42,3 +46,6 @@ The test_kdtree.cpp file and associated .h files (kdTreeNode.h, kdTreeNlogn.h, k
 The test_kdmap.cpp file and associated .h files (kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a static k-d tree-based key-to-multiple-value map via either the O[knlog(n)] or the O[nlog(n)] algorithm.
 
 See the test_kdtree.cpp and test_kdmap.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
+
+The TestKdTree.java file and associated .java files (KdTree.java, KdTreeNlogn.java, KdTreeKnlogn.java, KdNode.java, MergeSort.java, NearestNeighborList.java, Pair.java and Constants.java) build and test a static k-d tree-based key-to-multiple-value map. See the comments in TestKdTree.java for an explanation of the configuration constants in Constants.java.
+
