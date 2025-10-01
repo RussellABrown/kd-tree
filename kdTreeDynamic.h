@@ -50,19 +50,14 @@ using std::runtime_error;
 using std::streamsize;
 using std::vector;
 
-/* The maximum allowed height difference between a node's < and > subtrees. */
+/* The maximum allowed height difference used by isBalanced() */
 #ifndef HEIGHT_DIFF
 #define HEIGHT_DIFF (1)
 #endif
 
-/* The size of the histogram vectors. */
-#ifndef HISTOGRAM_SIZE
-#define HISTOGRAM_SIZE (25)
-#endif
-
-/* The size of the maximum value vectors. */
-#ifndef MAXIMUM_SIZE
-#define MAXIMUM_SIZE (25)
+/* The cutoff for multi-threaded execution of KdTree::createKdTree() */
+#ifndef MULTI_THREAD_CUTOFF
+#define MULTI_THREAD_CUTOFF (16384)
 #endif
 
 /* Convert microseconds to seconds for use with std::chrono */
@@ -103,7 +98,6 @@ class KdTreeDynamic : public KdTree<K>
 {
 private:
     signed_size_t maxSubmitDepth = -1;
-    size_t cutoff;
     bool inserted = false, erased = false, changed = false;
 
     /*
@@ -115,11 +109,9 @@ private:
      * cutoff (IN) the minimum size of a subtree to rebuild via multiple threads
      */
 public:
-    KdTreeDynamic(signed_size_t const maxSubmitDepth,
-                  size_t const cutoff) {
+    KdTreeDynamic(signed_size_t const maxSubmitDepth) {
 
         this->maxSubmitDepth = maxSubmitDepth;
-        this->cutoff = cutoff;
     }
 
     /*
@@ -133,11 +125,9 @@ public:
      */
 public:
     KdTreeDynamic(signed_size_t const maxSubmitDepth,
-                  size_t const cutoff,
                   KdNode<K>* const root) {
 
         this->maxSubmitDepth = maxSubmitDepth;
-        this->cutoff = cutoff;
         KdTree<K>::root = root;
     }
 
@@ -908,7 +898,7 @@ private:
             // though multiple threads area available, if the size of the
             // subtree is too small to justify spawning child threads.
             KdTree<K>* subTree;
-            if (count < cutoff) {
+            if (count < MULTI_THREAD_CUTOFF) {
                 subTree =
                     KdTree<K>::createKdTree(kdNodes, dim, -1, p);
             } else {
@@ -1282,14 +1272,8 @@ private:
         // Get and order the heights at the child nodes.
         size_t const ltHeight = getHeight(node->ltChild);
         size_t const gtHeight = getHeight(node->gtChild);
-        size_t hiHeight, loHeight;
-        if (ltHeight > gtHeight) {
-            hiHeight = ltHeight;
-            loHeight = gtHeight;
-        } else {
-            hiHeight = gtHeight;
-            loHeight = ltHeight;
-        }
+        size_t const loHeight = (ltHeight < gtHeight) ? ltHeight : gtHeight;
+        size_t const hiHeight = (ltHeight < gtHeight) ? gtHeight : ltHeight;
 
 #ifdef AVL_BALANCE
         // AVL balancing.

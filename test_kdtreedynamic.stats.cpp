@@ -50,6 +50,8 @@
  *                    for AVL balancing, the maximum allowed height difference between
  *                    the < and > sub-trees of a node (default 1)
  * 
+ * -D MULTI_THREAD_CUTOFF = A cutoff for multi-threaded execution of KdTree::createKdTree (default 16384)
+ * 
  * -D STATISTICS - Collect statistics such as the number of rebalancing operations, etc.
  * 
  * -D HISTOGRAM_SIZE=n - The size of the histogram vectors that collect balance data (default 25)
@@ -121,8 +123,6 @@
  * 
  * -b Build a balanced k-d tree for comparison to the dynamic k-d tree (default off)
  * 
- * -c The multi-thread cutoff below which only single-threaded execution occurs (default 65536)
- *
  * -g Find nearest neighbors to each point
  *
  * -v Verify a correct k-d tree after each insertion or erasure (default off)
@@ -180,7 +180,6 @@ int main(int argc, char** argv) {
 
   // Set the defaults then parse the input arguments.
   size_t iterations = 1;
-  size_t cutoff = 65536;
   signed_size_t numPoints = 262144;
   signed_size_t numNeighbors = 5;
   signed_size_t numDimensions = 3;
@@ -227,10 +226,6 @@ int main(int argc, char** argv) {
       balanced = !balanced;
       continue;
     }
-    if (0 == strcmp(argv[i], "-c") || 0 == strcmp(argv[i], "--cutoff")) {
-      cutoff = atol(argv[++i]);
-      continue;
-    }
     if (0 == strcmp(argv[i], "-g") || 0 == strcmp(argv[i], "--neighbors")) {
       neighbors = !neighbors;
       continue;
@@ -264,7 +259,6 @@ int main(int argc, char** argv) {
            << "-s The search divisor S used for region search" << endl << endl
            << "-p The maximum number P of nodes to report when reporting region search results" << endl << endl
            << "-b Build a balanced k-d tree for comparison to the dynamic k-d tree" << endl << endl
-           << "-c The multi-thread cutoff C below which only single-threaded execution occurs" << endl << endl
            << "-g Find nearest neighbors to each point" << endl << endl
            << "-v Verify the k-d tree ordering and balance after insertion or erasure of each point" << endl << endl
            << "-f Check for the next point after deleting each point (a cheap tree-order check)" << endl << endl
@@ -312,7 +306,7 @@ int main(int argc, char** argv) {
        << "  max submit depth = " << maximumSubmitDepth << endl << endl;
 
   // Create an instance of KdTreeDynamic.
-  auto tree = new KdTreeDynamic<kdKey_t>(maximumSubmitDepth,cutoff);
+  auto tree = new KdTreeDynamic<kdKey_t>(maximumSubmitDepth);
 
 #ifdef DEBUG_PRINT
   // A data set that requires some rebalancing operations.
@@ -479,7 +473,6 @@ int main(int argc, char** argv) {
     // constructor provides a way to create a static k-d tree that
     // can thereafter be modified as a dynamic k-d tree.
     auto dynamicTree = new KdTreeDynamic<kdKey_t>(maximumSubmitDepth,
-                                                  cutoff,
                                                   balancedTree->getRoot());
 
     // Walk the static k-d tree in increasing order and

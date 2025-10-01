@@ -50,25 +50,7 @@
  *                    for AVL balancing, the maximum allowed height difference between
  *                    the < and > subtrees of a node (default 1)
  * 
- * -D HISTOGRAM_SIZE=n - The size of the histogram vectors that collect balance data (default 25)
- * 
- * -D MAXIMUM_SIZE=n - The size of the maximum vectors that collect maximum subtree sizes (default 25)
- * 
- * -D DEBUG_PRINT - Provide a simple coordinates vector and print information to
- *                  facilitate debugging the KdTreeDynamic insert and erase functions.
- *
- * -D EXTRA_PRINT - Print additional information to facilitate debugging
- *                  the KdTreeDynamic insert and erase functions. This directive
- *                  is ignored unless -D DEBUG_PRINT is defined.
- * 
- * -D WORST_CASE - A pathological coordinates vector that requires frequent rebalancing;
- *                 this option is recognized only if DEBUG_PRINT is also defined.
- * 
- * -D FEWER_CASE - A coordinates vector that comprises fewer coordinates and produces
- *                 a tree wherein the nodes are more evenly distributed side-to-side,
- *                 and requires balancing after the final insertion. The resulting
- *                 tree is useful for creating a diagram of the tree. This option is
- *                 recognized only if DEBUG_PRINT is also defined.
+ * -D MULTI_THREAD_CUTOFF = A cutoff for multi-threaded execution of KdTree::createKdTree (default 16384)
  * 
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  *
@@ -177,7 +159,6 @@ int main(int argc, char** argv) {
 
   // Set the defaults then parse the input arguments.
   size_t iterations = 1;
-  size_t cutoff = 65536;
   signed_size_t numPoints = 262144;
   signed_size_t numNeighbors = 5;
   signed_size_t extraPoints = 100;
@@ -226,10 +207,6 @@ int main(int argc, char** argv) {
     }
     if (0 == strcmp(argv[i], "-b") || 0 == strcmp(argv[i], "--balanced")) {
       balanced = !balanced;
-      continue;
-    }
-    if (0 == strcmp(argv[i], "-c") || 0 == strcmp(argv[i], "--cutoff")) {
-      cutoff = atol(argv[++i]);
       continue;
     }
     if (0 == strcmp(argv[i], "-g") || 0 == strcmp(argv[i], "--neighbors")) {
@@ -321,7 +298,7 @@ int main(int argc, char** argv) {
        << "  max submit depth = " << maximumSubmitDepth << endl << endl;
 
   // Create an instance of KdTreeDynamic.
-  auto tree = new KdTreeDynamic<kdKey_t, kdValue_t>(maximumSubmitDepth, cutoff);
+  auto tree = new KdTreeDynamic<kdKey_t, kdValue_t>(maximumSubmitDepth);
 
   // Calculate a delta coordinate by dividing the positive range of int64_t
   // by the number of points and truncating the quotient. Because the positive

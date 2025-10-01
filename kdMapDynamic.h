@@ -53,19 +53,14 @@ using std::set;
 using std::streamsize;
 using std::vector;
 
-/* The maximum allowed height difference between a node's < and > subtrees. */
+/* The maximum allowed height difference used by isBalanced() */
 #ifndef HEIGHT_DIFF
 #define HEIGHT_DIFF (1)
 #endif
 
-/* The size of the histogram vectors. */
-#ifndef HISTOGRAM_SIZE
-#define HISTOGRAM_SIZE (25)
-#endif
-
-/* The size of the maximum value vectors. */
-#ifndef MAXIMUM_SIZE
-#define MAXIMUM_SIZE (25)
+/* The cutoff for multi-threaded execution of KdTree::createKdTree() */
+#ifndef MULTI_THREAD_CUTOFF
+#define MULTI_THREAD_CUTOFF (16384)
 #endif
 
 /* Convert microseconds to seconds for use with std::chrono */
@@ -118,11 +113,9 @@ private:
      * cutoff (IN) the minimum size of a subtree to rebuild via multiple threads
      */
 public:
-    KdTreeDynamic(signed_size_t const maxSubmitDepth,
-                  size_t const cutoff) {
+    KdTreeDynamic(signed_size_t const maxSubmitDepth) {
 
         this->maxSubmitDepth = maxSubmitDepth;
-        this->cutoff = cutoff;
     }
 
     /*
@@ -136,11 +129,9 @@ public:
      */
 public:
     KdTreeDynamic(signed_size_t const maxSubmitDepth,
-                  size_t const cutoff,
                   KdNode<K,V>* const root) {
 
         this->maxSubmitDepth = maxSubmitDepth;
-        this->cutoff = cutoff;
         KdTree<K,V>::root = root;
     }
 
@@ -965,6 +956,13 @@ private:
             // No, the subtree contains more than 3 KdNodes,
             // so rebuild the subtree via KdTree::createKdTree.
             //
+            // Check the count and kdNodes.size() for consistency.
+            if (count != kdNodes.size()) {
+                ostringstream buffer;
+                buffer << "count = " << count << "  size = " << kdNodes.size() << endl;
+                throw runtime_error(buffer.str());
+            }
+
             // Call KdTree::createKdTree to rebuild the subtree, which
             // invalidates the node argument to this rebuildSubTree function.
             //
@@ -972,7 +970,7 @@ private:
             // though multiple threads are available, unless the size of the
             // subtree is sufficiently large to justify spawning child threads.
             KdTree<K,V>* subTree;
-            if (count < cutoff) {
+            if (count < MULTI_THREAD_CUTOFF) {
                 subTree =
                     KdTree<K,V>::createKdTree(kdNodes, dim, -1, p);
             } else {
@@ -1289,14 +1287,8 @@ private:
         // Get and order the heights at the child nodes.
         size_t const ltHeight = getHeight(node->ltChild);
         size_t const gtHeight = getHeight(node->gtChild);
-        size_t hiHeight, loHeight;
-        if (ltHeight > gtHeight) {
-            hiHeight = ltHeight;
-            loHeight = gtHeight;
-        } else {
-            hiHeight = gtHeight;
-            loHeight = ltHeight;
-        }
+        size_t const loHeight = (ltHeight < gtHeight) ? ltHeight : gtHeight;
+        size_t const hiHeight = (ltHeight < gtHeight) ? gtHeight : ltHeight;
 
 #ifdef AVL_BALANCE
         // AVL balancing.
