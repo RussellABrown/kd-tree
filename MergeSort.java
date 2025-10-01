@@ -171,9 +171,8 @@ public class MergeSort
             // Create the child threads as high in the subdivision hierarchy as possible for greater utilization.
 
             // Is a child thread available to subdivide the lower half of the reference array,
-            // and are there sufficien KdNode instances to justify spawning a child thread?
-            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
-                || high - low < Constants.MERGE_CUTOFF) {
+            // and are there sufficient KdNode instances to justify spawning a child thread?
+            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth || high - low < Constants.MERGE_CUTOFF) {
 
                 // No, recursively subdivide the lower half of the reference array with the current
                 // thread and return the result in the temporary array in ascending order.
@@ -279,8 +278,7 @@ public class MergeSort
 
             // Is a child thread available to subdivide the lower half of the reference array,
             // and are there sufficien KdNode instances to justify spawning a child thread?
-            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
-                || high - low < Constants.MERGE_CUTOFF) {
+            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth || high - low < Constants.MERGE_CUTOFF) {
 
                 // No, recursively subdivide the lower half of the reference array with the current
                 // thread and return the result in the temporary array in descending order.
@@ -387,8 +385,7 @@ public class MergeSort
 
             // Is a child thread available to subdivide the lower half of the reference array,
             // and are there sufficien KdNode instances to justify spawning a child thread?
-            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
-                || high - low < Constants.MERGE_CUTOFF) {
+            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth || high - low < Constants.MERGE_CUTOFF) {
 
                 // No, recursively subdivide the lower half of the reference array with the current
                 // thread and return the result in the reference array in ascending order.
@@ -499,8 +496,7 @@ public class MergeSort
 
             // Is a child thread available to subdivide the lower half of the reference array,
             // and are there sufficien KdNode instances to justify spawning a child thread?
-            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
-                || high - low < Constants.MERGE_CUTOFF) {
+            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth || high - low < Constants.MERGE_CUTOFF) {
 
                 // No, recursively subdivide the lower half of the reference array with the current
                 // thread and return the result in the reference array in descending order.
