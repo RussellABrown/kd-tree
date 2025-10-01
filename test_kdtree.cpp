@@ -66,10 +66,9 @@
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  *
  * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
- *                              in the KdNode::mergeSort* functions (default 15)
+ *                              in the MergeSort::mergeSort* functions (default 15)
  * 
- * -D MERGE_CUTOFF=n - A cutoff for switching from 1 to 2 threads to merge reference
- *                     arrays in the KdNode::mergeSort* functions (default 4096)
+ * -D MERGE_CUTOFF=n - A cutoff for using multiple threads in MergeSort::mergeSort* (default 4096)
  * 
  * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
  *                                list in response to the -r command-line option.
@@ -88,10 +87,11 @@
  * -D BIDIRECTIONAL_PARTITION - Partition an array about the median of medians proceeding
  *                              from both ends of the array instead of only the beginning.
  * 
- *  The following compilation define applies only to the O(kn log n) algorithm.
+ * -D NLOGN_CUTOFF=n - A cutoff for using multiple threads in buildKdTree (default 4096)
  * 
- * -D PARTITION_CUTOFF=n - A cutoff for switching from 1 to 2 threads to partition
- *                         reference arrays in KdTree::buildKdTree (default 4096)
+ * The following compilation define applies only to the O(kn log n) algorithm.
+ * 
+ * -D KNLOGN_CUTOFF=n - A cutoff for using multiple threads in buildKdTree (default 4096)
  * 
  * The following compilation define applies only to the Yu Cao algorithm.
  * 

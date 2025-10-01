@@ -53,12 +53,19 @@
  * 
  * -D BIDIRECTIONAL_PARTITION - Partition an array about the median of medians proceeding
  *                              from both ends of the array instead of only the beginning.
+ * 
+ * -D NLOGN_CUTOFF=n - A cutoff for using multiple threads in buildKdTree (default 4096)
  */
 
 #ifndef KD_MAP_NLOGN_H
 #define KD_MAP_NLOGN_H
 
 #include "kdMapNode.h"
+
+/* A cutoff for using multiple threads in buildKdTree */
+#ifndef NLOGN_CUTOFF
+#define NLOGN_CUTOFF (4096)
+#endif
 
 /* A cutoff for switching from median of medians to insertion sort in KdNode::partition */
 #ifndef MEDIAN_OF_MEDIANS_CUTOFF
@@ -863,8 +870,10 @@ private:
 
       // Build the < branch of the tree with a child thread at as many levels of the
       // tree as possible.  Create the child thread as high in the tree as possible.
-      // Are child threads available to build both branches of the tree?
-      if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
+      // Are child threads available to build both branches of the tree, and are
+      // there sufficient array elements to justify spawning a child thread?
+      if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
+          || end - start < NLOGN_CUTOFF) {
 
         // No, child threads are not available, so find the median element then
         // partition the reference array about it.  Store the median element
