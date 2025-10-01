@@ -85,7 +85,7 @@
  * 
  * Usage:
  *
- * "java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-c C] [-b] [-g] [-m M] \
+ * "java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] \
  *                         [-j] [-s S] [-p P] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
@@ -97,9 +97,6 @@
  * -d The number of dimensions D (aka k) of the k-d tree (default 3)
  *
  * -t The number of threads T used to build and search the k-d tree (default 1)
- *
- * -c The multi-thread cutoff below which below which only a single thread is used
- *    to build the tree (default 65536)
  *
  * -b Build a balanced k-d tree for comparison to the dynamic k-d tree (default off)
  * 
@@ -258,7 +255,6 @@ public class TestKdTree {
                 System.out.println("-x The number X of duplicate points added to to randomly generated points\n\n");
                 System.out.println("-d The number of dimensions D (aka k) of the k-d tree\n\n");
                 System.out.println("-t The number of threads T used to build and search the static k-d tree\n\n");
-                System.out.println("-c The multi-thread cutoff below which only a single thread is used to build the tree\n\n");
                 System.out.println("-g Find nearest neighbors to a query point\n\n");
                 System.out.println("-m The maximum number M of nearest neighbors to be found\n\n");
                 System.out.println("-j Perform a region search in a hypercube centered at a query point\n\n");
@@ -354,7 +350,8 @@ public class TestKdTree {
         final double[] regionSearchTime = new double[iterations];
         final double[] regionBruteTime = new double[iterations];
 
-        // Initialize the random-number generator using Pi as a seed.
+        // Initialize the random-number generator using Pi as a seed. An alternative to Random might be the Mersenne twister:
+        // https://commons.apache.org/proper/commons-math/javadocs/api-3.6.1/org/apache/commons/math3/random/MersenneTwister.html
         Random rand = new Random();
         rand.setSeed(3141592653589793239L);
 		

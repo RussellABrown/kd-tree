@@ -45,29 +45,24 @@ import java.util.TreeSet;
  */
 public class KdTreeDynamic extends KdTree {
 
-    protected int cutoff = Constants.MULTI_THREAD_CUTOFF;
     private boolean inserted = false, erased = false, changed = false;
 
     // This constructor does not set KdTree.root
     KdTreeDynamic(final int numDimensions,
                   final ExecutorService executor,
-                  final int maxSubmitDepth,
-                  final int cutoff)
+                  final int maxSubmitDepth)
     {
         super(numDimensions, executor, maxSubmitDepth);
-        this.cutoff = cutoff;
     }
 
     // This constructor sets KdTree.root
     KdTreeDynamic(final int numDimensions,
                   final ExecutorService executor,
                   final int maxSubmitDepth,
-                  final int cutoff,
                   KdNode node)
     {
         super(numDimensions, executor, maxSubmitDepth);
-        this.cutoff = cutoff;
-        root = node; // the root of the KdTree instance
+        root = node;
     }
 
     protected boolean isEmpty()
@@ -745,7 +740,7 @@ public class KdTreeDynamic extends KdTree {
             // though multiple threads are available, unless the size of the
             // subtree is sufficiently large to justify spawning child threads.
             KdTree tree;
-            if (count < cutoff) {
+            if (count < Constants.MULTI_THREAD_CUTOFF) {
                 tree = KdTree.createKdTree(kdNodes, executor, -1, p);
             } else {
                 tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);

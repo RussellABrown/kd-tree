@@ -49,9 +49,9 @@ public class Constants {
 
     protected static final int MERGE_CUTOFF = 4096;
 
-    protected static final long MILLISECONDS_TO_SECONDS = 1000L;
+    protected static final int MULTI_THREAD_CUTOFF = 16384;
 
-    protected static final int MULTI_THREAD_CUTOFF = 65536;
+    protected static final long MILLISECONDS_TO_SECONDS = 1000L;
 
     protected static final int HEIGHT_DIFF = 1;
     
