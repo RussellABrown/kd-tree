@@ -361,7 +361,10 @@ public class KdNode {
         final ArrayList<KdNode> result = new ArrayList<KdNode>();
         boolean inside = true;
         for (int i = 0; i < tuple.length; i++) {
-            if (tuple[i] < queryLower[i] || tuple[i] > queryUpper[i]) {
+            final BigInteger tup = BigInteger.valueOf(tuple[i]);
+            final BigInteger quL = BigInteger.valueOf(queryLower[i]);
+            final BigInteger quU = BigInteger.valueOf(queryUpper[i]);
+            if (tup.compareTo(quL) < 0 || tup.compareTo(quU) > 0) {
                 inside = false;
                 break;
             }
@@ -525,7 +528,10 @@ public class KdNode {
         final LinkedList<KdNode> result = new LinkedList<KdNode>();
         boolean inside = true;
         for (int i = 0; i < tuple.length; i++) {
-            if (tuple[i] < queryLower[i] || tuple[i] > queryUpper[i]) {
+            final BigInteger tup = BigInteger.valueOf(tuple[i]);
+            final BigInteger quL = BigInteger.valueOf(queryLower[i]);
+            final BigInteger quU = BigInteger.valueOf(queryUpper[i]);
+            if (tup.compareTo(quL) < 0 || tup.compareTo(quU) > 0) {
                 inside = false;
                 break;
             }
@@ -617,13 +623,13 @@ public class KdNode {
      * that contains the k-d nodes that lie within the cutoff distance of the query node
      */
     public Callable<List<KdNode>> searchKdTreeLLWithThread(final long[] queryLower,
-                                                                final long[] queryUpper,
-                                                                final ExecutorService executor,
-                                                                final int maximumSubmitDepth,
-                                                                final int p,
-                                                                final int depth,
-                                                                final boolean[] enable) {
-        
+                                                           final long[] queryUpper,
+                                                           final ExecutorService executor,
+                                                           final int maximumSubmitDepth,
+                                                           final int p,
+                                                           final int depth,
+                                                           final boolean[] enable) {
+
         return new Callable<List<KdNode>>() {
             @Override
             public List<KdNode> call() {
@@ -636,16 +642,16 @@ public class KdNode {
     /**
      * <p>
      * The {@code nearestNeighbor} method is used to search the tree for all possible M
-     * nearest geometric neighbors by adding them the the NearestNeighborList.  It
+     * nearest geometric neighbors by adding them the the NearestNeighborHeap.  It
      * excludes branches of the tree where it is guaranteed that all the nodes in that
-     * branch are farther way than the current farthest node in the NearestNeighborList.
+     * branch are farther way than the current farthest node in the NearestNeighborHeap.
      * </p>
      *
-     * @param nnList - Instance of the NearestNeighborList.
+     * @param nnList - Instance of the NearestNeighborHeap.
      * @param q - the leading dimension that permutes cyclically
      */
-    protected void nearestNeighbor(final NearestNeighborList nnList,
-                                   final int q) {
+    protected void nearestNeighbors(final NearestNeighborHeap nnList,
+                                    final int q) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus opeator for p <= dim.
@@ -655,40 +661,40 @@ public class KdNode {
         long comparison = MergeSort.superKeyCompare(nnList.query, tuple, p);
 
         // If query < tuple, descend the < branch to the bottom of the tree before adding a point to the
-        // nearestNeighborList, which increases the probability that closer nodes to the query point will get added
+        // nearestNeighborHeap, which increases the probability that closer nodes to the query point will get added
         // earlier, thus reducing the likelihood of adding more distant points that get kicked out of the list later.
         if (comparison < 0L) {
             if (ltChild != null) {  // if not at the bottom of the tree yet descend the near branch unconditionally
-                ltChild.nearestNeighbor(nnList, p+1);
+                ltChild.nearestNeighbors(nnList, p+1);
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
-            // nearestNeighborList or if this component of the query is not enabled for nearest neighbor search.
+            // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search.
             // If so, then add the node and descend the farther branch.
-            final long coor = tuple[p] - nnList.query[p];
-            final BigInteger square = BigInteger.valueOf(coor).multiply(BigInteger.valueOf(coor));
-            if (square.compareTo(nnList.curMaxDist) < 0 || !nnList.enable[p]) {
+            final BigInteger coor = BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p]));
+            final BigInteger square = coor.multiply(coor);
+            if ( square.compareTo(nnList.curMaxDist()) < 0 || !nnList.enable[p] || !nnList.heapFull()) {
                 nnList.add(this);  // add the current node to the list
                 if (gtChild != null) { // and if not at the bottom, descend the far branch
-                    gtChild.nearestNeighbor(nnList, p+1);
+                    gtChild.nearestNeighbors(nnList, p+1);
                 }
             }
         }
         // If query > tuple, descend the > branch to the bottom of the tree before adding a point to the
-        // nearestNeighborList, which increases the probability that closer nodes to the query point will get added
+        // nearestNeighborHeap, which increases the probability that closer nodes to the query point will get added
         // earlier, thus reducing the likelihood of adding more distant points that get kicked out of the list later.
         else if (comparison > 0L) {
             if (gtChild != null) {  // if not at the bottom of the tree yet descend the near branch unconditionally
-                gtChild.nearestNeighbor(nnList, p+1);
+                gtChild.nearestNeighbors(nnList, p+1);
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
-            // nearestNeighborList or if this component of the query is not enabled for nearest neighbor search.
+            // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search.
             // If so, then add the node and descend the farther branch.
-            final long coor = nnList.query[p] - tuple[p];
-            final BigInteger square = BigInteger.valueOf(coor).multiply(BigInteger.valueOf(coor));
-            if (square.compareTo(nnList.curMaxDist) < 0 || !nnList.enable[p]) {
+            final BigInteger coor = BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p]));
+            final BigInteger square = coor.multiply(coor);
+            if ( square.compareTo(nnList.curMaxDist()) < 0 || !nnList.enable[p] || !nnList.heapFull() ) {
                 nnList.add(this);
                 if (ltChild != null) {
-                    ltChild.nearestNeighbor(nnList, p+1);
+                    ltChild.nearestNeighbors(nnList, p+1);
                 }
             }
         }
@@ -699,15 +705,67 @@ public class KdNode {
         else {
             nnList.add(this);
             if (ltChild != null) {
-                ltChild.nearestNeighbor(nnList, p+1);
+                ltChild.nearestNeighbors(nnList, p+1);
             }
             if (gtChild != null) {
-                gtChild.nearestNeighbor(nnList, p+1);
+                gtChild.nearestNeighbors(nnList, p+1);
             }
         }
         return;
     }
 
+  /*
+   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   */
+    protected void findNearestNeighbors(final LinkedList<Paire> neighbors,
+                                        final long[] query,
+                                        final int numNeighbors) {
+    
+        // Create the heap and search the k-d tree for nearest neighbors.
+        NearestNeighborHeap heap = new NearestNeighborHeap(query, numNeighbors);
+        nearestNeighbors(heap, 0);
+
+        // Empty the heap by successively removing the top of the heap and prepending it to a list.
+        // Remove only the number of heap entries present.
+        final int heapDepth = heap.heapDepth();;
+        for (int i = 0; i < heapDepth; ++i) {
+        neighbors.addFirst(heap.removeTop());
+        }
+    }
+  
+  /*
+   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   * enable - a vector that specifies the dimensions for which to test distance
+   */
+    protected void findNearestNeighbors(final LinkedList<Paire> neighbors,
+                                        final long[] query,
+                                        final int numNeighbors,
+                                        final boolean[] enable) {
+    
+        // Create the heap and search the k-d tree for nearest neighbors.
+        NearestNeighborHeap heap = new NearestNeighborHeap(query, numNeighbors, enable);
+        nearestNeighbors(heap, 0);
+
+        // Empty the heap by successively removing the top of the heap and prepending it to a list.
+        // Remove only the number of heap entries present.
+        final int heapDepth = heap.heapDepth();;
+        for (int i = 0; i < heapDepth; ++i) {
+        neighbors.addFirst(heap.removeTop());
+        }
+    }
+  
     /**
      * <p>
      * The {@code bruteNeighbor} method is used to search the tree for all possible M
@@ -715,11 +773,11 @@ public class KdNode {
      * searches all branches of the tree in a brute-force manner.
      * </p>
      *
-     * @param nnList - Instance of the NearestNeighborList.
+     * @param nnList - Instance of the NearestNeighborHeap.
      * @param q - the leading dimension that permutes cyclically
      */
-    protected void bruteNeighbor(final NearestNeighborList nnList,
-                                 final int q) {
+    protected void bruteNeighbors(final NearestNeighborHeap nnList,
+                                  final int q) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus opeator for p <= dim.
@@ -730,25 +788,75 @@ public class KdNode {
 
         // if not at the bottom of the tree yet descend the < branch unconditionally.
         if (ltChild != null) {  
-            ltChild.bruteNeighbor(nnList, p+1);
+            ltChild.bruteNeighbors(nnList, p+1);
         }
 
         // if not at the bottom of the tree yet descend the > branch unconditionally.
         if (gtChild != null) {  
-            gtChild.bruteNeighbor(nnList, p+1);
+            gtChild.bruteNeighbors(nnList, p+1);
         }
 
         // Check to see if the current node is closer to the query point than the farthest item in the
         // nearestNeighborList and if so, then add the node.
-        final long coor = tuple[p] - nnList.query[p];
-        final BigInteger square = BigInteger.valueOf(coor).multiply(BigInteger.valueOf(coor));
-        if (square.compareTo(nnList.curMaxDist) <= 0 || !nnList.enable[p]) {
-            nnList.add(this);  // add the current node to the list
-        }
-
-       return;
+        final BigInteger coor = BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p]));
+        final BigInteger square = coor.multiply(coor);
+        if ( square.compareTo(nnList.curMaxDist()) <= 0 || !nnList.enable[p] || !nnList.heapFull() ) {
+                nnList.add(this);  // add the current node to the list
+            }
     }
 
+  /*
+   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   */
+    protected  void findBruteNeighbors(final LinkedList<Paire> neighbors,
+                                       final long[] query,
+                                       final int numNeighbors) {
+    
+        // Create the heap and search the k-d tree via brute force.
+        NearestNeighborHeap heap = new NearestNeighborHeap(query, numNeighbors);
+        bruteNeighbors(heap, 0);
+
+        // Empty the heap by successively removing the top of the heap and prepending it to a list.
+        // Remove only the number of heap entries present.
+        final int heapDepth = heap.heapDepth();;
+        for (int i = 0; i < heapDepth; ++i) {
+            neighbors.addFirst(heap.removeTop());
+        }
+    }
+  
+  /*
+   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   * enable - a vector that specifies the dimensions for which to test distance
+   */
+    protected void findBruteNeighbors(final LinkedList<Paire> neighbors,
+                                      final long[] query,
+                                      final int numNeighbors,
+                                      final boolean[] enable) {
+    
+        // Create the heap and search the k-d tree bia brute force.
+        NearestNeighborHeap heap = new NearestNeighborHeap(query, numNeighbors, enable);
+        bruteNeighbors(heap, 0);
+
+        // Empty the heap by successively removing the top of the heap and prepending it to a list.
+        // Remove only the number of heap entries present.
+        final int heapDepth = heap.heapDepth();;
+        for (int i = 0; i < heapDepth; ++i) {
+            neighbors.addFirst(heap.removeTop());
+        }
+    }
+  
     /**
      * <p>
      * The {@code printKdTree} method prints the k-d tree "sideways" with the root at the left.

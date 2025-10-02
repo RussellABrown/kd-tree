@@ -483,25 +483,26 @@ public class TestKdTree {
             {
                 // Search the tree to get the list of KdNodes.
                 long nnTime = System.currentTimeMillis();
-                NearestNeighborList nnList = new NearestNeighborList(query, numNearestNeighbors);
-                tree.nearestNeighbor(nnList, 0);
+                LinkedList<Paire> nnList = new LinkedList<Paire>();
+                tree.findNearestNeighbors(nnList, query, numNearestNeighbors);
                 nnTime = System.currentTimeMillis() - nnTime;
                 neighborsSearchTime[k] += (double) nnTime / Constants.MILLISECONDS_TO_SECONDS;
-                numNeighborsNodes = nnList.curDepth;
+                numNeighborsNodes = nnList.size();
 
                 // Search the tree again to get the list of KdNodes.
                 long bfTime = System.currentTimeMillis();
-                NearestNeighborList bfList = new NearestNeighborList(query, numNearestNeighbors);
-                tree.bruteNeighbor(bfList, 0);
+                LinkedList<Paire> bfList = new LinkedList<Paire>();
+                tree.findBruteNeighbors(bfList, query, numNearestNeighbors);
                 bfTime = System.currentTimeMillis() - bfTime;
                 neighborsBruteTime[k] += (double) bfTime / Constants.MILLISECONDS_TO_SECONDS;
+                int numBruteNodes = bfList.size();
 
                 // Compare the results of nearest-neighbor search and brute-force search.
-                for (int i = 0; i < numNearestNeighbors; ++i) {
-                    if (MergeSort.superKeyCompare(bfList.nodes[i].tuple, nnList.nodes[i].tuple, 0) != 0L) {
+                for (int i = 0; i < numNeighborsNodes; ++i) {
+                    if (MergeSort.superKeyCompare(bfList.get(i).getValue().tuple, nnList.get(i).getValue().tuple, 0) != 0L) {
                         System.out.println("nearest-neighbor and brute-force values at " + i + " do not match");
-                        System.out.println("nn dist = " + nnList.dists[i].toString() +
-                                           "  bf dist = " + bfList.dists[i].toString() + "\n");
+                        System.out.println("nn dist = " + nnList.get(i).getKey().toString() +
+                                           "  bf dist = " + bfList.get(i).getKey().toString() + "\n");
                     }
                 }
             }

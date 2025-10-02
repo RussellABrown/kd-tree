@@ -282,44 +282,92 @@ public class KdTree {
         }
     }
 
-    /**
-     * <p>
-     * The {@code nearestNeighbor} method is used to search the tree for all possible M
-     * nearest geometric neighbors by adding them the the NearestNeighborList.  It
-     * excludes branches of the tree where it is guaranteed that all the nodes in that
-     * branch are farther way than the current farthest node in the NearestNeighborList.
-     * </p>
-     *
-     * @param nnList - Instance of the NearestNeighborList.
-     * @param p - the leading dimension that permutes cyclically
-     * @param depth - the depth in the k-d tree
-     */
-    protected void nearestNeighbor(final NearestNeighborList nnList,
-                                   final int p)
+  /*
+   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   */
+    protected void findNearestNeighbors(final LinkedList<Paire> neighbors,
+                                        final long[] query,
+                                        final int numNeighbors)
     {
-        if (root != null) {
-            root.nearestNeighbor(nnList, p);
-        }
+        root.findNearestNeighbors(neighbors, query, numNeighbors);
     }
-
+  
+  /*
+   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   * enable - a vector that specifies the dimensions for which to test distance
+   */
+    protected void findNearestNeighbors(final LinkedList<Paire> neighbors,
+                                        final long[] query,
+                                        final int numNeighbors,
+                                        final boolean[] enable)
+    {
+        root.findNearestNeighbors(neighbors, query, numNeighbors, enable);
+    }
+  
     /**
      * <p>
      * The {@code bruteNeighbor} method is used to search the tree for all possible M
-     * nearest geometric neighbors by adding them the the NearestNeighborList.  It
+     * nearest geometric neighbors by adding them the the NearestNeighborHeap.  It
      * searches all branches of the tree in a brute-force manner.
      * </p>
      *
-     * @param nnList - Instance of the NearestNeighborList.
+     * @param nnList - Instance of the NearestNeighborHeap.
      * @param p - the leading dimension that permutes cyclically
      */
-    protected void bruteNeighbor(final NearestNeighborList nnList,
-                                 final int p)
+    protected void bruteNeighbors(final NearestNeighborHeap nnList,
+                                  final int p)
     {
         if (root != null) {
-            root.bruteNeighbor(nnList, p);
+            root.bruteNeighbors(nnList, p);
         }
     }
 
+  /*
+   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   */
+    protected void findBruteNeighbors(final LinkedList<Paire> neighbors,
+                                      final long[] query,
+                                      final int numNeighbors)
+    {
+        root.findBruteNeighbors(neighbors, query, numNeighbors);
+    }
+  
+  /*
+   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   * enable - a vector that specifies the dimensions for which to test distance
+   */
+    protected void findBruteNeighbors(final LinkedList<Paire> neighbors,
+                                      final long[] query,
+                                      final int numNeighbors,
+                                      final boolean[] enable)
+    {
+        root.findBruteNeighbors(neighbors, query, numNeighbors, enable);
+    }
+  
     /**
      * <p>
      * The {@code contains} method searches the tree for a key-value pair.
