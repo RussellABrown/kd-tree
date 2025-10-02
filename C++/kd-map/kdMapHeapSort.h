@@ -69,7 +69,7 @@ private:
   vector<bool> enable;
   signed_size_t reqDepth; // requested number of nearest neighbors
   vector<KdNode<K,V>* > nodes; // vector of pointers to KdNodes that are the nearest neighbors
-  vector<double> dists; // vector of squared distances
+  vector<cpp_int> dists; // vector of squared distances
   signed_size_t curDepth; // number of nearest nodes/distances on the heap
 
   /*
@@ -121,7 +121,7 @@ private:
   void swap(signed_size_t const i,
             signed_size_t const j) {
     
-    double const tempDist = dists[i];
+    cpp_int const tempDist = dists[i];
     auto const tempNode = nodes[i];
     dists[i] = dists[j];
     nodes[i] = nodes[j];
@@ -175,8 +175,8 @@ private:
    * return a pair that contains a pointer to the top KdNode and the distance to that KdNode
    */
 private:
-  pair<double, KdNode<K,V>*> removeTop() {
-    pair<double, KdNode<K,V>*> returnPair = make_pair(dists[1], nodes[1]);
+  pair<cpp_int, KdNode<K,V>*> removeTop() {
+    pair<cpp_int, KdNode<K,V>*> returnPair = make_pair(dists[1], nodes[1]);
     swap(1, curDepth--);
     nodes[curDepth+1] = nullptr;
     fall(1);
@@ -195,15 +195,15 @@ private:
   void add(KdNode<K,V>* const node) {
     // Find the distance by subtracting the query from the tuple and
     // calculating the sum of the squared distances. Note that conversion
-    // from type K to double may result in loss of precision but avoids
+    // from type K to cpp_int may result in loss of precision but avoids
     // the possibility of integer overflow.
-    double dist2 = 0.0;
+    cpp_int dist2 = 0;
     for (size_t i = 0; i < query.size(); ++i) {
       // Add the squared coordinate distance only if the dimension is enabled.
       if (enable[i]) {
-        double tup = node->tuple[i]; // May result in loss of precision
-        double que = query[i];       // May result in loss of precision
-        double dist = tup - que;
+        cpp_int tup = node->tuple[i]; // May result in loss of precision
+        cpp_int que = query[i];       // May result in loss of precision
+        cpp_int dist = tup - que;
         dist2 += dist * dist;
       }
     }
@@ -224,7 +224,7 @@ private:
 
   /* Return the current maximum distance, i.e., dists[1] */
 private:
-  double curMaxDist() {
+  cpp_int curMaxDist() {
     return dists[1];
   }
 
