@@ -1440,7 +1440,7 @@ private:
         sumSize += size;
         sumSize2 += size * size;
         for (auto listIt = vecList.begin(); listIt != vecList.end(); ++listIt) {
-          double const dist2 = listIt->first;
+          double const dist2 = static_cast<double>(listIt->first);
           sumDist += sqrt(dist2);
           sumDist2 += dist2;
         }
