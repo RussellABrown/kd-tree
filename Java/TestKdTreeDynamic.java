@@ -30,7 +30,7 @@
 
 /*
  * Test program for KdTreeDynamic.java, KdTree.java, KdTreeNlogn.java, KdTreeKnlogn.java
- * KdNode.java, MergeSort.java, NearestNeighborList.java, Pair.java, and Constants.java
+ * KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java and Constants.java
  *
  * Configuration is controlled via the following constants in Constants.java
  *
@@ -125,7 +125,6 @@
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.List;
-import java.util.LinkedList;
 import java.util.Random;
 
 /**
@@ -508,16 +507,14 @@ public class TestKdTreeDynamic {
             {
                 // Search the tree to get the list of KdNodes.
                 long nnTime = System.currentTimeMillis();
-                LinkedList<Paire> nnList = new LinkedList<Paire>();
-                tree.findNearestNeighbors(nnList, query, numNearestNeighbors);
+                List<Paire> nnList = tree.findNearestNeighbors(query, numNearestNeighbors);
                 nnTime = System.currentTimeMillis() - nnTime;
                 neighborsSearchTime[k] += (double) nnTime / Constants.MILLISECONDS_TO_SECONDS;
                 numNeighborsNodes = nnList.size();
 
                 // Search the tree again to get the list of KdNodes.
                 long bfTime = System.currentTimeMillis();
-                LinkedList<Paire> bfList = new LinkedList<Paire>();
-                tree.findBruteNeighbors(bfList, query, numNearestNeighbors);
+                List<Paire> bfList = tree.findBruteNeighbors(query, numNearestNeighbors);
                 bfTime = System.currentTimeMillis() - bfTime;
                 neighborsBruteTime[k] += (double) bfTime / Constants.MILLISECONDS_TO_SECONDS;
                 int numBruteNodes = bfList.size();

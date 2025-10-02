@@ -282,90 +282,92 @@ public class KdTree {
         }
     }
 
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified.
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   */
-    protected void findNearestNeighbors(final LinkedList<Paire> neighbors,
-                                        final long[] query,
-                                        final int numNeighbors)
+    /**
+     * <p>
+     * The {@code findNearestNeighbors} method finds up to M nearest neighbors to the query array
+     * and returns them as a list ordered by increasing distance.
+     *
+     * Calling parameters:
+     *
+     * @param query - the query array
+     * @param numNeighbors - the number M of nearest neighbors to attempt to find
+     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     */
+    protected List<Paire> findNearestNeighbors(final long[] query,
+                                               final int numNeighbors)
     {
-        root.findNearestNeighbors(neighbors, query, numNeighbors);
-    }
-  
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified.
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   * enable - a vector that specifies the dimensions for which to test distance
-   */
-    protected void findNearestNeighbors(final LinkedList<Paire> neighbors,
-                                        final long[] query,
-                                        final int numNeighbors,
-                                        final boolean[] enable)
-    {
-        root.findNearestNeighbors(neighbors, query, numNeighbors, enable);
+        if (root == null) {
+            return null;
+        } else {
+            return root.findNearestNeighbors(query, numNeighbors);
+        }
     }
   
     /**
      * <p>
-     * The {@code bruteNeighbor} method is used to search the tree for all possible M
-     * nearest geometric neighbors by adding them the the NearestNeighborHeap.  It
-     * searches all branches of the tree in a brute-force manner.
-     * </p>
+     * The {@code findNearestNeighbors} method finds up to M nearest neighbors to the query array
+     * and returns them as a list ordered by increasing distance.
      *
-     * @param nnList - Instance of the NearestNeighborHeap.
-     * @param p - the leading dimension that permutes cyclically
+     * Calling parameters:
+     *
+     * @param query - the query array
+     * @param numNeighbors - the number M of nearest neighbors to attempt to find
+     * @param enable - an array that specifies which dimensions to search
+     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
      */
-    protected void bruteNeighbors(final NearestNeighborHeap nnList,
-                                  final int p)
+    protected List<Paire> findNearestNeighbors(final long[] query,
+                                               final int numNeighbors,
+                                               final boolean[] enable)
     {
-        if (root != null) {
-            root.bruteNeighbors(nnList, p);
+        if (root == null) {
+            return null;
+        } else {
+            return root.findNearestNeighbors(query, numNeighbors, enable);
         }
     }
-
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified.
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   */
-    protected void findBruteNeighbors(final LinkedList<Paire> neighbors,
-                                      final long[] query,
-                                      final int numNeighbors)
+  
+    /**
+     * <p>
+     * The {@code findBruteNeighbors} method finds up to M nearest neighbors to the query array
+     * via brute force and returns them as a list ordered by increasing distance.
+     *
+     * Calling parameters:
+     *
+     * @param query - the query array
+     * @param numNeighbors - the number M of nearest neighbors to attempt to find
+     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     */
+    protected List<Paire> findBruteNeighbors(final long[] query,
+                                             final int numNeighbors)
     {
-        root.findBruteNeighbors(neighbors, query, numNeighbors);
+        if (root == null) {
+            return null;
+        } else {
+            return root.findBruteNeighbors(query, numNeighbors);
+        }
     }
   
-  /*
-   * Find up to M nearest neighbors to the query vector and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified.
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to attempt to find
-   * enable - a vector that specifies the dimensions for which to test distance
-   */
-    protected void findBruteNeighbors(final LinkedList<Paire> neighbors,
-                                      final long[] query,
-                                      final int numNeighbors,
-                                      final boolean[] enable)
+    /**
+     * <p>
+     * The {@code findBruteNeighbors} method finds up to M nearest neighbors to the query array
+     * via brute force and returns them as a list ordered by increasing distance.
+     *
+     * Calling parameters:
+     *
+     * @param query - the query array
+     * @param numNeighbors - the number M of nearest neighbors to attempt to find
+     * @param enable - an array that specifies which dimensions to search
+     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     */
+    protected List<Paire> findBruteNeighbors(final long[] query,
+                                             final int numNeighbors,
+                                             final boolean[] enable)
     {
-        root.findBruteNeighbors(neighbors, query, numNeighbors, enable);
+        if (root == null) {
+            return null;
+        } else {
+            return root.findBruteNeighbors(query, numNeighbors, enable);
+        }
     }
   
     /**
