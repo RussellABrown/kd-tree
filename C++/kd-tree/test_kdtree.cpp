@@ -617,8 +617,8 @@ int main(int argc, char** argv) {
   // Each vector element contains a list that is initialized to an empty list.
   if (reverseNearestNeighbors) {
     auto beginTime = steady_clock::now();
-    vector< forward_list< pair<double, KdNode<kdKey_t>*> > > nn(coordinates.size());
-    vector< forward_list< pair<double, KdNode<kdKey_t>*> > > rnn(coordinates.size());
+    vector< forward_list< pair<cpp_int, KdNode<kdKey_t>*> > > nn(coordinates.size());
+    vector< forward_list< pair<cpp_int, KdNode<kdKey_t>*> > > rnn(coordinates.size());
     vector<mutex> mutexes(coordinates.size());
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);

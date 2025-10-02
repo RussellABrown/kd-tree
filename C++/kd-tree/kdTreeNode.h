@@ -1421,7 +1421,7 @@ private:
         sumSize += size;
         sumSize2 += size * size;
         for (auto listIt = vecList.begin(); listIt != vecList.end(); ++listIt) {
-          double const dist2 = listIt->first;
+          double const dist2 = static_cast<double>(listIt->first);
           sumDist += sqrt(dist2);
           sumDist2 += dist2;
         }
@@ -1445,7 +1445,7 @@ private:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 private:
-  size_t nonEmptyLists(vector< forward_list< pair<double, KdNode<K>*> > >& vec) const {
+  size_t nonEmptyLists(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& vec) const {
 
     size_t count = 0;
     for (size_t i = 0; i < vec.size(); ++i) {
