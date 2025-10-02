@@ -437,7 +437,7 @@ int main(int argc, char** argv) {
 
   // Search the k-d tree for up to numNeighbors nearest neighbors to the
   // first searchIterations (x, y, z, w...) coordinates.
-  forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
+  forward_list< pair<cpp_int, KdNode<kdKey_t>*> > neighborList;
   for (size_t i = 0; i < searchIterations; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
         query[j] = coordinates[i][j];
@@ -574,7 +574,7 @@ int main(int argc, char** argv) {
     for (signed_size_t i = 0; i < numDimensions; ++i) {
       query[i] = i;
     }
-    forward_list< pair<double, KdNode<kdKey_t>*> > neighborsFast;
+    forward_list< pair<cpp_int, KdNode<kdKey_t>*> > neighborsFast;
     root->findNearestNeighbors(neighborsFast, query, numNeighbors);
 
     cout << "tree nearest-neighbor list size = " << distance(neighborsFast.begin(), neighborsFast.end()) << endl << endl;
@@ -584,7 +584,7 @@ int main(int argc, char** argv) {
     cout << endl;
 
     auto beginTime = steady_clock::now();
-    forward_list< pair<double, KdNode<kdKey_t>*> > neighborsSlow;
+    forward_list< pair<cpp_int, KdNode<kdKey_t>*> > neighborsSlow;
     // Find only the number of nearest neighbors returned by findNearestNeighbors above.
     root->bruteNearestNeighbors(neighborsSlow, query, distance(neighborsFast.begin(), neighborsFast.end()));
     auto endTime = steady_clock::now();

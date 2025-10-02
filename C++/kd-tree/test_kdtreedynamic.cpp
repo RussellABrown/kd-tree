@@ -415,7 +415,7 @@ int main(int argc, char** argv) {
 
       // Find numNeighbors nearest neighbors to each coordinate.
       if (neighbors) {
-        forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
+        forward_list< pair<cpp_int, KdNode<kdKey_t>*> > neighborList;
         vector<kdKey_t> query(coordinates[0].size());
         auto beginTime = steady_clock::now();
         for (size_t i = 0; i < coordinates.size(); ++i) {
@@ -487,7 +487,7 @@ int main(int argc, char** argv) {
 
     // Find numNeighbors nearest neighbors to each coordinate.
     if (neighbors) {
-      forward_list< pair<double, KdNode<kdKey_t>*> > neighborList;
+      forward_list< pair<cpp_int, KdNode<kdKey_t>*> > neighborList;
       vector<kdKey_t> query(coordinates[0].size());
       auto beginTime = steady_clock::now();
       for (size_t i = 0; i < coordinates.size(); ++i) {

@@ -44,8 +44,7 @@
  * -D MERGE_CUTOFF=n - A cutoff for switching from 1 to 2 threads to merge reference
  *                     arrays in the KdNode::mergeSort* functions (default 4096)
  * 
- * -D PARTITION_CUTOFF=n - A cutoff for switching from 1 to 2 threads to partition
- *                         reference arrays in KdTree::buildKdTree (default 4096)
+ * -D KNLOGN_CUTOFF=n - A cutoff for using multiple threads in buildKdTree (default 4096)
  */
 
 #ifndef KD_TREE_KNLOGN_H
@@ -53,7 +52,7 @@
 
 #include "kdTreeNode.h"
 
-/* A cutoff for using multiple threads in KdTree::buildKdTree */
+/* A cutoff for using multiple threads in buildKdTree */
 #ifndef KNLOGN_CUTOFF
 #define KNLOGN_CUTOFF (4096)
 #endif
@@ -852,7 +851,7 @@ public:
    * numNeighbors - the number M of nearest neighbors to attempt to find
    */
 public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
+  void findNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
                             signed_size_t const numNeighbors) {
     
@@ -872,7 +871,7 @@ public:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
+  void findNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
                             signed_size_t const numNeighbors,
                             vector<bool> const& enable) {
@@ -895,8 +894,8 @@ public:
    * of the k-d tree for access to the KdNodes via the lists. Hence, this function is not static.
    */
 public:
-  void verifyNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighborsFast,
-                              forward_list< pair<double, KdNode<K>*> >& neighborsSlow) const {
+  void verifyNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighborsFast,
+                              forward_list< pair<cpp_int, KdNode<K>*> >& neighborsSlow) const {
     
     if (root != nullptr) {
       root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
@@ -912,21 +911,21 @@ public:
    * query - a vector that contains the query point coordinates
    * maxNodes - the maximum number of nodes to maintain on the heap
    * 
-   * returns: a sorted forward list of (double, KdNode*) pairs
+   * returns: a sorted forward list of (cpp_int, KdNode*) pairs
    *
    * Because this function does not access the k-d tree, it could be static.
    * However, calling it as a static function requires speicification of a
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  forward_list<pair<double, KdNode<K>*>> sortByDistance(list<KdNode<K>*> const& kdList,
-                                                        vector<K> const& query,
-                                                        signed_size_t const& maxNodes) {
+  forward_list<pair<cpp_int, KdNode<K>*>> sortByDistance(list<KdNode<K>*> const& kdList,
+                                                         vector<K> const& query,
+                                                         signed_size_t const& maxNodes) {
 
     if (root != nullptr) {
       return root->sortByDistance(kdList, query, maxNodes);
     } else {
-      forward_list<pair<double, KdNode<K>*>> sortedList;
+      forward_list<pair<cpp_int, KdNode<K>*>> sortedList;
       return sortedList;
     }
   }
@@ -955,8 +954,8 @@ public:
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    */
 public:
-  void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
-                                   vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
+  void findReverseNearestNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& nn,
+                                   vector< forward_list< pair<cpp_int, KdNode<K>*> > >& rnn,
                                    vector<mutex>& mutexes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
@@ -992,8 +991,8 @@ public:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 public:
-  void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K>*> >* >& nn,
-                                   vector< forward_list< pair<double, KdNode<K>*> >* >& rnn,
+  void findReverseNearestNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> >* >& nn,
+                                   vector< forward_list< pair<cpp_int, KdNode<K>*> >* >& rnn,
                                    vector<mutex>& mutexes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
@@ -1019,8 +1018,8 @@ public:
    * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
    */
 public:
-  void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
-                              vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
+  void verifyReverseNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& nn,
+                              vector< forward_list< pair<cpp_int, KdNode<K>*> > >& rnn,
                               signed_size_t const numberOfNodes) {
 
     if (root != nullptr) {
@@ -1039,7 +1038,7 @@ public:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  void calculateMeanStd(vector< forward_list< pair<double, KdNode<K>*> > >& vec,
+  void calculateMeanStd(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& vec,
                         double& meanSize,
                         double& stdSize,
                         double& meanDist,
@@ -1061,7 +1060,7 @@ public:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  size_t nonEmptyLists(vector< forward_list< pair<double, KdNode<K>*> > >& vec) const {
+  size_t nonEmptyLists(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& vec) const {
 
     if (root != nullptr) {
       return root->nonEmptyLists(vec);
@@ -1082,7 +1081,7 @@ public:
    * numNeighbors - the number M of nearest neighbors to find
    */
 public:
-  void bruteNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
+  void bruteNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
                              vector<K> const& query,
                              signed_size_t const numNeighbors) {
     
@@ -1159,7 +1158,7 @@ public:
    *
    * Calling parameters:
    *
-   * regionList - a list of (double, KdNode*) pairs
+   * regionList - a list of (cpp_int, KdNode*) pairs
    * maximumNumberOfNodesToPrint - the maximum number of KdNodes to print
    * numDimensions - the number of dimensions
    *
@@ -1168,7 +1167,7 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  void printTuples(forward_list<pair<double, KdNode<K>*>> const& regionList,
+  void printTuples(forward_list<pair<cpp_int, KdNode<K>*>> const& regionList,
                    signed_size_t const maximumNumberOfNodesToPrint,
                    signed_size_t const numDimensions) const {
     
