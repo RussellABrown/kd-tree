@@ -669,12 +669,14 @@ public class KdNode {
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
             // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search
-            // or if the heap is not full. If so, then add the node and descend the > branch.
-            final BigInteger coor = BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p]));
-            final BigInteger square = coor.multiply(coor);
-            if ( !nnList.enable[p] || !nnList.heapFull() || square.compareTo(nnList.curMaxDist()) < 0 ) {
-                nnList.add(this);  // add the current node to the list
-                if (gtChild != null) { // and if not at the bottom, descend the far branch
+            // or if the heap is not full, and if so, add the node and descend the > branch. Avoid BigInteger
+            // computation if possible.
+            if ( !nnList.enable[p] || !nnList.heapFull()
+                || (BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
+                .multiply(BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
+                .compareTo(nnList.curMaxDist()) <= 0 ) {
+                nnList.add(this);      // Attempt to add the current node to the heap...
+                if (gtChild != null) { // ...and if not at the bottom, descend the far branch.
                     gtChild.nearestNeighbors(nnList, p+1);
                 }
             }
@@ -688,12 +690,14 @@ public class KdNode {
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
             // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search
-            // or if the heap is not full. If so, then add the node and descend the < branch.
-            final BigInteger coor = BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p]));
-            final BigInteger square = coor.multiply(coor);
-            if ( !nnList.enable[p] || !nnList.heapFull() || square.compareTo(nnList.curMaxDist()) < 0 ) {
-                nnList.add(this);
-                if (ltChild != null) {
+            // or if the heap is not full, and if so, add the node and descend the < branch. Avoid BigInteger
+            // computation if possible.
+            if ( !nnList.enable[p] || !nnList.heapFull()
+                || (BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
+                .multiply(BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
+                .compareTo(nnList.curMaxDist()) <= 0 ) {
+                nnList.add(this);       // Attempt to add the current node to the heap...
+                if (ltChild != null) {  // ...and if not at the bottom, descend the far branch.
                     ltChild.nearestNeighbors(nnList, p+1);
                 }
             }
@@ -803,11 +807,12 @@ public class KdNode {
 
         // Check to see if the current node is closer to the query point than the farthest item in the
         // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search
-        // or if the heap is not full. If so, then add the node.
-        final BigInteger coor = BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p]));
-        final BigInteger square = coor.multiply(coor);
-        if ( !nnList.enable[p] || !nnList.heapFull() || square.compareTo(nnList.curMaxDist()) <= 0 ) {
-                nnList.add(this);  // add the current node to the list
+        // or if the heap is not full, and if so, add the node. Avoid BigInteger computation if possible.
+        if ( !nnList.enable[p] || !nnList.heapFull()
+             || (BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
+             .multiply(BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
+             .compareTo(nnList.curMaxDist()) <= 0 ) {
+                nnList.add(this);  // Attempt to add the current node to the heap.
         }
     }
 
