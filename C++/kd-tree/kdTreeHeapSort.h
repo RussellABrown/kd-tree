@@ -69,7 +69,7 @@ private:
   vector<bool> enable;
   signed_size_t reqDepth; // requested number of nearest neighbors
   vector<KdNode<K>* > nodes; // vector of pointers to KdNodes that are the nearest neighbors
-  vector<cpp_int> dists; // vector of squared distances
+  vector<double> dists; // vector of squared distances
   signed_size_t curDepth; // number of nearest nodes/distances on the heap
 
   /*
@@ -121,7 +121,7 @@ private:
   void swap(signed_size_t const i,
             signed_size_t const j) {
     
-    cpp_int const tempDist = dists[i];
+    double const tempDist = dists[i];
     auto const tempNode = nodes[i];
     dists[i] = dists[j];
     nodes[i] = nodes[j];
@@ -175,8 +175,8 @@ private:
    * return a pair that contains a pointer to the top KdNode and the distance to that KdNode
    */
 private:
-  pair<cpp_int, KdNode<K>*> removeTop() {
-    pair<cpp_int, KdNode<K>*> returnPair = make_pair(dists[1], nodes[1]);
+  pair<double, KdNode<K>*> removeTop() {
+    pair<double, KdNode<K>*> returnPair = make_pair(dists[1], nodes[1]);
     swap(1, curDepth--);
     nodes[curDepth+1] = nullptr;
     fall(1);
@@ -194,16 +194,15 @@ private:
 private:
   void add(KdNode<K>* const node) {
     // Find the distance by subtracting the query from the tuple and
-    // calculating the sum of the squared distances. Note that conversion
-    // from type K to double may result in loss of precision but avoids
-    // the possibility of integer overflow.
-    cpp_int dist2 = 0;
+    // calculating the sum of the squared distances. Conversion from
+    // type K to double avoids the possibility of integer overflow
+    // but may result in loss of precision, because a double has a
+    // 52-bit mantissa whereas a 64-bit integer has a 63-bit mantissa.
+    double dist2 = 0;
     for (size_t i = 0; i < query.size(); ++i) {
       // Add the squared coordinate distance only if the dimension is enabled.
       if (enable[i]) {
-        cpp_int tup = node->tuple[i];
-        cpp_int que = query[i];
-        cpp_int dist = tup - que;
+        double const dist = static_cast<double>(node->tuple[i] - query[i]);
         dist2 += dist * dist;
       }
     }
@@ -224,7 +223,7 @@ private:
 
   /* Return the current maximum distance, i.e., dists[1] */
 private:
-  cpp_int curMaxDist() {
+  double curMaxDist() {
     return dists[1];
   }
 

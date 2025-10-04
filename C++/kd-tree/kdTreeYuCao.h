@@ -881,6 +881,8 @@ public:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * enableAll - a boolean that specifies whether to test all dimensions for insidedness
+   *             and prune the region search
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
@@ -888,10 +890,11 @@ public:
   void searchRegion(list<KdNode<K>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
-                    signed_size_t const maximumSubmitDepth) {
+                    signed_size_t const maximumSubmitDepth,
+                    bool const enableAll) {
 
     if (root != nullptr) {
-      root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth);
+      root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enableAll);
     }
   }
 
@@ -922,6 +925,21 @@ public:
     }
   }
 
+  /*
+  * Verify the results of region search.
+  *
+  * fastRegionList - a list of KdNode pointers found by region search
+  * slowRegionList - a list of KdNode pointers found by brute-force search
+  */
+public:
+  void verifyRegionSearch(list<KdNode<K>*> fastRegionList,
+                          list<KdNode<K>*> slowRegionList) {
+
+    if (root != nullptr) {
+      root->verifyRegionSearch(fastRegionList, slowRegionList);
+    }
+  }
+  
   /*
    * Walk the k-d tree and append to a list each KdNode that lies inside
    * the hyper-rectangle defined by the query lower and upper bounds.
@@ -1251,9 +1269,7 @@ public:
 public:
   void printTuple(vector<K> const& tuple) const {
     
-    if (root != nullptr) {
-      root->printTuple(tuple);
-    }
+    KdNode<K>::printTuple(tuple);
   }
 
  /*

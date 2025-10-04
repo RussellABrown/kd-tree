@@ -40,10 +40,6 @@
 #ifndef KD_TREE_NODE_H
 #define KD_TREE_NODE_H
 
-#include <boost/multiprecision/cpp_int.hpp>
-
-using namespace boost::multiprecision;
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -576,7 +572,14 @@ private:
     // add the KdNode to the list of KdNodes that lie inside the hyper-cube. The
     // following loop is equivalent to the IN_REGION pseudo-Algol code proposed
     // by Jon Bentley in his CACM article.
-    if (insideBounds(queryLower, queryUpper)) {
+    bool inside = true;
+    for (size_t i = 0; i < queryLower.size(); ++i) {
+      if (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i]) {
+        inside = false;
+        break;
+      }
+    }
+    if (inside) {
       result.push_front(this);
     }
 
@@ -727,6 +730,29 @@ private:
   }
 
   /*
+  * Verify the results of region search.
+  *
+  * fastRegionList - a list of KdNode pointers found by region search
+  * slowRegionList - a list of KdNode pointers found by brute-force search
+  */
+private:
+  void verifyRegionSearch(list<KdNode<K>*> fastRegionList,
+                          list<KdNode<K>*> slowRegionList) {
+
+    if (fastRegionList.size() != slowRegionList.size()) {
+        throw new runtime_error("\n\nnumber of nodes found by region-search and brute-force do not match\n");
+    } else {
+      // Verify that the region-search and brute-force lists are identical.
+      auto itrf = fastRegionList.begin();
+      for (auto itrs = slowRegionList.begin(); itrs != slowRegionList.end(); ++itrf, ++itrs) {
+        if (*itrf != *itrs) {
+          throw runtime_error("\n\nnon-identical region-search and brute-force lists\n");
+        }
+      }
+    }
+  }
+
+  /*
    * Walk the k-d tree recursively and append to a list each KdNode that lies inside
    * the hyper-rectangle defined by the query lower and upper bounds.
    *
@@ -831,10 +857,10 @@ private:
       }
       // If the current node is closer to the query point than the farthest item in the heap, or if this
       // component of the array is not part of the nearest neighbor search, or if the heap is not full,
-      // descend the > branch and then attempt to add the node to the heap.
-      cpp_int const tup = tuple[p];
-      cpp_int const que = heap.query[p];
-      cpp_int const dist = tup - que;
+      // descend the > branch and then attempt to add the node to the heap. Conversion from type K to
+      // double avoids the possibility of integer overflow but may result in loss of precision, because
+      // a double has a 52-bit mantissa whereas a 64-bit integer has a 63-bit mantissa.
+      double const dist = static_cast<double>(tuple[p] - heap.query[p]);
       if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
         if (gtChild != nullptr) { // If not at the bottom of the tree, descend the > branch
           gtChild->nearestNeighbors(heap, dim, p+1);
@@ -851,10 +877,10 @@ private:
       }
       // If the current node is closer to the query point than the farthest item in the heap, or if this
       // component of the array is not part of the nearest neighbor search, or if the heap is not full,
-      // descend the < branch and then attempt to add the node to the heap.
-      cpp_int tup = tuple[p];      // May result in loss of precision
-      cpp_int que = heap.query[p]; // May result in loss of precision
-      cpp_int dist = tup - que;
+      // descend the < branch and then attempt to add the node to the heap. Conversion from type K to
+      // double avoids the possibility of integer overflow but may result in loss of precision, because
+      // a double has a 52-bit mantissa whereas a 64-bit integer has a 63-bit mantissa.
+      double const dist = static_cast<double>(tuple[p] - heap.query[p]);
       if (dist * dist <= heap.curMaxDist() || !heap.enable[p] || !heap.heapFull()) {
         if (ltChild != nullptr) {
           ltChild->nearestNeighbors(heap, dim, p+1);
@@ -885,7 +911,7 @@ private:
    * numNeighbors - the number M of nearest neighbors to attempt to find
    */
 private:
-  void findNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
+  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
                             signed_size_t const numNeighbors) {
     
@@ -912,7 +938,7 @@ private:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 private:
-  void findNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
+  void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
                             signed_size_t const numNeighbors,
                             vector<bool> const& enable) {
@@ -942,8 +968,8 @@ private:
    * of the k-d tree for access to the KdNodes via the lists. Hence, this function is not static.
    */
 private:
-  void verifyNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighborsFast,
-                              forward_list< pair<cpp_int, KdNode<K>*> >& neighborsSlow) const {
+  void verifyNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighborsFast,
+                              forward_list< pair<double, KdNode<K>*> >& neighborsSlow) const {
 
     auto numFastNodes = distance(neighborsFast.begin(), neighborsFast.end());
     auto numSlowNodes = distance(neighborsSlow.begin(), neighborsSlow.end());
@@ -1019,20 +1045,18 @@ private:
    * type, so calling it as a non-static function is less cumbersome.
    */
 private:
-  forward_list<pair<cpp_int, KdNode<K>*>> sortByDistance(list<KdNode<K>*> const& kdList,
-                                                         vector<K> const& query,
-                                                         signed_size_t const& maxNodes) {
+  forward_list<pair<double, KdNode<K>*>> sortByDistance(list<KdNode<K>*> const& kdList,
+                                                        vector<K> const& query,
+                                                        signed_size_t const& maxNodes) {
 
     // Create a heap and add each KdNode on the list to the heap
     // if that KdNode's distance to the query point is less than
     // the distance of the currently farthest KdNode on the heap.
     NearestNeighborHeap<K> heap(query, maxNodes);
     for (auto it = kdList.begin(); it != kdList.end(); ++it) {
-      cpp_int dist2 = 0;
+      double dist2 = 0;
       for (size_t j = 0; j < query.size(); ++j) {
-        cpp_int const tup = (*it)->tuple[j];
-        cpp_int const que = query[j] ;
-        cpp_int const dist = tup - que;
+        double const dist = static_cast<double>((*it)->tuple[j] - query[j]);
         dist2 += dist * dist;
       }
       if (dist2 <= heap.curMaxDist() || !heap.heapFull()) {
@@ -1041,7 +1065,7 @@ private:
     }
 
     // Empty the heap and prepend each entry to a sorted list.
-    forward_list<pair<cpp_int, KdNode<K>*>> sortedList;
+    forward_list<pair<double, KdNode<K>*>> sortedList;
     signed_size_t const heapDepth = heap.heapDepth();
     for (signed_size_t i = 0; i < heapDepth; ++i) {
       sortedList.push_front(heap.removeTop());
@@ -1068,8 +1092,8 @@ private:
    * depth - the depth in the tree
    */
 private:
-  void nearestNeighborsForEach(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& nn,
-                               vector< forward_list< pair<cpp_int, KdNode<K>*> > >& rnn,
+  void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
+                               vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                                vector<mutex>& mutexes,
                                KdNode<K>* const root,
                                signed_size_t const numDimensions,
@@ -1175,8 +1199,8 @@ private:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 private:
-  void nearestNeighborsForEach(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& nn,
-                               vector< forward_list< pair<cpp_int, KdNode<K>*> > >& rnn,
+  void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
+                               vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                                vector<mutex>& mutexes,
                                KdNode<K>* const root,
                                signed_size_t const numDimensions,
@@ -1289,8 +1313,8 @@ private:
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    */
 private:
-  void findReverseNearestNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& nn,
-                                   vector< forward_list< pair<cpp_int, KdNode<K>*> > >& rnn,
+  void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
+                                   vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                                    vector<mutex>& mutexes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
@@ -1325,8 +1349,8 @@ private:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 private:
-  void findReverseNearestNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> >* >& nn,
-                                   vector< forward_list< pair<cpp_int, KdNode<K>*> >* >& rnn,
+  void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K>*> >* >& nn,
+                                   vector< forward_list< pair<double, KdNode<K>*> >* >& rnn,
                                    vector<mutex>& mutexes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
@@ -1369,8 +1393,8 @@ private:
    * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
    */
 private:
-  void verifyReverseNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& nn,
-                              vector< forward_list< pair<cpp_int, KdNode<K>*> > >& rnn,
+  void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
+                              vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                               signed_size_t const numberOfNodes) {
 
     // Create a kdNodes vector because the createKdTree function doesn't return it.
@@ -1413,7 +1437,7 @@ private:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 private:
-  void calculateMeanStd(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& vec,
+  void calculateMeanStd(vector< forward_list< pair<double, KdNode<K>*> > >& vec,
                         double& meanSize,
                         double& stdSize,
                         double& meanDist,
@@ -1455,7 +1479,7 @@ private:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 private:
-  size_t nonEmptyLists(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& vec) const {
+  size_t nonEmptyLists(vector< forward_list< pair<double, KdNode<K>*> > >& vec) const {
 
     size_t count = 0;
     for (size_t i = 0; i < vec.size(); ++i) {
@@ -1501,7 +1525,7 @@ private:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 private:
-  void bruteNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
+  void bruteNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                              vector<K> const& query,
                              signed_size_t const numNeighbors,
                              vector<bool> const& enable) {
@@ -1527,7 +1551,7 @@ private:
    * numNeighbors - the number M of nearest neighbors to find
    */
 private:
-  void bruteNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
+  void bruteNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                              vector<K> const& query,
                              signed_size_t const numNeighbors) {
     
@@ -1586,7 +1610,7 @@ private:
    *
    * Calling parameters:
    *
-   * regionList - a forward list of (cpp_int, KdNode*) pairs
+   * regionList - a forward list of (double, KdNode*) pairs
    * maximumNumberOfNodesToPrint - the maximum number of KdNodes to print
    * numDimensions - the number of dimensions
    *
@@ -1595,7 +1619,7 @@ private:
    * type, so calling it as a non-static function is less cumbersome.
    */
 private:
-  void printTuples(forward_list<pair<cpp_int, KdNode<K>*>> const& regionList,
+  void printTuples(forward_list<pair<double, KdNode<K>*>> const& regionList,
                    signed_size_t const maximumNumberOfNodesToPrint,
                    signed_size_t const numDimensions) const {
     
