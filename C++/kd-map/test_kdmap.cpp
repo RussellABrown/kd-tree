@@ -398,7 +398,7 @@ int main(int argc, char** argv) {
 
   // Search the k-d tree for up to numNeighbors nearest neighbors to the
   // first searchIterations (x, y, z, w...) coordinates.
-  forward_list< pair<cpp_int, KdNode<kdKey_t,kdValue_t>*> > neighborList;
+  forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborList;
 
   for (size_t i = 0; i < searchIterations; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
@@ -535,7 +535,7 @@ int main(int argc, char** argv) {
       query[i] = i;
     }
 
-    forward_list< pair<cpp_int, KdNode<kdKey_t,kdValue_t>*> > neighborsFast;
+    forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborsFast;
 
     root->findNearestNeighbors(neighborsFast, query, numNeighbors);
 
@@ -545,7 +545,7 @@ int main(int argc, char** argv) {
     root->printTuples(neighborsFast, maximumNumberOfNodesToPrint, numDimensions);
     cout << endl;
 
-    forward_list< pair<cpp_int, KdNode<kdKey_t,kdValue_t>*> > neighborsSlow;
+    forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > neighborsSlow;
 
     // Find only the number of nearest neighbors returned by findNearestNeighbors above.
     auto beginTime = steady_clock::now();
@@ -581,8 +581,8 @@ int main(int argc, char** argv) {
   if (reverseNearestNeighbors) {
     auto beginTime = steady_clock::now();
 
-    vector< forward_list< pair<cpp_int, KdNode<kdKey_t,kdValue_t>*> > > nn(coordinates.size());
-    vector< forward_list< pair<cpp_int, KdNode<kdKey_t,kdValue_t>*> > > rnn(coordinates.size());
+    vector< forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > > nn(coordinates.size());
+    vector< forward_list< pair<double, KdNode<kdKey_t,kdValue_t>*> > > rnn(coordinates.size());
 
     vector<mutex> mutexes(coordinates.size());
     auto endTime = steady_clock::now();
