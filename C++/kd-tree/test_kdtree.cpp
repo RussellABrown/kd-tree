@@ -121,10 +121,6 @@
  *
  * -p The maximum number P of nodes to report when reporting region search results
  *
- * -b Compare k-d tree nearest neighbors search to exhaustive search
- *
- * -c Compare k-d tree region search to exhaustive search
- *
  * -r Construct nearest-neighbors and reverse-nearest-neighbors maps
  *
  * -h Help
@@ -194,10 +190,12 @@ int main(int argc, char** argv) {
       numNeighbors = atol(argv[++i]);
       continue;
     }
+#ifndef YUCAO
     if (0 == strcmp(argv[i], "-x") || 0 == strcmp(argv[i], "--extraPoints")) {
       extraPoints = atol(argv[++i]);
       continue;
     }
+#endif
     if (0 == strcmp(argv[i], "-d") || 0 == strcmp(argv[i], "--numDimensions")) {
       numDimensions = atol(argv[++i]);
       continue;
@@ -352,6 +350,25 @@ int main(int argc, char** argv) {
   vector<double> unsortTime(iterations);
   vector<double> kdTotalTime(iterations);
 
+  // Create query arrays for searching the k-d tree via region and nearest-neighbors searches.
+  vector <kdKey_t>query(numDimensions);
+  vector <kdKey_t>queryLower(numDimensions);
+  vector <kdKey_t>queryUpper(numDimensions);
+  for (signed_size_t i = 0; i < numDimensions; i++) {
+      query[i] = i;
+      queryLower[i] = query[i] + (beginCoordinate / searchDivisor);
+      queryUpper[i] = query[i] + (endCoordinate / searchDivisor);
+  }
+  
+  // Ensure that each query lower bound <= the corresponding query upper bound.
+  for (signed_size_t i = 0; i < numDimensions; ++i) {
+      if (queryLower[i] > queryUpper[i]) {
+          auto tmp = queryLower[i];
+          queryLower[i] = queryUpper[i];
+          queryUpper[i] = tmp;
+      }
+  }
+
   // Iterate the creation of the k-d tree to improve statistics.
   signed_size_t numberOfNodes = 0;
   KdTree<kdKey_t>* root = nullptr;
@@ -414,9 +431,6 @@ int main(int argc, char** argv) {
   // that is centered at the first searchIterations (x, y, z, w...) coordinates and that
   // is (endCoordinate - beginCoordinate) wide in each dimension.
 
-  vector<kdKey_t> query(numDimensions);
-  vector<kdKey_t> queryLower(numDimensions);
-  vector<kdKey_t> queryUpper(numDimensions);
   list<KdNode<kdKey_t>*> regionList;
   for (size_t i = 0; i < searchIterations; ++i) {
     for (signed_size_t j = 0; j < numDimensions; ++j) {
@@ -426,7 +440,7 @@ int main(int argc, char** argv) {
     }
     regionList.clear();
     auto beginTime = steady_clock::now();
-    root->searchRegion(regionList, queryLower, queryUpper, maximumSubmitDepth);
+    root->searchRegion(regionList, queryLower, queryUpper, maximumSubmitDepth, true);
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     regionTime[i] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -506,7 +520,7 @@ int main(int argc, char** argv) {
     }
     kdKey_t queryRange = (endCoordinate - beginCoordinate) / searchDivisor / 2;
     list<KdNode<kdKey_t>*> regionFast;
-    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth);
+    root->searchRegion(regionFast, queryLower, queryUpper, maximumSubmitDepth, false);
 
     cout << regionFast.size() << " nodes within " << queryRange << " units of ";
     root->printTuple(query);

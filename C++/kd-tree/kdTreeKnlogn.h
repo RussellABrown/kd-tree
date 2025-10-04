@@ -778,6 +778,8 @@ public:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * enable - a boolean that specifies whether to test all dimensions for insidedness
+   *          and prune the region search
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
@@ -785,10 +787,11 @@ public:
   void searchRegion(list<KdNode<K>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
-                    signed_size_t const maximumSubmitDepth) {
+                    signed_size_t const maximumSubmitDepth,
+                    bool const enableAll) {
 
     if (root != nullptr) {
-      root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth);
+      root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enableAll);
     }
   }
 
@@ -902,6 +905,49 @@ public:
     }
   }
   
+  /*
+   * Find M nearest neighbors to the query vector via brute force
+   * and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to find
+   */
+public:
+  void bruteNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
+                             vector<K> const& query,
+                             signed_size_t const numNeighbors) {
+    
+    if (root != nullptr) {
+      root->bruteNearestNeighbors(neighbors, query, numNeighbors);
+    }
+  }
+  
+  /*
+   * The verifyKdTree function walks the k-d tree and checks that the
+   * children of a node are in the correct branch of that node.
+   *
+   * Calling parameters:
+   *
+   * permutation - the permutation vector
+   * dim - the number of dimensions
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   *
+   * returns: a count of the number of kdNodes in the k-d tree
+   */
+public:
+  signed_size_t verifyKdTree(signed_size_t const dim,
+                             signed_size_t const maximumSubmitDepth) {
+
+    if (root != nullptr) {
+      return root->verifyKdTree(dim, maximumSubmitDepth, 0, 0);
+    } else {
+      return 0;
+    }
+  }
+
   /*
    * Sort a list of KdNode instances by increasing distance from the query point.
    *
@@ -1071,49 +1117,6 @@ public:
 #endif // REVERSE_NEAREST_NEIGHBORS
                                                                                                
   /*
-   * Find M nearest neighbors to the query vector via brute force
-   * and return them as a list ordered by increasing distance.
-   *
-   * Calling parameters:
-   *
-   * neighbors - the nearest neighbors list that is passed by reference and modified.
-   * query - the query vector
-   * numNeighbors - the number M of nearest neighbors to find
-   */
-public:
-  void bruteNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
-                             vector<K> const& query,
-                             signed_size_t const numNeighbors) {
-    
-    if (root != nullptr) {
-      root->bruteNearestNeighbors(neighbors, query, numNeighbors);
-    }
-  }
-  
-  /*
-   * The verifyKdTree function walks the k-d tree and checks that the
-   * children of a node are in the correct branch of that node.
-   *
-   * Calling parameters:
-   *
-   * permutation - the permutation vector
-   * dim - the number of dimensions
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   *
-   * returns: a count of the number of kdNodes in the k-d tree
-   */
-public:
-  signed_size_t verifyKdTree(signed_size_t const dim,
-                             signed_size_t const maximumSubmitDepth) {
-
-    if (root != nullptr) {
-      return root->verifyKdTree(dim, maximumSubmitDepth, 0, 0);
-    } else {
-      return 0;
-    }
-  }
-
-  /*
    * The printTuple function prints one tuple.
    *
    * Calling parameters:
@@ -1148,9 +1151,7 @@ public:
 public:
   void printTuple(vector<K> const& tuple) const {
     
-    if (root != nullptr) {
-      root->printTuple(tuple);
-    }
+    KdNode<K>::printTuple(tuple);
   }
 
  /*

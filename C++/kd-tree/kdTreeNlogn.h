@@ -1335,6 +1335,8 @@ public:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * enable - a boolean that specifies whether to test all dimensions for insidedness
+   *          and prune the region search
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
@@ -1342,10 +1344,11 @@ public:
   void searchRegion(list<KdNode<K>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
-                    signed_size_t const maximumSubmitDepth) {
+                    signed_size_t const maximumSubmitDepth,
+                    bool const enableAll) {
 
     if (root != nullptr) {
-      root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth);
+      root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enableAll);
     }
   }
 
@@ -1670,6 +1673,146 @@ public:
     }
   }
 
+#ifdef REVERSE_NEAREST_NEIGHBORS
+  /*
+   * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
+   * and add those nearest neighbors to a nearest neighbors vector and to a reverse
+   * nearest neighbors vector.
+   *
+   * Each element of the reverse nearest neighbors vector contains a list
+   * of KdNodes to which the reference KdNode is a nearest neighbor.
+   *
+   * The concept of reverse nearest neighbors was first described by F. Korn and
+   * S. Muthukrishnan in "Influence Sets Based on Reverse Nearest Neigbor Queries",
+   * Proceedings of the 2000 ACM SIGMOD International Conference on Management of
+   * Data, pages 201-212.
+   *
+   * Calling parameters:
+   *
+   * nn - the nearest neighbors vector that is passed by reference and modified
+   * rnn - the reverse nearest neighbors vector that is passed by reference and modified
+   * mutexes - a vector of mutexes to make individual rnn list update thread safe
+   * numDimensions - the dimensionality k of the k-d tree
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   */
+public:
+  void findReverseNearestNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& nn,
+                                   vector< forward_list< pair<cpp_int, KdNode<K>*> > >& rnn,
+                                   vector<mutex>& mutexes,
+                                   signed_size_t const numDimensions,
+                                   signed_size_t const numNeighbors,
+                                   signed_size_t maximumSubmitDepth) {
+    
+    if (root != nullptr) {
+      root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions,
+                                        numNeighbors, maximumSubmitDepth);
+    }
+  }
+
+  /*
+   * Walk the k-d tree, find up to M nearest neighbors to each point in the k-d tree,
+   * and add those nearest neighbors to a nearest neighbors vector and to a reverse
+   * nearest neighbors vector.
+   *
+   * Each element of the reverse nearest neighbors vector contains a list
+   * of KdNodes to which the reference KdNode is a nearest neighbor.
+   *
+   * The concept of reverse nearest neighbors was first described by F. Korn and
+   * S. Muthukrishnan in "Influence Sets Based on Reverse Nearest Neigbor Queries",
+   * Proceedings of the 2000 ACM SIGMOD International Conference on Management of
+   * Data, pages 201-212.
+   *
+   * Calling parameters:
+   *
+   * nn - the nearest neighbors vector that is passed by reference and modified
+   * rnn - the reverse nearest neighbors vector that is passed by reference and modified
+   * mutexes - a vector of mutexes to make individual rnn list update thread safe
+   * numDimensions - the dimensionality k of the k-d tree
+   * numNeighbors - the number M of nearest neighbors to attempt to find
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * enable - a vector that specifies the dimensions for which to test distance
+   */
+public:
+  void findReverseNearestNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> >* >& nn,
+                                   vector< forward_list< pair<cpp_int, KdNode<K>*> >* >& rnn,
+                                   vector<mutex>& mutexes,
+                                   signed_size_t const numDimensions,
+                                   signed_size_t const numNeighbors,
+                                   signed_size_t const maximumSubmitDepth,
+                                   vector<bool> const& enable) {
+    
+    if (root != nullptr) {
+      root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions,
+                                        numNeighbors, maximumSubmitDepth, enable);
+    }
+  }
+
+  /*
+   * Verify the correctness of the reverse nearest neighbors vector.
+   *
+   * Calling parameter:
+   *
+   * nn - the nearest neighbors vector
+   * rnn - the reverse nearest neighbors vector
+   * numberOfNodes - the number of nodes in the k-d tree
+   *
+   * Although this function does not directly access the k-d tree, it requires the persistence
+   * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
+   */
+public:
+  void verifyReverseNeighbors(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& nn,
+                              vector< forward_list< pair<cpp_int, KdNode<K>*> > >& rnn,
+                              signed_size_t const numberOfNodes) {
+
+    if (root != nullptr) {
+      root->verifyReverseNeighbors(nn, rnn, numberOfNodes);
+    }
+  }
+
+  /*
+   * Calculate the mean and standard deviation of the distances and list sizes in a vector.
+   *
+   * Calling parameter:
+   *
+   * vec - a vector of lists
+   *
+   * Although this function does not directly access the k-d tree, it requires the persistence
+   * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
+   */
+public:
+  void calculateMeanStd(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& vec,
+                        double& meanSize,
+                        double& stdSize,
+                        double& meanDist,
+                        double& stdDist) const {
+
+    if (root != nullptr) {
+      root->calculateMeanStd(vec, meanSize, stdSize, meanDist, stdDist);
+    }
+  }
+
+  /*
+   * Count the number of non-empty lists in a vector.
+   *
+   * Calling parameter:
+   *
+   * vec - a vector of lists
+   *
+   * Although this function does not directly access the k-d tree, it requires the persistence
+   * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
+   */
+public:
+  size_t nonEmptyLists(vector< forward_list< pair<cpp_int, KdNode<K>*> > >& vec) const {
+
+    if (root != nullptr) {
+      return root->nonEmptyLists(vec);
+    } else {
+      return 0;
+    }
+  }
+#endif // REVERSE_NEAREST_NEIGHBORS
+                                                                                               
   /*
    * The printTuple function prints one tuple.
    *
@@ -1705,9 +1848,7 @@ public:
 public:
   void printTuple(vector<K> const& tuple) const {
     
-    if (root != nullptr) {
-      root->printTuple(tuple);
-    }
+    KdNode<K>::printTuple(tuple);
   }
 
  /*

@@ -528,18 +528,16 @@ public:
    *
    * queryLower - the query lower bound vector
    * queryUpper - the query upper bound vector
-   * enable - a vector that specifies the dimensions on which to test for insidedness
    *
    * return true if inside, false if outside
    */
 private:
   bool insideBounds(vector<K> const& queryLower,
-                    vector<K> const& queryUpper,
-                    vector<bool> const& enable) const {
+                    vector<K> const& queryUpper) const {
     
     bool inside = true;
     for (size_t i = 0; i < queryLower.size(); ++i) {
-      if (enable[i] && (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i])) {
+      if (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i]) {
         inside = false;
         break;
       }
@@ -578,7 +576,7 @@ private:
     // add the KdNode to the list of KdNodes that lie inside the hyper-cube. The
     // following loop is equivalent to the IN_REGION pseudo-Algol code proposed
     // by Jon Bentley in his CACM article.
-    if (insideBounds(queryLower, queryUpper, enable)) {
+    if (insideBounds(queryLower, queryUpper)) {
       result.push_front(this);
     }
 
@@ -667,6 +665,8 @@ private:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * enable - a boolean that specifies whether to test all dimensions for insidedness
+   *          and prune the region search
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
@@ -674,7 +674,8 @@ private:
   void searchRegion(list<KdNode<K>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
-                    signed_size_t const maximumSubmitDepth) {
+                    signed_size_t const maximumSubmitDepth,
+                    bool const enableAll) {
     
     // Ensure that each query lower bound <= the corresponding query upper bound.
     for (size_t i = 0; i < queryLower.size(); ++i) {
@@ -686,7 +687,7 @@ private:
     }
 
     // Search the tree over all dimensions to obtain the resulting list of KdNodes.
-    vector<bool> enable(queryLower.size(), true);
+    vector<bool> enable(queryLower.size(), enableAll);
     regionSearch(result, queryLower, queryUpper, maximumSubmitDepth, 0, 0, enable);
   }
 
@@ -746,7 +747,7 @@ private:
                    vector<bool> const& enable) {
 
     // Append the KdNode to the list if it lies inside the query bounds.
-    if (insideBounds(queryLower, queryUpper, enable)) {
+    if (insideBounds(queryLower, queryUpper)) {
       result.push_front(this);
     }
 
@@ -943,7 +944,16 @@ private:
 private:
   void verifyNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighborsFast,
                               forward_list< pair<cpp_int, KdNode<K>*> >& neighborsSlow) const {
-    
+
+    auto numFastNodes = distance(neighborsFast.begin(), neighborsFast.end());
+    auto numSlowNodes = distance(neighborsSlow.begin(), neighborsSlow.end());
+    if (numFastNodes != numSlowNodes) {
+        ostringstream buffer;
+        buffer << "\n\nnearest-neighbor size = " << numFastNodes <<
+                  "  !=  brute-force size = " << numSlowNodes << endl;
+        throw runtime_error(buffer.str());
+    }
+
     auto itf1 = neighborsFast.begin();
     auto its1 = neighborsSlow.begin();
     
@@ -1488,6 +1498,33 @@ private:
    * neighbors - the nearest neighbors list that is passed by reference and modified.
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to find
+   * enable - a vector that specifies the dimensions for which to test distance
+   */
+private:
+  void bruteNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
+                             vector<K> const& query,
+                             signed_size_t const numNeighbors,
+                             vector<bool> const& enable) {
+    
+    // Create the heap, walk the k-d tree, and attempt to add each KdNode to the heap.
+    NearestNeighborHeap<K> heap(query, numNeighbors, enable);
+    allNeighbors(heap);
+
+    // Empty the heap by successively removing the top of the heap and appending it to a list.
+    for (signed_size_t i = 0; i < numNeighbors; ++i) {
+      neighbors.push_front(heap.removeTop());
+    }
+  }
+  
+  /*
+   * Find M nearest neighbors to the query vector via brute force
+   * and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to find
    */
 private:
   void bruteNearestNeighbors(forward_list< pair<cpp_int, KdNode<K>*> >& neighbors,
@@ -1517,8 +1554,8 @@ private:
    * type, so calling it as a non-static function is less cumbersome.
    */
 private:
-  void printTuple(K const* tuple,
-                  signed_size_t const dim) const {
+  static void printTuple(K const* tuple,
+                         signed_size_t const dim) {
     
     cout << "(" << tuple[0] << ",";
     for (signed_size_t i = 1; i < dim - 1; ++i) cout << tuple[i] << ",";
@@ -1537,7 +1574,7 @@ private:
    * type, so calling it as a non-static function is less cumbersome.
    */
 private:
-  void printTuple(vector<K> const& tuple) const {
+  static void printTuple(vector<K> const& tuple) {
     
     cout << "(" << tuple[0] << ",";
     for (size_t i = 1; i < tuple.size() - 1; ++i) cout << tuple[i] << ",";
