@@ -57,6 +57,12 @@ class MergeSort;
 template <typename, typename>
 class NearestNeighborHeap;
 
+template <typename, typename>
+class KdTreeNlogn;
+
+template <typename, typename>
+class KdTreeKnlogn;
+
 /* The merge sort functions */
 template <typename K, typename V=int>
 class MergeSort {
@@ -74,7 +80,7 @@ class MergeSort {
    *
    * returns a K result of comparing two K arrays
    */
-private:
+public:
   inline
   static K superKeyCompare(K const* a,
                            K const* b,
@@ -143,7 +149,7 @@ private:
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * depth - the tree depth
    */
-private:
+public:
   static void mergeSortReferenceAscending(KdNode<K,V>** const reference,
                                           KdNode<K,V>** const temporary,
                                           signed_size_t const low,
@@ -591,9 +597,6 @@ private:
     }
   }
 
-  friend class KdNode<K,V>;
-  friend class KdTree<K,V>;
-  friend class KdTreeDynamic<K,V>;
 }; // class MergeSort
 
 #endif // KD_MAP_MERGE_SORT_H
