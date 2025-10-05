@@ -150,12 +150,7 @@
   * for kdTreeMergeSort.h, kdTreeKnlogn.h and kdTreeNlogn.h
   */
 #include "kdTreeDynamic.stats.h"
-
-#ifdef NLOGN
-#include "kdTreeNlogn.h"
-#else
-#include "kdTreeKnlogn.h"
-#endif
+#include "kdTree.h"
 
 /*
  * This is the type used for the test. Change the intrisic type in
@@ -329,7 +324,7 @@ int main(int argc, char** argv) {
        << "  max submit depth = " << maximumSubmitDepth << endl << endl;
 
   // Create an instance of KdTreeDynamic.
-  auto tree = new KdTreeDynamic<kdKey_t>(maximumSubmitDepth);
+  auto tree = new KdTreeDynamic<kdKey_t>(numDimensions, maximumSubmitDepth);
 
 #ifdef DEBUG_PRINT
   // A data set that requires some rebalancing operations.
@@ -369,7 +364,7 @@ int main(int argc, char** argv) {
       cout << endl << endl;
       tree->printKdTree(coordinates[i].size());
       cout << endl << endl;
-      tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+      tree->verifyKdTree();
     } else {
       ostringstream buffer;
       buffer << "\n\nfailed to insert tuple:";
@@ -380,7 +375,7 @@ int main(int argc, char** argv) {
   }
 
   // Verify correct order of each node in the k-d tree.
-  tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+  tree->verifyKdTree();
 
   cout << "*******************************************" << endl << endl;
 
@@ -399,7 +394,7 @@ int main(int argc, char** argv) {
       } else {
         cout << "tree is empty" << endl << endl;
       }
-      tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+      tree->verifyKdTree();
     } else {
       ostringstream buffer;
       buffer << "\n\nfailed to erase tuple:";
@@ -525,7 +520,7 @@ int main(int argc, char** argv) {
 
       // Record the number of nodes and the tree height for the static tree.
       staticNumberOfNodes = numNodes;
-      staticTreeHeight = KdTreeDynamic<kdKey_t>::getHeight(tree->getRoot());
+      staticTreeHeight = tree->getHeight();
 
       // Find numNeighbors nearest neighbors to each coordinate.
       if (neighbors) {
@@ -588,7 +583,8 @@ int main(int argc, char** argv) {
       // the root node of the static KdTree instance. The KdTreeDynamic
       // constructor provides a way to create a static k-d tree that
       // can thereafter be modified as a dynamic k-d tree.
-      auto dynamicTree = new KdTreeDynamic<kdKey_t>(maximumSubmitDepth,
+      auto dynamicTree = new KdTreeDynamic<kdKey_t>(numDimensions,
+                                                    maximumSubmitDepth,
                                                     tree->getRoot());
 
       // Walk the static k-d tree in increasing order and
@@ -616,7 +612,7 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < coordinates.size(); ++i) {
       if (tree->insert(coordinates[i])) {
         if (verify) {
-          tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+          tree->verifyKdTree();
         }
       } else {
         cout << "\n\nfailed to insert tuple " << i << " ";
@@ -631,7 +627,7 @@ int main(int argc, char** argv) {
 
     // Verify correct order of each node in the k-d tree and count the nodes.
     beginTime = steady_clock::now();
-    numberOfNodes = tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+    numberOfNodes = tree->verifyKdTree();
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     verifyTime[k] += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -653,7 +649,7 @@ int main(int argc, char** argv) {
       throw runtime_error(buffer.str());
      }
      else {
-      treeHeight = KdTreeDynamic<kdKey_t>::getHeight(tree->getRoot());
+      treeHeight = tree->getHeight();
      }
 
     // Search for each coordinate in the k-d tree. 
@@ -752,7 +748,7 @@ int main(int argc, char** argv) {
       for (signed_size_t i = numPoints - 1; i >= 0; --i) {
         if (tree->erase(coordinates[i])) {
           if (verify) {
-            tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+            tree->verifyKdTree();
           }
           if (find && tree->contains(coordinates[i])) {
             cout << "\n\nfound tuple after erasing tuple:";
@@ -777,7 +773,7 @@ int main(int argc, char** argv) {
       for (signed_size_t i = 0; i < numPoints; ++i) {
         if (tree->erase(coordinates[i])) {
           if (verify) {
-            tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+            tree->verifyKdTree();
           }
           if (find && tree->contains(coordinates[i])) {
             cout << "\n\nfound tuple after erasing tuple:";

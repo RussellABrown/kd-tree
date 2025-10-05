@@ -130,15 +130,7 @@
  * -h Help
  */
 
-#ifdef NLOGN
-#include "kdTreeNlogn.h"
-#else
-#ifdef YUCAO
-#include "kdTreeYuCao.h"
-#else
-#include "kdTreeKnlogn.h"
-#endif
-#endif
+#include "kdTree.h"
 
 /*
  * This is the type used for the test. Change the intrisic type in
@@ -232,7 +224,7 @@ int main(int argc, char** argv) {
 #endif
     if (0 == strcmp(argv[i], "-h") || 0 == strcmp(argv[i], "--help")) {
       cout << endl << "Usage:" << endl << endl
-           << "kdTreeKnlogn [-n N] [-m M] [-x X] [-d D] [-t T] [-s S] [-p P] [-b] [-c] [-r] [-h]" << endl << endl
+           << "kdTreeKnlogn [-n N] [-m M] [-x X] [-d D] [-t T] [-s S] [-p P] [-g] [-j] [-r] [-h]" << endl << endl
            << "where the command-line options are interpreted as follows." << endl << endl
            << "-i The number I of iterations of k-d tree creation" << endl << endl
            << "-n The number N of randomly generated points used to build the k-d tree" << endl << endl
@@ -244,8 +236,8 @@ int main(int argc, char** argv) {
            << "-t The number of threads T used to build and search the k-d tree" << endl << endl
            << "-s The search divisor S used for region search" << endl << endl
            << "-p The maximum number P of nodes to report when reporting region search results" << endl << endl
-           << "-b Build a balanced k-d tree for comparison to the dynamic k-d tree" << endl << endl
            << "-g Find nearest neighbors to a query point near the origin" << endl << endl
+           << "-j Perform a region search in a hypercube centered at a query point near the origin" << endl << endl
 #ifdef REVERSE_NEAREST_NEIGHBORS
            << "-r Construct nearest-neighbors and reverse-nearest-neighbors maps" << endl << endl
 #endif
@@ -258,6 +250,9 @@ int main(int argc, char** argv) {
       throw runtime_error(buffer.str());
     }
   }
+
+  // It is impossible to find more nearest neighbors than there are points.
+  numNeighbors = min(numNeighbors, numPoints + extraPoints + 1);
 
   // Declare and initialize the coordinates and oneCoordinte vectors.
   extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
@@ -281,9 +276,6 @@ int main(int argc, char** argv) {
 #endif
   numDimensions = coordinates[0].size();
 #endif
-
-  // It is impossible to find more nearest neighbors than there are points.
-  numNeighbors = min(numNeighbors, numPoints + extraPoints + 1);
 
   // Calculate the number of child threads to be the number of threads minus 1, then
   // calculate the maximum tree depth at which to launch a child thread.  Truncate
@@ -372,6 +364,7 @@ int main(int argc, char** argv) {
   // Iterate the creation of the k-d tree to improve statistics.
   signed_size_t numberOfNodes = 0;
   size_t numRegionNodes = 0, numNeighborsNodes = 0;
+  KdTree<kdKey_t>* tree =nullptr;
   for (size_t k = 0; k < iterations; ++k) {
 
     // Shuffle the coordinates vector independently for each dimension.
@@ -393,9 +386,8 @@ int main(int argc, char** argv) {
     vector<vector<kdKey_t>> copyCoordinates = coordinates;
     signed_size_t numNodes;
     double aT, sT, rT, kT, vT, dT, uT;
-      KdTree<kdKey_t>* tree =
-        KdTree<kdKey_t>::createKdTree(copyCoordinates, maximumSubmitDepth,
-                                      numNodes, aT, sT, rT, kT, vT, dT, uT);
+    tree = KdTree<kdKey_t>::createKdTree(copyCoordinates, maximumSubmitDepth,
+                                         numNodes, aT, sT, rT, kT, vT, dT, uT);
 
     // Record the time for k-d tree creation, ignoring verifyTime and unsortTime.
     kdTotalTime[k] += aT + sT + rT + kT + dT;
@@ -452,8 +444,14 @@ int main(int argc, char** argv) {
       tree->verifyRegionSearch(fastRegionList, slowRegionList);
     }
 
-    // Delete the k-d tree.
+    // Delete the k-d tree except for the last iteration if REVERSE_NEAREST_NEIGHBORS is defined.
+#ifdef REVERSE_NEAREST_NEIGHBORS
+    if (k < iterations - 1) {
+      delete tree;
+    }
+  #else
     delete tree;
+#endif
 
     cout << "finished iteration " << (k + 1) << endl;
   }
@@ -505,7 +503,7 @@ int main(int argc, char** argv) {
 
   if (region) {
       // Create a k-d tree for the sole purpose of calling the printTuple function.
-      KdTree<kdKey_t>* tree = new KdTree<kdKey_t>();
+      KdTree<kdKey_t>* tree = new KdTree<kdKey_t>(numDimensions, numberOfNodes);
       cout << "\nFound " << numRegionNodes << " tuples by region search within "
           << (queryUpper[0] - queryLower[0]) << " units of ";
       tree->printTuple(query);
@@ -537,25 +535,25 @@ int main(int argc, char** argv) {
     cout << "vector initialization  time = " << fixed << setprecision(2) << vectorTime << " seconds" << endl << endl;
 
     beginTime = steady_clock::now();
-    root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions, numNeighbors, maximumSubmitDepth);
+    tree->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions, numNeighbors, maximumSubmitDepth);
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     double const reverseNearestNeighborTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     cout << "reverse nearest neighbor time = " << fixed << setprecision(2) << reverseNearestNeighborTime << " seconds" << endl << endl;
-    cout << "number of non-empty nearest neighbors lists = " << root->nonEmptyLists(nn) << endl;
-    cout << "number of non-empty reverse nearest neighbors lists = " << root->nonEmptyLists(rnn) << endl << endl;
+    cout << "number of non-empty nearest neighbors lists = " << tree->nonEmptyLists(nn) << endl;
+    cout << "number of non-empty reverse nearest neighbors lists = " << tree->nonEmptyLists(rnn) << endl << endl;
 
     // Report the mean and standard deviation distance and number of reverse nearest neighbors.
     double meanSize, stdSize, meanDist, stdDist;
-    root->calculateMeanStd(rnn, meanSize, stdSize, meanDist, stdDist);
+    tree->calculateMeanStd(rnn, meanSize, stdSize, meanDist, stdDist);
     cout << "mean reverse nearest neighbor distance = " << scientific << meanDist
          << "  standard deviation = " << stdDist << endl;
     cout << "mean reverse nearest neighbor list size = " << fixed << setprecision(3) << meanSize
          << "  standard deviation = " << stdSize << endl << endl;
 
     // Report the mean and standard deviation distance and number of nearest neighbors.
-    root->calculateMeanStd(nn, meanSize, stdSize, meanDist, stdDist);
+    tree->calculateMeanStd(nn, meanSize, stdSize, meanDist, stdDist);
     cout << "mean nearest neighbor distance = " << scientific << meanDist
          << "  standard deviation = " << stdDist << endl;
     cout << "mean nearest neighbor list size = " << fixed << setprecision(3) << meanSize
@@ -563,12 +561,15 @@ int main(int argc, char** argv) {
 
     // Verify the consistency between the nearest neighbors and reverse nearest neighbors vectors.
     beginTime = steady_clock::now();
-    root->verifyReverseNeighbors(nn, rnn, numberOfNodes);
+    tree->verifyReverseNeighbors(nn, rnn, numberOfNodes);
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     double const verifyReverseTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     cout << "verify reverse nearest neighbor time = " << fixed << setprecision(2) << verifyReverseTime << " seconds" << endl << endl;
+
+    // Delete the tree because it was not deleted during the final iteration above.
+    delete tree;
   }
 #endif
 

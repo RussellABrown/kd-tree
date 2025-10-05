@@ -47,6 +47,15 @@ class MergeSort;
 template <typename>
 class NearestNeighborHeap;
 
+template <typename>
+class KdTreeNlogn;
+
+template <typename>
+class KdTreeKnlogn;
+
+template <typename>
+class KdTreeYuCao;
+
 /*
  * The NearestNeighborHeap class implements a fixed length heap of both containing both a KdNode and Euclidean distance
  * from the tuple in the node to a query point.  When a KdNode is added to the heap it is unconditionally placed in
@@ -64,7 +73,7 @@ class NearestNeighborHeap;
  */
 template <typename K>
 class NearestNeighborHeap {
-private:
+public:
   vector<K> query; // query point for which nearest neighbors will be found
   vector<bool> enable;
   signed_size_t reqDepth; // requested number of nearest neighbors
@@ -174,7 +183,7 @@ private:
    *
    * return a pair that contains a pointer to the top KdNode and the distance to that KdNode
    */
-private:
+public:
   pair<double, KdNode<K>*> removeTop() {
     pair<double, KdNode<K>*> returnPair = make_pair(dists[1], nodes[1]);
     swap(1, curDepth--);
@@ -191,7 +200,7 @@ private:
    *
    * node - KdNode to potentially add to the heap
    */
-private:
+public:
   void add(KdNode<K>* const node) {
     // Find the distance by subtracting the query from the tuple and
     // calculating the sum of the squared distances. Conversion from
@@ -222,24 +231,23 @@ private:
   }
 
   /* Return the current maximum distance, i.e., dists[1] */
-private:
+public:
   double curMaxDist() {
     return dists[1];
   }
 
   /* Return true if the heap is full. */
-private:
+public:
   bool heapFull() {
     return curDepth >= reqDepth;
   }
 
   /* Return the current depth of the heap, i.e., the number of nearest nodes/distances elements on the heap. */
-private:
+public:
   signed_size_t heapDepth() {
     return curDepth;
   }
 
-  friend class KdNode<K>;
 }; // class NearestNeighborHeap
 
 #endif // KD_TREE_HEAP_SORT_T

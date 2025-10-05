@@ -74,7 +74,7 @@ class MergeSort {
    *
    * returns a K result of comparing two K arrays
    */
-private:
+public:
   inline
   static K superKeyCompare(K const* const a,
                            K const* const b,
@@ -142,7 +142,7 @@ private:
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * depth - the tree depth
    */
-private:
+public:
   static void mergeSortReferenceAscending(K ** const reference,
                                           K ** const temporary,
                                           signed_size_t const low,
@@ -590,9 +590,6 @@ private:
     }
   }
 
-  friend class KdNode<K>;
-  friend class KdTree<K>;
-  friend class KdTreeDynamic<K>;
 }; // class MergeSort
 
 #endif // KD_TREE_MERGE_SORT_H

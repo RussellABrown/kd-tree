@@ -88,6 +88,15 @@ class MergeSort;
 template <typename>
 class NearestNeighborHeap;
 
+template <typename>
+class KdTreeNlogn;
+
+template <typename>
+class KdTreeKnlogn;
+
+template <typename>
+class KdTreeYuCao;
+
 /*
  * The KdTreeDynamic class is derived from the KdTree class and
  * accessess KdTree::root so that an instance of KdTreeDynamic
@@ -97,7 +106,6 @@ template <typename K>
 class KdTreeDynamic : public KdTree<K>
 {
 private:
-    signed_size_t maxSubmitDepth = -1;
     bool inserted = false, erased = false, changed = false;
 
     /*
@@ -105,31 +113,30 @@ private:
      *
      * Calling parameters:
      * 
+     * numDimensions (IN) the number of dimension k of the k-d tree
      * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-     * cutoff (IN) the minimum size of a subtree to rebuild via multiple threads
      */
 public:
-    KdTreeDynamic(signed_size_t const maxSubmitDepth) {
+    KdTreeDynamic(signed_size_t const numDimensions,
+                  signed_size_t const maxSubmitDepth)
 
-        this->maxSubmitDepth = maxSubmitDepth;
-    }
+    : KdTree<K>(numDimensions, maxSubmitDepth) {}
 
     /*
      * This constructor assigns the KdTree::root node.
      *
      * Calling parameters:
      * 
+     * numDimensions (IN) the number of dimension k of the k-d tree
      * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-     * cutoff (IN) the minimum size of a subtree to rebuild via multiple threads
      * root (IN) the KdTree::root node
      */
 public:
-    KdTreeDynamic(signed_size_t const maxSubmitDepth,
-                  KdNode<K>* const root) {
+    KdTreeDynamic(signed_size_t const numDimensions,
+                  signed_size_t const maxSubmitDepth,
+                  KdNode<K>* const root)
 
-        this->maxSubmitDepth = maxSubmitDepth;
-        KdTree<K>::root = root;
-    }
+    : KdTree<K>(numDimensions, maxSubmitDepth, root) {}
 
     /*
      * If KD_TREE_DYNAMIC_H is defined, the ~KdTree destructor does not
@@ -140,6 +147,17 @@ public:
 public:
     ~KdTreeDynamic() {
         delete KdTree<K>::root;
+    }
+
+    /* Return the height of the tree. */
+public:
+    inline size_t getHeight()
+    {
+        if (KdTree<K>::root == nullptr) {
+            return 0;
+        } else {
+            return KdTree<K>::root->height;
+        }
     }
 
     /*
@@ -900,10 +918,12 @@ private:
             KdTree<K>* subTree;
             if (count < MULTI_THREAD_CUTOFF) {
                 subTree =
-                    KdTree<K>::createKdTree(kdNodes, dim, -1, p);
+                    KdTree<K>::createKdTree(kdNodes, KdTree<K>::numDimensions,
+                                            -1, p);
             } else {
                 subTree =
-                    KdTree<K>::createKdTree(kdNodes, dim, maxSubmitDepth, p);
+                    KdTree<K>::createKdTree(kdNodes, KdTree<K>::numDimensions,
+                                            KdTree<K>::maxSubmitDepth, p);
             }
 
             // Delete the KdTree instance but not its root
@@ -1266,7 +1286,7 @@ private:
      * 
      * return true if the subtree is balanced; otherwise, false
      */
-private:
+public:
     inline static bool isBalanced(KdNode<K>* const node) {
 
         // Get and order the heights at the child nodes.
@@ -1318,7 +1338,7 @@ private:
      * 
      * @return the recomputed height at the Kdnode instance
      */
-private:
+public:
     inline static size_t computeHeight(KdNode<K>* const node) {
 
         return 1 + ( (getHeight(node->ltChild) > getHeight(node->gtChild))
@@ -1343,8 +1363,6 @@ public:
         return node->height;
     }
 
-    friend class KdTree<K>;
-    friend class KdNode<K>;
 };
 
 #endif // KD_TREE_DYNAMIC_H

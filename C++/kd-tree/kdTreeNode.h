@@ -128,10 +128,19 @@ class MergeSort;
 template <typename>
 class NearestNeighborHeap;
 
+template <typename>
+class KdTreeNlogn;
+
+template <typename>
+class KdTreeKnlogn;
+
+template <typename>
+class KdTreeYuCao;
+
 /* One node of a k-d tree where K is key type */
 template <typename K>
 class KdNode {
-private:
+public:
   K* tuple;
   KdNode<K> *ltChild = nullptr, *gtChild = nullptr;
 
@@ -168,7 +177,7 @@ public:
   }
 #endif
 
-private:
+public:
   K* getTuple() {
     return this->tuple;
   }
@@ -185,7 +194,7 @@ private:
    *
    * returns: the end index of the reference array following removal of duplicate elements
    */
-private:
+public:
   inline
   static signed_size_t removeDuplicates(K** const reference,
                                         signed_size_t const i,
@@ -248,7 +257,7 @@ private:
    *
    * returns: a KdNode pointer to the KdNode to which the tuple has been assigned
    */
-private:
+public:
 #ifndef PREALLOCATE
   inline
   static KdNode<K>* getKdNode(K** const reference,
@@ -293,7 +302,7 @@ private:
    *
    * returns: a count of the number of kdNodes in the k-d tree
    */
-private:
+public:
   signed_size_t verifyKdTree(vector<signed_size_t> const& permutation,
                              signed_size_t const dim,
                              signed_size_t const maximumSubmitDepth,
@@ -517,31 +526,6 @@ public:
   }
 
   /*
-   * The insideBounds function determines whether KdNode::tuple lies inside the
-   * hyper-rectangle defined by the query lower and upper bound vectors.
-   *
-   * Calling parameters:
-   *
-   * queryLower - the query lower bound vector
-   * queryUpper - the query upper bound vector
-   *
-   * return true if inside, false if outside
-   */
-private:
-  bool insideBounds(vector<K> const& queryLower,
-                    vector<K> const& queryUpper) const {
-    
-    bool inside = true;
-    for (size_t i = 0; i < queryLower.size(); ++i) {
-      if (queryLower[i] > tuple[i] || queryUpper[i] < tuple[i]) {
-        inside = false;
-        break;
-      }
-    }
-    return inside;
-  }
-
-  /*
    * The regionSearch function searches the k-d tree recursively to find the KdNodes that
    * lie within a hyper-rectangle defined by the query lower and upper bounds.
    *
@@ -668,30 +652,21 @@ private:
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * enable - a boolean that specifies whether to test all dimensions for insidedness
-   *          and prune the region search
+   * enableAll - a boolean that specifies whether to test all dimensions for insidedness
+   *             and prune the region search
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
-private:
+public:
   void searchRegion(list<KdNode<K>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
                     bool const enableAll) {
     
-    // Ensure that each query lower bound <= the corresponding query upper bound.
-    for (size_t i = 0; i < queryLower.size(); ++i) {
-      if (queryLower[i] > queryUpper[i]) {
-        auto const tmp = queryLower[i];
-        queryLower[i] = queryUpper[i];
-        queryUpper[i] = tmp;
-      }
-    }
-
     // Search the tree over all dimensions to obtain the resulting list of KdNodes.
     vector<bool> enable(queryLower.size(), enableAll);
-    regionSearch(result, queryLower, queryUpper, maximumSubmitDepth, 0, 0, enable);
+    searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enable);
   }
 
   /*
@@ -709,7 +684,7 @@ private:
    *
    * return a list of KdNodes that lie within the query hyper-rectangle
    */
-private:
+public:
   void searchRegion(list<KdNode<K>*>& result,
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
@@ -735,7 +710,7 @@ private:
   * fastRegionList - a list of KdNode pointers found by region search
   * slowRegionList - a list of KdNode pointers found by brute-force search
   */
-private:
+public:
   void verifyRegionSearch(list<KdNode<K>*> fastRegionList,
                           list<KdNode<K>*> slowRegionList) {
 
@@ -750,79 +725,6 @@ private:
         }
       }
     }
-  }
-
-  /*
-   * Walk the k-d tree recursively and append to a list each KdNode that lies inside
-   * the hyper-rectangle defined by the query lower and upper bounds.
-   *
-   * Calling parameters:
-   *
-   * result - a list of KdNode pointers that is passed by reference and modified
-   * queryLower - the query lower bound vector
-   * queryUpper - the query upper bound vector
-   * enable - a vector that specifies the dimensions on which to test for insidedness
-   *          and prune the search
-   *
-   * return a list of pointers to KdNodes that lie within the query hyper-rectangle.
-   */
-private:
-  void regionBrute(list<KdNode<K>*>& result,
-                   vector<K> const& queryLower,
-                   vector<K> const& queryUpper,
-                   vector<bool> const& enable) {
-
-    // Append the KdNode to the list if it lies inside the query bounds.
-    if (insideBounds(queryLower, queryUpper)) {
-      result.push_front(this);
-    }
-
-    // Visit the < sub-tree.
-    if (ltChild != nullptr) {
-      list<KdNode<K>*> ltResult;
-      ltChild->regionBrute(ltResult, queryLower, queryUpper, enable);
-      result.splice(result.end(), ltResult);
-    }
-
-    // Visit the > sub-tree.
-    if (gtChild != nullptr) {
-      list<KdNode<K>*> gtResult;
-      gtChild->regionBrute(gtResult, queryLower, queryUpper, enable);
-      result.splice(result.end(), gtResult);
-    }
-  }
-
-  /*
-   * Walk the k-d tree and append to a list each KdNode that lies inside
-   * the hyper-rectangle defined by the query lower and upper bounds.
-   *
-   * Calling parameters:
-   *
-   * result - a list of KdNode pointers that is passed by reference and modified
-   * queryLower - the query lower bound vector
-   * queryUpper - the query upper bound vector
-   *
-   * return a list of pointers to KdNodes that lie within the query hyper-rectangle.
-   */
-private:
-  void bruteRegion(list<KdNode<K>*>& result,
-                   vector<K>& queryLower,
-                   vector<K>& queryUpper) {
-
-    // Search over all dimensions.
-    vector<bool> enable(queryLower.size(), true);
-
-    // Ensure that each query lower bound <= the corresponding query upper bound.
-    for (size_t i = 0; i < queryLower.size(); ++i) {
-      if (queryLower[i] > queryUpper[i]) {
-        auto const tmp = queryLower[i];
-        queryLower[i] = queryUpper[i];
-        queryUpper[i] = tmp;
-      }
-    }
-
-    // Walk the k-d tree recursively.
-    regionBrute(result, queryLower, queryUpper, enable);
   }
 
   /*
@@ -910,7 +812,7 @@ private:
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to attempt to find
    */
-private:
+public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
                             signed_size_t const numNeighbors) {
@@ -937,7 +839,7 @@ private:
    * numNeighbors - the number M of nearest neighbors to attempt to  find
    * enable - a vector that specifies the dimensions for which to test distance
    */
-private:
+public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                             vector<K> const& query,
                             signed_size_t const numNeighbors,
@@ -967,7 +869,7 @@ private:
    * Although this function does not directly access the k-d tree, it requires the persistence
    * of the k-d tree for access to the KdNodes via the lists. Hence, this function is not static.
    */
-private:
+public:
   void verifyNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighborsFast,
                               forward_list< pair<double, KdNode<K>*> >& neighborsSlow) const {
 
@@ -1044,7 +946,7 @@ private:
    * However, calling it as a static function requires speicification of a
    * type, so calling it as a non-static function is less cumbersome.
    */
-private:
+public:
   forward_list<pair<double, KdNode<K>*>> sortByDistance(list<KdNode<K>*> const& kdList,
                                                         vector<K> const& query,
                                                         signed_size_t const& maxNodes) {
@@ -1312,7 +1214,7 @@ private:
    * numNeighbors - the number M of nearest neighbors to attempt to find
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    */
-private:
+public:
   void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
                                    vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                                    vector<mutex>& mutexes,
@@ -1348,7 +1250,7 @@ private:
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * enable - a vector that specifies the dimensions for which to test distance
    */
-private:
+public:
   void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K>*> >* >& nn,
                                    vector< forward_list< pair<double, KdNode<K>*> >* >& rnn,
                                    vector<mutex>& mutexes,
@@ -1392,7 +1294,7 @@ private:
    * Although this function does not directly access the k-d tree, it requires the persistence
    * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
    */
-private:
+public:
   void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
                               vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
                               signed_size_t const numberOfNodes) {
@@ -1436,7 +1338,7 @@ private:
    * Although this function does not directly access the k-d tree, it requires the persistence
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
-private:
+public:
   void calculateMeanStd(vector< forward_list< pair<double, KdNode<K>*> > >& vec,
                         double& meanSize,
                         double& stdSize,
@@ -1478,7 +1380,7 @@ private:
    * Although this function does not directly access the k-d tree, it requires the persistence
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
-private:
+public:
   size_t nonEmptyLists(vector< forward_list< pair<double, KdNode<K>*> > >& vec) const {
 
     size_t count = 0;
@@ -1524,7 +1426,7 @@ private:
    * numNeighbors - the number M of nearest neighbors to find
    * enable - a vector that specifies the dimensions for which to test distance
    */
-private:
+public:
   void bruteNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                              vector<K> const& query,
                              signed_size_t const numNeighbors,
@@ -1550,7 +1452,7 @@ private:
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to find
    */
-private:
+public:
   void bruteNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
                              vector<K> const& query,
                              signed_size_t const numNeighbors) {
@@ -1577,7 +1479,7 @@ private:
    * However, calling it as a static function requires speicification of a
    * type, so calling it as a non-static function is less cumbersome.
    */
-private:
+public:
   static void printTuple(K const* tuple,
                          signed_size_t const dim) {
     
@@ -1597,7 +1499,7 @@ private:
    * However, calling it as a static function requires speicification of a
    * type, so calling it as a non-static function is less cumbersome.
    */
-private:
+public:
   static void printTuple(vector<K> const& tuple) {
     
     cout << "(" << tuple[0] << ",";
@@ -1618,7 +1520,7 @@ private:
    * However, calling it as a static function requires speicification of a
    * type, so calling it as a non-static function is less cumbersome.
    */
-private:
+public:
   void printTuples(forward_list<pair<double, KdNode<K>*>> const& regionList,
                    signed_size_t const maximumNumberOfNodesToPrint,
                    signed_size_t const numDimensions) const {
@@ -1644,7 +1546,7 @@ private:
    * dim - the number of dimensions
    * depth - the depth in the k-d tree
    */
-private:
+public:
   void printKdTree(KdNode<K>* const node,
                    signed_size_t const dim,
                    signed_size_t const depth) const {
@@ -1660,9 +1562,6 @@ private:
     }
   }
 
-  friend class KdTree<K>;
-  friend class KdTreeDynamic<K>;
-  friend class NearestNeighborHeap<K>;
 }; // class KdNode
 
 #endif // KD_TREE_NODE_H

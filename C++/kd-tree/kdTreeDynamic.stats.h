@@ -107,7 +107,6 @@ template <typename K>
 class KdTreeDynamic : public KdTree<K>
 {
 private:
-    signed_size_t maxSubmitDepth = -1;
     bool inserted = false, erased = false, changed = false;
 
     /*
@@ -115,13 +114,15 @@ private:
      *
      * Calling parameters:
      * 
+     * numDimensions (IN) the number of dimension k of the k-d tree
      * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-     * cutoff (IN) the minimum size of a subtree to rebuild via multiple threads
      */
 public:
-    KdTreeDynamic(signed_size_t const maxSubmitDepth) {
+    KdTreeDynamic(signed_size_t const numDimensions,
+                  signed_size_t const maxSubmitDepth)
 
-        this->maxSubmitDepth = maxSubmitDepth;
+    : KdTree<K>(numDimensions, maxSubmitDepth)
+    {
 
 #ifdef STATISTICS
         insertHistogram.resize(HISTOGRAM_SIZE);
@@ -141,16 +142,17 @@ public:
      *
      * Calling parameters:
      * 
+     * numDimensions (IN) the number of dimension k of the k-d tree
      * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-     * cutoff (IN) the minimum size of a subtree to rebuild via multiple threads
      * root (IN) the KdTree::root node
      */
 public:
-    KdTreeDynamic(signed_size_t const maxSubmitDepth,
-                  KdNode<K>* const root) {
+    KdTreeDynamic(signed_size_t const numDimensions,
+                  signed_size_t const maxSubmitDepth,
+                  KdNode<K>* const root)
 
-        this->maxSubmitDepth = maxSubmitDepth;
-        KdTree<K>::root = root;
+    : KdTree<K>(numDimensions, maxSubmitDepth, root)
+    {
 
 #ifdef STATISTICS
         insertHistogram.resize(HISTOGRAM_SIZE);
@@ -274,6 +276,17 @@ private:
         }
     }
 #endif
+
+    /* Return the height of the tree. */
+public:
+    inline size_t getHeight()
+    {
+        if (KdTree<K>::root == nullptr) {
+            return 0;
+        } else {
+            return KdTree<K>::root->height;
+        }
+    }
 
     /*
      * Search the tree for the existence of a key.
@@ -1357,11 +1370,13 @@ private:
             KdTree<K>* subTree;
             if (count < MULTI_THREAD_CUTOFF) {
                 subTree =
-                    KdTree<K>::createKdTree(kdNodes, dim, -1, p);
+                    KdTree<K>::createKdTree(kdNodes, KdTree<K>::numDimensions,
+                                            -1, p);
             } else {
                 subTree =
-                    KdTree<K>::createKdTree(kdNodes, dim, maxSubmitDepth, p);
-                }
+                    KdTree<K>::createKdTree(kdNodes, KdTree<K>::numDimensions,
+                                            KdTree<K>::maxSubmitDepth, p);
+            }
 
 #if defined(DEBUG_PRINT) && defined(EXTRA_PRINT)
             cout << "rebalanced subtree (p = " << p << "):" << endl << endl;
@@ -1769,7 +1784,7 @@ private:
      * 
      * return true if the subtree is balanced; otherwise, false
      */
-private:
+public:
     inline static bool isBalanced(KdNode<K>* const node) {
 
         // Get and order the heights at the child nodes.
@@ -1821,7 +1836,7 @@ private:
      * 
      * @return the recomputed height at the Kdnode instance
      */
-private:
+public:
     inline static size_t computeHeight(KdNode<K>* const node) {
 
         return 1 + ( (getHeight(node->ltChild) > getHeight(node->gtChild))
@@ -1846,8 +1861,6 @@ public:
         return node->height;
     }
 
-    friend class KdTree<K>;
-    friend class KdNode<K>;
 };
 
 #endif // KD_TREE_DYNAMIC_H
