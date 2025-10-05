@@ -10,11 +10,11 @@ The dynamic k-d tree implements a set. Also included is the implementation of a 
 
 The dynamic k-d tree is implemented as the KdTreeDynamic class that is derived from the KdTree class that implements the static k-d tree. Hence, search algorithms implemented by the KdTree class, such as region search and nearest-neighbor search, may be performed for either a static k-d tree or a dynamic k-d tree. Also, it is possible to build a static k-d tree initially via one of the two the static algorithms, and thereafter modify that k-d tree via the dynamic algorithms.
 
-The test_kdtreedynamic.cpp file and associated .h files (kdTreeDynamic.h, kdTreeNode.h, KdTreeNlogn.h, kdTreeKnlogn.h, kdTreeHeapSort.h and KdTreeMergeSort.h) build and test a dynamic k-d tree.
+The test_kdtreedynamic.cpp file and associated .h files (kdTreeDynamic.h, kdTree.h, kdTreeNode.h, KdTreeNlogn.h, kdTreeKnlogn.h, kdTreeHeapSort.h and KdTreeMergeSort.h) build and test a dynamic k-d tree.
 
-The test_kdtreedynamic.stats.cpp file and associated .h files kdTreeDynamic.stats.h, kdTreeNode.h, KdTreeNlogn.h, kdTreeKnlogn.h, kdTreeHeapSort.h and KdTreeMergeSort.h) build and test a dynamic k-d tree and optionally collect various performance statistics, including histograms.
+The test_kdtreedynamic.stats.cpp file and associated .h files kdTreeDynamic.stats.h, kdTree.h, kdTreeNode.h, KdTreeNlogn.h, kdTreeKnlogn.h, kdTreeHeapSort.h and KdTreeMergeSort.h) build and test a dynamic k-d tree and optionally collect various performance statistics, including histograms.
 
-The test_kdmapdynamic.cpp file and associated .h files (kdMapDynamic.h, kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a dynamic k-d tree-based key-to-multiple-value map.
+The test_kdmapdynamic.cpp file and associated .h files (kdMapDynamic.h, kdMap.h, kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a dynamic k-d tree-based key-to-multiple-value map.
 
 See the test_kdtreedynamic.cpp, test_kdtreedynamic.stats.cpp, and test_kdmapdynamic.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
 
@@ -41,9 +41,9 @@ The second of the two arXiv articles is a review that contrasts the O[knlog(n)] 
 
 All three of the above-listed arXiv articles include C++ implementations of the improvements that followed the publication of those algorithms in the JCGT article and are described as follows. Those same improvements are available at this Github web page.
 
-The test_kdtree.cpp file and associated .h files (kdTreeNode.h, kdTreeNlogn.h, kdTreeKnlogn.h, kdTreeYuCao.h, kdTreeHeapSort.h and kdTreeMergeSort.h) build and test a static k-d tree, which implements a set, via the O[knlog(n)], O[nlog(n)], or O[knlog(n)] + O[nlog(n)] algorithm.
+The test_kdtree.cpp file and associated .h files (kdTree.h, kdTreeNode.h, kdTreeNlogn.h, kdTreeKnlogn.h, kdTreeYuCao.h, kdTreeHeapSort.h and kdTreeMergeSort.h) build and test a static k-d tree, which implements a set, via the O[knlog(n)], O[nlog(n)], or O[knlog(n)] + O[nlog(n)] algorithm.
 
-The test_kdmap.cpp file and associated .h files (kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a static k-d tree-based key-to-multiple-value map via either the O[knlog(n)] or the O[nlog(n)] algorithm.
+The test_kdmap.cpp file and associated .h files (kdMap.h, kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a static k-d tree-based key-to-multiple-value map via either the O[knlog(n)] or the O[nlog(n)] algorithm.
 
 See the test_kdtree.cpp and test_kdmap.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
 
