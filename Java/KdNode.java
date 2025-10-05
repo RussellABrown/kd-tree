@@ -28,7 +28,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import java.math.BigInteger;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -361,10 +360,7 @@ public class KdNode {
         final ArrayList<KdNode> result = new ArrayList<KdNode>();
         boolean inside = true;
         for (int i = 0; i < tuple.length; i++) {
-            final BigInteger tup = BigInteger.valueOf(tuple[i]);
-            final BigInteger quL = BigInteger.valueOf(queryLower[i]);
-            final BigInteger quU = BigInteger.valueOf(queryUpper[i]);
-            if (tup.compareTo(quL) < 0 || tup.compareTo(quU) > 0) {
+            if (tuple[i] < queryLower[i] || tuple[i] > queryUpper[i]) {
                 inside = false;
                 break;
             }
@@ -528,10 +524,7 @@ public class KdNode {
         final LinkedList<KdNode> result = new LinkedList<KdNode>();
         boolean inside = true;
         for (int i = 0; i < tuple.length; i++) {
-            final BigInteger tup = BigInteger.valueOf(tuple[i]);
-            final BigInteger quL = BigInteger.valueOf(queryLower[i]);
-            final BigInteger quU = BigInteger.valueOf(queryUpper[i]);
-            if (tup.compareTo(quL) < 0 || tup.compareTo(quU) > 0) {
+            if (tuple[i] < queryLower[i] || tuple[i] > queryUpper[i]) {
                 inside = false;
                 break;
             }
@@ -669,12 +662,11 @@ public class KdNode {
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
             // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search
-            // or if the heap is not full, and if so, add the node and descend the > branch. Avoid BigInteger
-            // computation if possible.
-            if ( !nnList.enable[p] || !nnList.heapFull()
-                || (BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
-                .multiply(BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
-                .compareTo(nnList.curMaxDist()) <= 0 ) {
+            // or if the heap is not full, and if so, add the node and descend the > branch.  Conversion of a
+            // 64-bit long to a double may result in loss of precision because a double has a 52-bit mantissa.
+            if ( !nnList.enable[p] || !nnList.heapFull() ||
+                 ( (double)(tuple[p] - nnList.query[p]) ) * ( (double)(tuple[p] - nnList.query[p]) )
+                 <= nnList.curMaxDist() ) {
                 nnList.add(this);      // Attempt to add the current node to the heap...
                 if (gtChild != null) { // ...and if not at the bottom, descend the far branch.
                     gtChild.nearestNeighbors(nnList, p+1);
@@ -690,12 +682,11 @@ public class KdNode {
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
             // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search
-            // or if the heap is not full, and if so, add the node and descend the < branch. Avoid BigInteger
-            // computation if possible.
-            if ( !nnList.enable[p] || !nnList.heapFull()
-                || (BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
-                .multiply(BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
-                .compareTo(nnList.curMaxDist()) <= 0 ) {
+            // or if the heap is not full, and if so, add the node and descend the < branch. Conversion of a
+            // 64-bit long to a double may result in loss of precision because a double has a 52-bit mantissa.
+            if ( !nnList.enable[p] || !nnList.heapFull() ||
+                 ( (double)(tuple[p] - nnList.query[p]) ) * ( (double)(tuple[p] - nnList.query[p]) )
+                 <= nnList.curMaxDist() ) {
                 nnList.add(this);       // Attempt to add the current node to the heap...
                 if (ltChild != null) {  // ...and if not at the bottom, descend the far branch.
                     ltChild.nearestNeighbors(nnList, p+1);
@@ -726,7 +717,7 @@ public class KdNode {
      *
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code double, KdNode>>}
      */
     protected List<Paire> findNearestNeighbors(final long[] query,
                                                final int numNeighbors) {
@@ -755,7 +746,7 @@ public class KdNode {
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
      * @param enable - an array that specifies which dimensions to search
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code double, KdNode>>}
      */
     protected List<Paire> findNearestNeighbors(final long[] query,
                                                final int numNeighbors,
@@ -805,13 +796,13 @@ public class KdNode {
             gtChild.bruteNeighbors(nnList, p+1);
         }
 
-        // Check to see if the current node is closer to the query point than the farthest item in the
-        // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search
-        // or if the heap is not full, and if so, add the node. Avoid BigInteger computation if possible.
-        if ( !nnList.enable[p] || !nnList.heapFull()
-             || (BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
-             .multiply(BigInteger.valueOf(tuple[p]).subtract(BigInteger.valueOf(nnList.query[p])))
-             .compareTo(nnList.curMaxDist()) <= 0 ) {
+        // Check to see if the current node is closer to the query point than the farthest item
+        // in the nearestNeighborHeap or if this component of the query is not enabled for nearest
+        // neighbor search, and if so, add the node.  Conversion of a 64-bit long to a double may
+        // result in loss of precision because a double has a 52-bit mantissa.
+        if ( !nnList.enable[p] || !nnList.heapFull() ||
+             ( (double)(tuple[p] - nnList.query[p]) ) * ( (double)(tuple[p] - nnList.query[p]) )
+             < nnList.curMaxDist() ) {
                 nnList.add(this);  // Attempt to add the current node to the heap.
         }
     }
@@ -825,7 +816,7 @@ public class KdNode {
      *
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code double, KdNode>>}
      */
     protected  List<Paire> findBruteNeighbors(final long[] query,
                                               final int numNeighbors) {
@@ -854,7 +845,7 @@ public class KdNode {
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
      * @param enable - an array that specifies which dimensions to search
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code double, KdNode>>}
      */
     protected List<Paire> findBruteNeighbors(final long[] query,
                                              final int numNeighbors,

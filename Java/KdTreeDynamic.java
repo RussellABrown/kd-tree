@@ -446,7 +446,9 @@ public class KdTreeDynamic extends KdTree {
                     }
                     // If the node has no children, delete the node.
                     else if (nodePtr.ltChild == null && nodePtr.gtChild == null) {
-                        nodePtr = null; // Garbage collection will occur anyway without this.
+                        // This null will be returned and assigned to the parent node's
+                        // child reference, thus marking this node for garbage collection.
+                        nodePtr = null;
                     }
                     // The node has two children.
                     else { 

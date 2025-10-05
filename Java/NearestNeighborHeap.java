@@ -28,7 +28,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,7 +61,7 @@ public class NearestNeighborHeap {
     protected boolean[] enable;
     private int reqDepth; // requested number of nearest neighbors
     protected KdNode[] nodes; // array of pointers to KdNodes that are the nearest neighbors
-    protected BigInteger[] dists; // vector of squared distances
+    protected double[] dists; // vector of distances SQUARED
     protected int curDepth; // number of nearest nodes/distances on the heap
 
     /*
@@ -76,9 +75,10 @@ public class NearestNeighborHeap {
 
     public NearestNeighborHeap(final long[] query, final int numNeighbors) {
         this.nodes = new KdNode[numNeighbors + 1]; // heap of KdNode* (address 0 is unused)
-        this.dists = new BigInteger[numNeighbors + 1]; // corresponding heap of distances
+        this.dists = new double[numNeighbors + 1]; // corresponding heap of distances
         for (int i = 0; i < dists.length; ++i) {
-            dists[i] = BigInteger.ZERO; // initialize each distance to 0
+            dists[i] = 0.; // initialize each distance to 0
+            nodes[i] = null;
         }
         this.reqDepth = numNeighbors;
         this.curDepth = 0;
@@ -102,9 +102,10 @@ public class NearestNeighborHeap {
 
     public NearestNeighborHeap(final long[] query, final int numNeighbors, final boolean[] enable) {
         this.nodes = new KdNode[numNeighbors + 1]; // heap of KdNode* (address 0 is unused)
-        this.dists = new BigInteger[numNeighbors + 1]; // corresponding heap of distances
+        this.dists = new double[numNeighbors + 1]; // corresponding heap of distances
         for (int i = 0; i < dists.length; ++i) {
-            dists[i] = BigInteger.ZERO; // initialize each distance to 0
+            dists[i] = 0.; // initialize each distance to 0
+            nodes[i] = null;
         }
         this.reqDepth = numNeighbors;
         this.curDepth = 0;
@@ -126,7 +127,7 @@ public class NearestNeighborHeap {
     */
     private void swap(final int i, final int j) {
         
-        final BigInteger tempDist = dists[i];
+        final double tempDist = dists[i];
         final KdNode tempNode = nodes[i];
         dists[i] = dists[j];
         nodes[i] = nodes[j];
@@ -144,7 +145,7 @@ public class NearestNeighborHeap {
     private void rise(final int kk) {
 
         int k = kk;
-        while (k > 1 && dists[k/2].compareTo(dists[k]) < 0) {
+        while ( k > 1 && dists[k/2] < dists[k] ) {
             swap(k/2, k);
             k = k/2;
         }
@@ -162,10 +163,10 @@ public class NearestNeighborHeap {
         int k = kk;
         while (2*k <= curDepth) {
             int j = 2*k;
-            if (j < curDepth && dists[j].compareTo(dists[j+1]) < 0) {
+            if ( j < curDepth && dists[j] < dists[j+1] ) {
                 ++j;
             }
-            if (dists[k].compareTo(dists[j]) >= 0) {
+            if ( dists[k] >= dists[j] ) {
                 break;
             }
             swap(k, j);
@@ -198,28 +199,26 @@ public class NearestNeighborHeap {
     */
     protected void add(final KdNode node) {
         // Find the distance by subtracting the query from the tuple and
-        // calculating the sum of the squared distances. Note that conversion
-        // from type K to cpp_int may result in loss of precision but avoids
-        // the possibility of integer overflow.
-        BigInteger dist = BigInteger.ZERO;
+        // calculating the sum of the squared distances. Conversion of a
+        // 64-bit long to a double may result in loss of precision because
+        // a double has a 52-bit mantissa.
+        double dist2 = 0.;
         for (int i = 0; i < node.tuple.length; ++i) {
             if (enable[i]) {
-                final BigInteger tup = BigInteger.valueOf(node.tuple[i]);
-                final BigInteger que = BigInteger.valueOf(query[i]);
-                final BigInteger coor = tup.subtract(que);
-                final BigInteger square = coor.multiply(coor);
-                dist = dist.add(square);
+                final double diff = (double) (node.tuple[i] - query[i]);
+                final double square = diff * diff;
+                dist2 += square;
             }
         }
         // If the queue is not full, add the point to the bottom of the heap unconditionally and let it rise;
-        if (!heapFull()) {
-            dists[++curDepth] = dist;
+        if ( !heapFull() ) {
+            dists[++curDepth] = dist2;
             nodes[curDepth] = node;
             rise(curDepth);
         }
         // otherwise, if the point is closer than the top of the heap, overwrite the top and let it fall.
-        else if (dist.compareTo(curMaxDist()) < 0) {
-            dists[1] = dist;
+        else if ( dist2 < curMaxDist() ) {
+            dists[1] = dist2;
             nodes[1] = node;
             fall(1);
         }
@@ -227,7 +226,7 @@ public class NearestNeighborHeap {
     }
 
     /* Return the current maximum distance, i.e., dists[1] */
-    protected BigInteger curMaxDist() {
+    protected double curMaxDist() {
         return dists[1];
     }
 

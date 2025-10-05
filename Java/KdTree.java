@@ -154,48 +154,6 @@ public class KdTree {
      * are correctly sorted relative to that node.
      * </p>
      * 
-     * @param permutation - an array that indicates permutation of the reference arrays
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param depth - the depth in the k-d tree
-     * @return the number of nodes in the k-d tree
-     */
-    private int verifyKdTree(final int[] permutation,
-                             final ExecutorService executor,
-                             final int maximumSubmitDepth,
-                             final int depth)
-    {
-        return root.verifyKdTree(permutation, executor, maximumSubmitDepth, depth);
-     }
-
-    /**
-     * <p>
-     * The {@code verifyKdTree} method checks that the children of each node of the k-d tree
-     * are correctly sorted relative to that node.
-     * </p>
-     * 
-     * @param numDimsneions - the number of dimensions
-     * @param p - the leading dimension that permutes cyclically
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param depth - the depth in the k-d tree
-     * @return the number of nodes in the k-d tree
-     */
-    private int verifyKdTree(final int numDimensions,
-                             final int p,
-                             final ExecutorService executor,
-                             final int maximumSubmitDepth,
-                             final int depth)
-    {
-        return root.verifyKdTree(numDimensions, p, executor, maximumSubmitDepth, depth);
-    }
-
-    /**
-     * <p>
-     * The {@code verifyKdTree} method checks that the children of each node of the k-d tree
-     * are correctly sorted relative to that node.
-     * </p>
-     * 
     * @return the number of nodes in the k-d tree
      */
     protected int verifyKdTree()
@@ -203,7 +161,7 @@ public class KdTree {
         if (root == null) {
             return 0;
         } else {
-            return verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, 0);
+            return root.verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, 0);
         }
     }
 

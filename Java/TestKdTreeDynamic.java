@@ -520,11 +520,15 @@ public class TestKdTreeDynamic {
                 int numBruteNodes = bfList.size();
 
                 // Compare the results of nearest-neighbor search and brute-force search.
+                if (numNeighborsNodes != numBruteNodes) {
+                    System.out.println("nearest-neighbor size = " + numNeighborsNodes +
+                                       "  !=  brute-force size = " + numBruteNodes);
+                }
                 for (int i = 0; i < numNeighborsNodes; ++i) {
                     if (MergeSort.superKeyCompare(bfList.get(i).getValue().tuple, nnList.get(i).getValue().tuple, 0) != 0L) {
                         System.out.println("nearest-neighbor and brute-force values at " + i + " do not match");
-                        System.out.println("nn dist = " + nnList.get(i).getKey().toString() +
-                                           "  bf dist = " + bfList.get(i).getKey().toString() + "\n");
+                        System.out.println("nn dist = " + nnList.get(i).getKey() +
+                                           "  bf dist = " + bfList.get(i).getKey()+ "\n");
                     }
                 }
             }
@@ -637,7 +641,7 @@ public class TestKdTreeDynamic {
         }
 
         if (region) {
-            System.out.print("\nFound " + numRegionNodes+ " tuples found by region search within " +
+            System.out.print("\nFound " + numRegionNodes + " tuples by region search within " +
                               (queryUpper[0] - queryLower[0]) + " units of ");
             KdNode.printTuple(query);
             System.out.println(" in all dimensions.\n");

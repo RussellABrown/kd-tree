@@ -32,8 +32,6 @@
  * @author Russell A. Brown
  */
 
-import java.math.BigInteger;
-
 /**
  * <p>
  * The Pair class provides the functionality of javafx.util.Pair without
@@ -41,15 +39,15 @@ import java.math.BigInteger;
  * </p>
  */
 public class Paire {
-    private BigInteger key;
+    private double key;
     private KdNode value;
 
-    public Paire(BigInteger key, KdNode value) {
+    public Paire(final double key, final KdNode value) {
         this.key = key;
         this.value = value;
     }
 
-    public BigInteger getKey() {
+    public double getKey() {
         return key;
     }
 
