@@ -640,36 +640,36 @@ public class KdNode {
      * branch are farther way than the current farthest node in the NearestNeighborHeap.
      * </p>
      *
-     * @param nnList - Instance of the NearestNeighborHeap.
+     * @param nnHeap - Instance of the NearestNeighborHeap.
      * @param q - the leading dimension that permutes cyclically
      */
-    protected void nearestNeighbors(final NearestNeighborHeap nnList,
+    protected void nearestNeighbors(final NearestNeighborHeap nnHeap,
                                     final int q) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus opeator for p <= dim.
-        final int p = (q < nnList.query.length) ? q : 0;
+        final int p = (q < nnHeap.query.length) ? q : 0;
 
         // Compare the query point to the node point.
-        long comparison = MergeSort.superKeyCompare(nnList.query, tuple, p);
+        long comparison = MergeSort.superKeyCompare(nnHeap.query, tuple, p);
 
         // If query < tuple, descend the < branch to the bottom of the tree before adding a point to the
         // nearestNeighborHeap, which increases the probability that closer nodes to the query point will get added
         // earlier, thus reducing the likelihood of adding more distant points that get kicked out of the list later.
         if (comparison < 0L) {
             if (ltChild != null) {  // if not at the bottom of the tree yet descend the near branch unconditionally
-                ltChild.nearestNeighbors(nnList, p+1);
+                ltChild.nearestNeighbors(nnHeap, p+1);
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
             // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search
             // or if the heap is not full, and if so, add the node and descend the > branch.  Conversion of a
             // 64-bit long to a double may result in loss of precision because a double has a 52-bit mantissa.
-            if ( !nnList.enable[p] || !nnList.heapFull() ||
-                 ( (double)(tuple[p] - nnList.query[p]) ) * ( (double)(tuple[p] - nnList.query[p]) )
-                 <= nnList.curMaxDist() ) {
-                nnList.add(this);      // Attempt to add the current node to the heap...
+            if ( !nnHeap.enable[p] || !nnHeap.heapFull() ||
+                 ( (double)(tuple[p] - nnHeap.query[p]) ) * ( (double)(tuple[p] - nnHeap.query[p]) )
+                 <= nnHeap.curMaxDist() ) {
+                nnHeap.add(this);      // Attempt to add the current node to the heap...
                 if (gtChild != null) { // ...and if not at the bottom, descend the far branch.
-                    gtChild.nearestNeighbors(nnList, p+1);
+                    gtChild.nearestNeighbors(nnHeap, p+1);
                 }
             }
         }
@@ -678,18 +678,18 @@ public class KdNode {
         // earlier, thus reducing the likelihood of adding more distant points that get kicked out of the list later.
         else if (comparison > 0L) {
             if (gtChild != null) {  // if not at the bottom of the tree yet descend the near branch unconditionally
-                gtChild.nearestNeighbors(nnList, p+1);
+                gtChild.nearestNeighbors(nnHeap, p+1);
             }
             // Check to see if the current node is closer to the query point than the farthest item in the
             // nearestNeighborHeap or if this component of the query is not enabled for nearest neighbor search
             // or if the heap is not full, and if so, add the node and descend the < branch. Conversion of a
             // 64-bit long to a double may result in loss of precision because a double has a 52-bit mantissa.
-            if ( !nnList.enable[p] || !nnList.heapFull() ||
-                 ( (double)(tuple[p] - nnList.query[p]) ) * ( (double)(tuple[p] - nnList.query[p]) )
-                 <= nnList.curMaxDist() ) {
-                nnList.add(this);       // Attempt to add the current node to the heap...
+            if ( !nnHeap.enable[p] || !nnHeap.heapFull() ||
+                 ( (double)(tuple[p] - nnHeap.query[p]) ) * ( (double)(tuple[p] - nnHeap.query[p]) )
+                 <= nnHeap.curMaxDist() ) {
+                nnHeap.add(this);       // Attempt to add the current node to the heap...
                 if (ltChild != null) {  // ...and if not at the bottom, descend the far branch.
-                    ltChild.nearestNeighbors(nnList, p+1);
+                    ltChild.nearestNeighbors(nnHeap, p+1);
                 }
             }
         }
@@ -698,12 +698,12 @@ public class KdNode {
         // closest that won't get kicked out of the list later, and (2) the probability of finding nearest
         // neighbors is equal for both branches of the tree.
         else {
-            nnList.add(this);
+            nnHeap.add(this);
             if (ltChild != null) {
-                ltChild.nearestNeighbors(nnList, p+1);
+                ltChild.nearestNeighbors(nnHeap, p+1);
             }
             if (gtChild != null) {
-                gtChild.nearestNeighbors(nnList, p+1);
+                gtChild.nearestNeighbors(nnHeap, p+1);
             }
         }
     }
@@ -773,37 +773,37 @@ public class KdNode {
      * searches all branches of the tree in a brute-force manner.
      * </p>
      *
-     * @param nnList - Instance of the NearestNeighborHeap.
+     * @param nnHeap - Instance of the NearestNeighborHeap.
      * @param q - the leading dimension that permutes cyclically
      */
-    protected void bruteNeighbors(final NearestNeighborHeap nnList,
+    protected void bruteNeighbors(final NearestNeighborHeap nnHeap,
                                   final int q) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus opeator for p <= dim.
-        final int p = (q < nnList.query.length) ? q : 0;
+        final int p = (q < nnHeap.query.length) ? q : 0;
 
         // Compare the query point to the node point.
-        long comparison = MergeSort.superKeyCompare(nnList.query, tuple, p);
+        long comparison = MergeSort.superKeyCompare(nnHeap.query, tuple, p);
 
         // if not at the bottom of the tree yet descend the < branch unconditionally.
         if (ltChild != null) {  
-            ltChild.bruteNeighbors(nnList, p+1);
+            ltChild.bruteNeighbors(nnHeap, p+1);
         }
 
         // if not at the bottom of the tree yet descend the > branch unconditionally.
         if (gtChild != null) {  
-            gtChild.bruteNeighbors(nnList, p+1);
+            gtChild.bruteNeighbors(nnHeap, p+1);
         }
 
         // Check to see if the current node is closer to the query point than the farthest item
         // in the nearestNeighborHeap or if this component of the query is not enabled for nearest
         // neighbor search, and if so, add the node.  Conversion of a 64-bit long to a double may
         // result in loss of precision because a double has a 52-bit mantissa.
-        if ( !nnList.enable[p] || !nnList.heapFull() ||
-             ( (double)(tuple[p] - nnList.query[p]) ) * ( (double)(tuple[p] - nnList.query[p]) )
-             < nnList.curMaxDist() ) {
-                nnList.add(this);  // Attempt to add the current node to the heap.
+        if ( !nnHeap.enable[p] || !nnHeap.heapFull() ||
+             ( (double)(tuple[p] - nnHeap.query[p]) ) * ( (double)(tuple[p] - nnHeap.query[p]) )
+             < nnHeap.curMaxDist() ) {
+                nnHeap.add(this);  // Attempt to add the current node to the heap.
         }
     }
 
