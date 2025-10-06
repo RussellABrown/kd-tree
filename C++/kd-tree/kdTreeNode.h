@@ -41,6 +41,7 @@
 #define KD_TREE_NODE_H
 
 #include <algorithm>
+#include <atomic> // for the Yu Cao algorithm
 #include <chrono>
 #include <climits>
 #include <exception>
@@ -63,6 +64,7 @@
 #include <vector>
 
 using std::async;
+using std::atomic;
 using std::cout;
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;

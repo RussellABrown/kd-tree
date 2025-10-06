@@ -86,6 +86,354 @@ template <typename K>
 class KdTreeYuCao
 {
   /*
+   * The createKdTree function presorts the references arrays via O(kn log n) complexity
+   * and then conceptually splits those reference arrays via O(n log n) complexity to create
+   * the "final" (aka f) vector via the algorithm described by Yu Cao et al. and depicted in
+   * Figure 2 of "A New Method to Construct the KD Tree Based on Presorted Results", Complexity,
+   * Volume 2020, Article ID 8883945, https://doi.org/10.1155/2020/8883945
+   *
+   * Calling parameters:
+   *
+   * coordinates - a vector<vector<K>> that stores the (x, y, z, w...) coordinates
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
+   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime, unsortTime - execution times
+   *
+   * returns: a KdTree pointer
+   */
+public:
+  static KdTree<K>* createKdTree(vector<vector<K>> const& coordinates,
+                                 signed_size_t const maximumSubmitDepth,
+                                 signed_size_t& numberOfNodes,
+                                 double& allocateTime,
+                                 double& sortTime,
+                                 double& removeTime,
+                                 double& kdTime,
+                                 double& verifyTime,
+                                 double& deallocateTime,
+                                 double& unsortTime) {
+
+    // Allocate the reference arrays including one additional array.
+    auto beginTime = steady_clock::now();
+    size_t n = coordinates.size();
+    size_t numDimensions = coordinates[0].size();
+    K*** references = new K**[numDimensions + 1];
+    for (size_t i = 0; i < numDimensions + 1; ++i) {
+      references[i] = new K*[n];
+    }
+
+    // Create a KdTree instance.
+    auto tree = new KdTree<K>(numDimensions, maximumSubmitDepth);
+
+#ifndef PREALLOCATE
+    // Allocate tuple arrays for the first reference array.
+    // Each tuple array will be deallocated by either the
+    // KdNode::removeDuplicates function or the ~KdNode destructor.
+    // Copy (x, y, z, w...) coordinates to each tuple array.
+    // Create an additional element in each tuple array to
+    // store the index of the tuple as required by Yu Cao's
+    // algorithm. This kludge will work for an integer tuple
+    // array but perhaps not for a floating-point array.
+    for (size_t i = 0; i < n; ++i) {
+      references[0][i] = new K[numDimensions+1];
+      for (size_t j = 0; j < numDimensions; ++j) {
+        references[0][i][j] = coordinates[i][j];
+      }
+      references[0][i][numDimensions] = i;
+    }
+
+#ifdef DEBUG_PRINT
+    cout << "references[0] array" << endl;
+    for (size_t i = 0; i < n; ++i) {
+      cout << "(" << references[0][i][0] << "," << references[0][i][1] << ") " << references[0][i][2] << endl;
+    }
+    cout << endl;
+#endif
+
+#else
+    // Allocate a tuple vector that comprises all tuple arrays and
+    // assign individual tuple arrays to the first reference array.
+    // This vector will be deallocated by the ~KdTree destructor.
+    // Copy (x, y, z, w...) coordinates to each tuple array.
+    // Create an additional element in each tuple array to
+    // store the index of the tuple as required by Yu Cao's
+    // algorithm. This kludge will work for an integer tuple
+    // array but perhaps not for a floating-point array.
+    tree->tuples = new vector<K>((numDimensions+1) * n);
+    for (size_t i = 0; i < n; ++i) {
+      references[0][i] = &(*(tree->tuples)).data()[(numDimensions+1) * i];
+      for (size_t j = 0; j < numDimensions; ++j) {
+        references[0][i][j] = coordinates[i][j];
+      }
+      references[0][i][numDimensions] = i;
+    }
+
+#ifdef DEBUG_PRINT
+    cout << "references[0] array" << endl;
+    for (size_t i = 0; i < n; ++i) {
+     cout << "(" << references[0][i][0] << "," << references[0][i][1] << ") " << references[0][i][2] << endl;
+    }
+    cout << endl;
+#endif
+
+#endif
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Sort the first reference array using multiple threads. Importantly,
+    // for compatibility with the 'permutation' vector initialized below,
+    // use the first dimension (0) as the leading key of the super key.
+    // Also, only the first reference array is populated with tuple arrays.
+    beginTime = steady_clock::now();
+    MergeSort<K>::mergeSortReferenceAscending(references[0], references[numDimensions], 0,
+                                              n-1, 0, numDimensions, maximumSubmitDepth, 0);
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    sortTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+#ifdef DEBUG_PRINT
+    cout << "references[0] array" << endl;
+    for (size_t i = 0; i < n; ++i) {
+     cout << "(" << references[0][i][0] << "," << references[0][i][1] << ") " << references[0][i][2] << endl;
+    }
+    cout << endl;
+
+    cout << "coordinates vector" << endl;
+    for (size_t i = 0; i < n; ++i) {
+      cout << "(" << coordinates[i][0] << "," << coordinates[i][1] << ")" << endl;
+    }
+    cout << endl;
+#endif
+
+    // Remove references to duplicate coordinates via one pass through the first reference array
+    // and adjust the number of coordinates (n) to represent the remaining references. 
+    beginTime = steady_clock::now();
+    signed_size_t const end = KdNode<K>::removeDuplicates(references[0], 0, numDimensions, n);
+    n = end + 1;
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    removeTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Verify that no tuple's index lies beyond the range [0, end];
+    for (size_t i = 0; i < n; ++i) {
+      if (references[0][i][numDimensions] > end) {
+        ostringstream buffer;
+        buffer << "\n\ntuple " << i << " index = " << references[0][i][numDimensions]
+               << " > " << end << endl << endl;
+        throw runtime_error(buffer.str());
+      }
+    }
+
+#ifdef DEBUG_PRINT
+    cout << "end = " << end << endl;
+    cout << "references[0] array" << endl;
+    for (size_t i = 0; i < n; ++i) {
+     cout << "(" << references[0][i][0] << "," << references[0][i][1] << ") " << references[0][i][2] << endl;
+    }
+    cout << endl;
+#endif
+
+    // Copy the tuple array pointers from first reference array to all but
+    // the last reference array. Sort these referece arrays using multiple
+    // threads, but only to the extent of those tuples that were not "removed",
+    // i.e., skipped by the removeDuplicates function above.
+    beginTime = steady_clock::now();
+    for (size_t i = 1; i < numDimensions; ++i) {
+      for (size_t j = 0; j < n; ++j) {
+        references[i][j] = references[0][j];
+      }
+
+#ifdef DEBUG_PRINT
+      cout << "references[" << i << "] array before merge sort" << endl;
+      for (size_t k = 0; k < n; ++k) {
+      cout << "(" << references[i][k][0] << "," << references[i][k][1] << ") " << references[i][k][2] << endl;
+      }
+      cout << endl;
+#endif
+
+      MergeSort<K>::mergeSortReferenceAscending(references[i], references[numDimensions], 0,
+                                                n-1, i, numDimensions, maximumSubmitDepth, 0);
+    }
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    sortTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+#ifdef DEBUG_PRINT
+    cout << "references[1] array after merge sort" << endl;
+    for (size_t i = 0; i < n; ++i) {
+     cout << "(" << references[1][i][0] << "," << references[1][i][1] << ") " << references[1][i][2] << endl;
+    }
+    cout << endl;
+#endif
+
+    beginTime = steady_clock::now();
+#ifndef PREALLOCATE
+    // Allocate the kdNodes vector of pointers to KdNode instances
+    // but only for references that were not removed by removeDuplicates.
+    // Allocate a KdNode instance for each entry in the kdNodes vector.
+    vector<KdNode<K>*> kdNodes(n);
+    for (size_t i = 0; i < kdNodes.size(); ++i) {
+      kdNodes[i] = new KdNode<K>();
+    }
+#else
+    // Allocate a vector of KdNode instances for references that
+    // were not removed by the removeDuplicates function,
+    tree->kdNodes = new vector<KdNode<K>>(n);
+#endif
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    allocateTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Start the timer to time building the k-d tree.
+    beginTime = steady_clock::now();
+
+    // Create Presorted Results (aka s) vectors that contain the
+    // indices of tuples, as required by Yu Cao's algorithm.
+    vector<vector<size_t>> s(numDimensions, vector<size_t>(n));
+    for (size_t i = 0; i < numDimensions; ++i) {
+      for (size_t j = 0; j < n; ++j) {
+        s[i][j] = references[i][j][numDimensions];
+      }
+    }
+
+#ifdef DEBUG_PRINT
+    cout << "s vector " << coordinates.size() << endl;
+    for (size_t i = 0; i < n; ++i) {
+      for (size_t j = 0; j < numDimensions; ++j) {
+        cout << s[j][i] << "  ";
+      }
+      cout << endl;
+    }
+    cout << endl;
+#endif
+
+    // Call either the single-threaded or dual-threaded version of the
+    // algorithm depicted in Figure 2 of Yu Cao et al., depending on
+    // whether 1 or 2 threads are available to execute the algorithm.
+    // Create the f vector to return the result of either version.
+    vector<size_t> f(n);
+#ifdef DUAL_THREAD_YUCAO
+    if (maximumSubmitDepth < 0) {
+      algorithmYuCao1(s, f, n, numDimensions);
+    } else {
+      algorithmYuCao2(s, f, n, numDimensions);
+    }
+#else
+    algorithmYuCao1(s, f, n, numDimensions);
+#endif
+
+#ifdef DEBUG_PRINT
+    cout << endl << "final vector" << endl;
+    for (size_t i = 0; i < n; ++i) {
+      cout << f[i] << endl;
+    }
+    cout << endl;
+#endif
+
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Restore the original, unsorted order of the first reference
+    // array into the last reference array, because Yu Cao's algorithm
+    // expects unsorted tuples.
+    beginTime = steady_clock::now();
+    for (size_t i = 0; i < n; ++i) {
+      references[numDimensions][references[0][i][numDimensions]] = references[0][i];
+    }
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    unsortTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+#ifdef DEBUG_PRINT
+    cout << "references[2] array" << endl;
+    for (size_t i = 0; i < n; ++i) {
+     cout << "(" << references[2][i][0] << "," << references[2][i][1] << ") " << references[2][i][2] << endl;
+    }
+    cout << endl;
+#endif
+
+    // Build the k-d tree from the "final" (aka f) vector and add the execution time to kdTime.
+    beginTime = steady_clock::now();
+#ifndef PREALLOCATE
+    tree->root = buildKdTree(f, references[numDimensions], kdNodes, 0, n);
+#else
+    tree->root = buildKdTree(f, references[numDimensions], tree->kdNodes, 0, n);
+#endif
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    kdTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() )
+    // or log2( kdNodes.size() ), depending on whether KD_TREE_DYNAMIC_H is defined,
+    // and assuming a balanced tree.
+    signed_size_t maxDepth = 1;
+#ifdef KD_TREE_DYNAMIC_H
+    signed_size_t size = kdNodes.size();
+#else
+    signed_size_t size = coordinates.size();
+#endif
+    while (size > 0) {
+      ++maxDepth;
+      size >>= 1;
+    }
+
+    // It is unnecessary to compute the partition coordinate upon each recursive call of
+    // the buildKdTree function because that coordinate depends only on the depth of
+    // recursion, so it may be pre-computed and stored in the permutation vector.
+    // Add the leading dimension p to the pre-computed partition coordinate (modulo
+    // the number of dimensions) to permit KdTreeDynamic::balanceSubtree to build
+    // a sub-tree whose root node has a non-zero partition coordinate.
+    vector<signed_size_t> permutation(maxDepth);
+    for (size_t i = 0; i < permutation.size(); ++i) {
+      permutation[i] = i % numDimensions;
+    }
+
+    // Verify the k-d tree and report the number of kdNodes.
+    //
+    // Because the partition coordinate permutes in the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
+    // (for e.g. 4-dimensional data), the leading key of the super key will be 0 at the
+    // first level of the nascent tree, consistent with having sorted the reference array
+    // using 0 as the leading key of the super key.
+    beginTime = steady_clock::now();
+    numberOfNodes = tree->root->verifyKdTree(permutation, numDimensions, maximumSubmitDepth, 0);
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    verifyTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+  
+    // Delete the references arrays but not the tuples arrays that they point to.
+    beginTime = steady_clock::now();
+    for (size_t i = 0; i < numDimensions+1; ++i) {
+      delete[] references[i];
+    }
+    delete[] references;
+
+    // If PREALLOCATE is undefined, clear the kdNodes vector in order to measure its
+    // deallocation time. Do not deallocate the KdNode instances that it points to
+    // because they will be deallocated recursively by the ~KdNode destructor.
+#ifndef PREALLOCATE
+    kdNodes.clear();
+#endif
+
+    // Clear the s and f vectors in order to measure their deallocation times.
+    s.clear();
+    f.clear();
+
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+#ifdef DEBUG_PRINT
+    tree->printKdTree(numDimensions);
+    cout << endl;
+#endif
+
+    // Return the pointer to the k-d tree.
+    return tree;
+  }
+
+  /*
    * The buildKdTree function builds a k-d tree via O(n) complexity by recursively subdividing
    * the "final" (aka f) vector via the algorithm described by Yu Cao et al. and depicted in
    * Figure 3 of "A New Method to Construct the KD Tree Based on Presorted Results", Complexity,
@@ -508,354 +856,6 @@ private:
     for (size_t i = 0; i < n; ++i) {
       f[bn[i]] = i;
     }
-  }
-
-  /*
-   * The createKdTree function presorts the references arrays via O(kn log n) complexity
-   * and then conceptually splits those reference arrays via O(n log n) complexity to create
-   * the "final" (aka f) vector via the algorithm described by Yu Cao et al. and depicted in
-   * Figure 2 of "A New Method to Construct the KD Tree Based on Presorted Results", Complexity,
-   * Volume 2020, Article ID 8883945, https://doi.org/10.1155/2020/8883945
-   *
-   * Calling parameters:
-   *
-   * coordinates - a vector<vector<K>> that stores the (x, y, z, w...) coordinates
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
-   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime, unsortTime - execution times
-   *
-   * returns: a KdTree pointer
-   */
-public:
-  static KdTree<K>* createKdTree(vector<vector<K>> const& coordinates,
-                                 signed_size_t const maximumSubmitDepth,
-                                 signed_size_t& numberOfNodes,
-                                 double& allocateTime,
-                                 double& sortTime,
-                                 double& removeTime,
-                                 double& kdTime,
-                                 double& verifyTime,
-                                 double& deallocateTime,
-                                 double& unsortTime) {
-
-    // Allocate the reference arrays including one additional array.
-    auto beginTime = steady_clock::now();
-    size_t n = coordinates.size();
-    size_t numDimensions = coordinates[0].size();
-    K*** references = new K**[numDimensions + 1];
-    for (size_t i = 0; i < numDimensions + 1; ++i) {
-      references[i] = new K*[n];
-    }
-
-    // Create a KdTree instance.
-    auto tree = new KdTree<K>(numDimensions, maximumSubmitDepth);
-
-#ifndef PREALLOCATE
-    // Allocate tuple arrays for the first reference array.
-    // Each tuple array will be deallocated by either the
-    // KdNode::removeDuplicates function or the ~KdNode destructor.
-    // Copy (x, y, z, w...) coordinates to each tuple array.
-    // Create an additional element in each tuple array to
-    // store the index of the tuple as required by Yu Cao's
-    // algorithm. This kludge will work for an integer tuple
-    // array but perhaps not for a floating-point array.
-    for (size_t i = 0; i < n; ++i) {
-      references[0][i] = new K[numDimensions+1];
-      for (size_t j = 0; j < numDimensions; ++j) {
-        references[0][i][j] = coordinates[i][j];
-      }
-      references[0][i][numDimensions] = i;
-    }
-
-#ifdef DEBUG_PRINT
-    cout << "references[0] array" << endl;
-    for (size_t i = 0; i < n; ++i) {
-      cout << "(" << references[0][i][0] << "," << references[0][i][1] << ") " << references[0][i][2] << endl;
-    }
-    cout << endl;
-#endif
-
-#else
-    // Allocate a tuple vector that comprises all tuple arrays and
-    // assign individual tuple arrays to the first reference array.
-    // This vector will be deallocated by the ~KdTree destructor.
-    // Copy (x, y, z, w...) coordinates to each tuple array.
-    // Create an additional element in each tuple array to
-    // store the index of the tuple as required by Yu Cao's
-    // algorithm. This kludge will work for an integer tuple
-    // array but perhaps not for a floating-point array.
-    tree->tuples = new vector<K>((numDimensions+1) * n);
-    for (size_t i = 0; i < n; ++i) {
-      references[0][i] = &(*(tree->tuples)).data()[(numDimensions+1) * i];
-      for (size_t j = 0; j < numDimensions; ++j) {
-        references[0][i][j] = coordinates[i][j];
-      }
-      references[0][i][numDimensions] = i;
-    }
-
-#ifdef DEBUG_PRINT
-    cout << "references[0] array" << endl;
-    for (size_t i = 0; i < n; ++i) {
-     cout << "(" << references[0][i][0] << "," << references[0][i][1] << ") " << references[0][i][2] << endl;
-    }
-    cout << endl;
-#endif
-
-#endif
-    auto endTime = steady_clock::now();
-    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Sort the first reference array using multiple threads. Importantly,
-    // for compatibility with the 'permutation' vector initialized below,
-    // use the first dimension (0) as the leading key of the super key.
-    // Also, only the first reference array is populated with tuple arrays.
-    beginTime = steady_clock::now();
-    MergeSort<K>::mergeSortReferenceAscending(references[0], references[numDimensions], 0,
-                                              n-1, 0, numDimensions, maximumSubmitDepth, 0);
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    sortTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-#ifdef DEBUG_PRINT
-    cout << "references[0] array" << endl;
-    for (size_t i = 0; i < n; ++i) {
-     cout << "(" << references[0][i][0] << "," << references[0][i][1] << ") " << references[0][i][2] << endl;
-    }
-    cout << endl;
-
-    cout << "coordinates vector" << endl;
-    for (size_t i = 0; i < n; ++i) {
-      cout << "(" << coordinates[i][0] << "," << coordinates[i][1] << ")" << endl;
-    }
-    cout << endl;
-#endif
-
-    // Remove references to duplicate coordinates via one pass through the first reference array
-    // and adjust the number of coordinates (n) to represent the remaining references. 
-    beginTime = steady_clock::now();
-    signed_size_t const end = KdNode<K>::removeDuplicates(references[0], 0, numDimensions, n);
-    n = end + 1;
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    removeTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Verify that no tuple's index lies beyond the range [0, end];
-    for (size_t i = 0; i < n; ++i) {
-      if (references[0][i][numDimensions] > end) {
-        ostringstream buffer;
-        buffer << "\n\ntuple " << i << " index = " << references[0][i][numDimensions]
-               << " > " << end << endl << endl;
-        throw runtime_error(buffer.str());
-      }
-    }
-
-#ifdef DEBUG_PRINT
-    cout << "end = " << end << endl;
-    cout << "references[0] array" << endl;
-    for (size_t i = 0; i < n; ++i) {
-     cout << "(" << references[0][i][0] << "," << references[0][i][1] << ") " << references[0][i][2] << endl;
-    }
-    cout << endl;
-#endif
-
-    // Copy the tuple array pointers from first reference array to all but
-    // the last reference array. Sort these referece arrays using multiple
-    // threads, but only to the extent of those tuples that were not "removed",
-    // i.e., skipped by the removeDuplicates function above.
-    beginTime = steady_clock::now();
-    for (size_t i = 1; i < numDimensions; ++i) {
-      for (size_t j = 0; j < n; ++j) {
-        references[i][j] = references[0][j];
-      }
-
-#ifdef DEBUG_PRINT
-      cout << "references[" << i << "] array before merge sort" << endl;
-      for (size_t k = 0; k < n; ++k) {
-      cout << "(" << references[i][k][0] << "," << references[i][k][1] << ") " << references[i][k][2] << endl;
-      }
-      cout << endl;
-#endif
-
-      MergeSort<K>::mergeSortReferenceAscending(references[i], references[numDimensions], 0,
-                                                n-1, i, numDimensions, maximumSubmitDepth, 0);
-    }
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    sortTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-#ifdef DEBUG_PRINT
-    cout << "references[1] array after merge sort" << endl;
-    for (size_t i = 0; i < n; ++i) {
-     cout << "(" << references[1][i][0] << "," << references[1][i][1] << ") " << references[1][i][2] << endl;
-    }
-    cout << endl;
-#endif
-
-    beginTime = steady_clock::now();
-#ifndef PREALLOCATE
-    // Allocate the kdNodes vector of pointers to KdNode instances
-    // but only for references that were not removed by removeDuplicates.
-    // Allocate a KdNode instance for each entry in the kdNodes vector.
-    vector<KdNode<K>*> kdNodes(n);
-    for (size_t i = 0; i < kdNodes.size(); ++i) {
-      kdNodes[i] = new KdNode<K>();
-    }
-#else
-    // Allocate a vector of KdNode instances for references that
-    // were not removed by the removeDuplicates function,
-    tree->kdNodes = new vector<KdNode<K>>(n);
-#endif
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    allocateTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Start the timer to time building the k-d tree.
-    beginTime = steady_clock::now();
-
-    // Create Presorted Results (aka s) vectors that contain the
-    // indices of tuples, as required by Yu Cao's algorithm.
-    vector<vector<size_t>> s(numDimensions, vector<size_t>(n));
-    for (size_t i = 0; i < numDimensions; ++i) {
-      for (size_t j = 0; j < n; ++j) {
-        s[i][j] = references[i][j][numDimensions];
-      }
-    }
-
-#ifdef DEBUG_PRINT
-    cout << "s vector " << coordinates.size() << endl;
-    for (size_t i = 0; i < n; ++i) {
-      for (size_t j = 0; j < numDimensions; ++j) {
-        cout << s[j][i] << "  ";
-      }
-      cout << endl;
-    }
-    cout << endl;
-#endif
-
-    // Call either the single-threaded or dual-threaded version of the
-    // algorithm depicted in Figure 2 of Yu Cao et al., depending on
-    // whether 1 or 2 threads are available to execute the algorithm.
-    // Create the f vector to return the result of either version.
-    vector<size_t> f(n);
-#ifdef DUAL_THREAD_YUCAO
-    if (maximumSubmitDepth < 0) {
-      algorithmYuCao1(s, f, n, numDimensions);
-    } else {
-      algorithmYuCao2(s, f, n, numDimensions);
-    }
-#else
-    algorithmYuCao1(s, f, n, numDimensions);
-#endif
-
-#ifdef DEBUG_PRINT
-    cout << endl << "final vector" << endl;
-    for (size_t i = 0; i < n; ++i) {
-      cout << f[i] << endl;
-    }
-    cout << endl;
-#endif
-
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Restore the original, unsorted order of the first reference
-    // array into the last reference array, because Yu Cao's algorithm
-    // expects unsorted tuples.
-    beginTime = steady_clock::now();
-    for (size_t i = 0; i < n; ++i) {
-      references[numDimensions][references[0][i][numDimensions]] = references[0][i];
-    }
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    unsortTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-#ifdef DEBUG_PRINT
-    cout << "references[2] array" << endl;
-    for (size_t i = 0; i < n; ++i) {
-     cout << "(" << references[2][i][0] << "," << references[2][i][1] << ") " << references[2][i][2] << endl;
-    }
-    cout << endl;
-#endif
-
-    // Build the k-d tree from the "final" (aka f) vector and add the execution time to kdTime.
-    beginTime = steady_clock::now();
-#ifndef PREALLOCATE
-    tree->root = buildKdTree(f, references[numDimensions], kdNodes, 0, n);
-#else
-    tree->root = buildKdTree(f, references[numDimensions], tree->kdNodes, 0, n);
-#endif
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    kdTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() )
-    // or log2( kdNodes.size() ), depending on whether KD_TREE_DYNAMIC_H is defined,
-    // and assuming a balanced tree.
-    signed_size_t maxDepth = 1;
-#ifdef KD_TREE_DYNAMIC_H
-    signed_size_t size = kdNodes.size();
-#else
-    signed_size_t size = coordinates.size();
-#endif
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
-
-    // It is unnecessary to compute the partition coordinate upon each recursive call of
-    // the buildKdTree function because that coordinate depends only on the depth of
-    // recursion, so it may be pre-computed and stored in the permutation vector.
-    // Add the leading dimension p to the pre-computed partition coordinate (modulo
-    // the number of dimensions) to permit KdTreeDynamic::balanceSubtree to build
-    // a sub-tree whose root node has a non-zero partition coordinate.
-    vector<signed_size_t> permutation(maxDepth);
-    for (size_t i = 0; i < permutation.size(); ++i) {
-      permutation[i] = i % numDimensions;
-    }
-
-    // Verify the k-d tree and report the number of kdNodes.
-    //
-    // Because the partition coordinate permutes in the order 0, 1, 2, 3, 0, 1, 2, 3, etc.
-    // (for e.g. 4-dimensional data), the leading key of the super key will be 0 at the
-    // first level of the nascent tree, consistent with having sorted the reference array
-    // using 0 as the leading key of the super key.
-    beginTime = steady_clock::now();
-    numberOfNodes = tree->root->verifyKdTree(permutation, numDimensions, maximumSubmitDepth, 0);
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    verifyTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-  
-    // Delete the references arrays but not the tuples arrays that they point to.
-    beginTime = steady_clock::now();
-    for (size_t i = 0; i < numDimensions+1; ++i) {
-      delete[] references[i];
-    }
-    delete[] references;
-
-    // If PREALLOCATE is undefined, clear the kdNodes vector in order to measure its
-    // deallocation time. Do not deallocate the KdNode instances that it points to
-    // because they will be deallocated recursively by the ~KdNode destructor.
-#ifndef PREALLOCATE
-    kdNodes.clear();
-#endif
-
-    // Clear the s and f vectors in order to measure their deallocation times.
-    s.clear();
-    f.clear();
-
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-#ifdef DEBUG_PRINT
-    tree->printKdTree(numDimensions);
-    cout << endl;
-#endif
-
-    // Return the pointer to the k-d tree.
-    return tree;
   }
 
 }; // class KdTreeYuCao

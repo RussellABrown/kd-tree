@@ -136,11 +136,6 @@ public:
     this->root = root;
   }
 
-public:
-  bool isEmpty() {
-    return (root == nullptr);
-  }
-  
 #if defined(PREALLOCATE) && !defined(KD_TREE_DYNAMIC_H)
 public:
   vector<KdNode<K>>* kdNodes;
@@ -251,6 +246,18 @@ public:
 
   }
 
+  /* Determine whether the tree is empty. */
+public:
+  bool isEmpty() {
+    return (root == nullptr);
+  }
+  
+  /* Return the root of the tree. */
+public:
+  KdNode<K>* getRoot() {
+    return root;
+  }
+
   /*
    * Return the height of the tree, or 0 if the tree is empty
    * or if KD_MAP_DYNAMIC_H is not defined.
@@ -258,7 +265,7 @@ public:
 public:
   size_t getHeight() {
 
-#ifdef KD_MAP_DYNAMIC_H
+#ifdef KD_TREE_DYNAMIC_H
     if (root == nullptr) {
       return 0;
     } else {

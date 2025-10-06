@@ -547,7 +547,7 @@ int main(int argc, char** argv) {
     // Report the mean and standard deviation distance and number of reverse nearest neighbors.
     double meanSize, stdSize, meanDist, stdDist;
     tree->calculateMeanStd(rnn, meanSize, stdSize, meanDist, stdDist);
-    cout << "mean reverse nearest neighbor distance = " << scientific << meanDist
+    cout << "mean reverse nearest neighbor distance = " << scientific << setprecision(3) << meanDist
          << "  standard deviation = " << stdDist << endl;
     cout << "mean reverse nearest neighbor list size = " << fixed << setprecision(3) << meanSize
          << "  standard deviation = " << stdSize << endl << endl;

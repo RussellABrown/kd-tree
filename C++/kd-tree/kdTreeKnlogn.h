@@ -87,331 +87,6 @@ template <typename K>
 class KdTreeKnlogn
 {
   /*
-   * The buildKdTree function builds a k-d tree by recursively partitioning
-   * the reference arrays and adding KdNodes to the tree.  These arrays
-   * are permuted cyclically for successive levels of the tree in
-   * order that sorting occur in the order x, y, z, w...
-   *
-   * Calling parameters:
-   *
-   * references - a K*** of references to each of the (x, y, z, w...) tuples
-   * permutation - a vector<vector<signed_size_t>> that indicates permutation of the reference arrays
-   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined and KD_TREE_DYNAMIC_h is undefined
-   *         - a vector<KdNode<K>*> if PREALLOCATE is undefined or KD_TREE_DYNAMIC_H is defined
-   * start - start element of the reference array
-   * end - end element of the reference array
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * depth - the depth in the tree
-   *
-   * returns: a KdNode pointer to the root of the k-d tree
-   */
-private:
-  static KdNode<K>* buildKdTree(K*** const references,
-                                vector<vector<signed_size_t>> const& permutation,
-#if !defined(PREALLOCATE) || defined(KD_TREE_DYNAMIC_H)
-                                vector<KdNode<K>*> const& kdNodes,
-#else
-                                vector<KdNode<K>>* const kdNodes,
-#endif
-                                signed_size_t const start,
-                                signed_size_t const end,
-                                signed_size_t const maximumSubmitDepth,
-                                signed_size_t const depth) {
-
-    KdNode<K>* node = nullptr;
-
-    // The partition permutes as x, y, z, w... and specifies the leading dimension of the key.
-    signed_size_t const p = permutation[depth][permutation[0].size() - 1];
-
-    // Get the number of dimensions.
-    signed_size_t const dim = permutation[0].size() - 2;
-
-    // Obtain the reference array that corresponds to the most significant key.
-    auto const reference = references[permutation[depth][dim]];
-
-    if (end == start) {
-
-      // Only one reference was passed to this function, so add it to the tree.
-      node = KdNode<K>::getKdNode(reference, kdNodes, end);
-#ifdef KD_TREE_DYNAMIC_H
-      node->height = 1;
-#endif
-
-    }
-    else if (end == start + 1) {
-
-      // Two references were passed to this function in sorted order, so store the start
-      // element at this level of the tree and store the end element as the > child.
-      node = KdNode<K>::getKdNode(reference, kdNodes, start);
-      node->gtChild = KdNode<K>::getKdNode(reference, kdNodes, end);
-#ifdef KD_TREE_DYNAMIC_H
-      node->gtChild->height = 1;
-      node->height = 2;
-#endif
-
-    }
-    else if (end == start + 2) {
-
-      // Three references were passed to this function in sorted order, so
-      // store the median element at this level of the tree, store the start
-      // element as the < child and store the end element as the > child.
-      node = KdNode<K>::getKdNode(reference, kdNodes, start + 1);
-      node->ltChild = KdNode<K>::getKdNode(reference, kdNodes, start);
-      node->gtChild = KdNode<K>::getKdNode(reference, kdNodes, end);
-#ifdef KD_TREE_DYNAMIC_H
-      node->ltChild->height = node->gtChild->height = 1;
-      node->height = 2;
-#endif
-
-    }
-    else if (end > start + 2) {
-
-      // Four or more references were passed to this function, so the
-      // median element of the reference array is chosen as the tuple
-      // about which the other reference arrays will be partitioned
-      // Avoid overflow when computing the median.  Note that a < child
-      // and a > child will always exist for this case.
-      signed_size_t const median = start + ((end - start) / 2);
-
-      // Store the median element of the reference array in a new KdNode.
-      node = KdNode<K>::getKdNode(reference, kdNodes, median);
-
-      // Build both branches with child threads at as many levels of the tree
-      // as possible.  Create the child threads as high in the tree as possible.
-      // Are child threads available to build both branches of the tree, and are
-      // there sufficient array elements to justify spawning a child thread?
-      if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
-          || end - start < KNLOGN_CUTOFF) {
-
-        // No, child threads are not available, so one thread will be used.
-        // Initialize startIndex=1 so that the 'for' loop that partitions the
-        // reference arrays will partition a number of arrays equal to dim.
-        signed_size_t startIndex = 1;
-
-        // If depth < dim-1, copy references[permut[dim]] to references[permut[0]]
-        // where permut is the permutation vector for this level of the tree.
-        // Sort the two halves of references[permut[0]] with p+1 as the most
-        // significant key of the super key. Use as the temporary array
-        // references[permut[1]] because that array is not used for partitioning.
-        // Partition a number of reference arrays equal to the tree depth because
-        // those reference arrays are already sorted.
-        if (depth < dim - 1) {
-          startIndex = dim - depth;
-          auto const dst = references[permutation[depth][0]];
-          auto const tmp = references[permutation[depth][1]];
-          for (int i = start; i <= end; ++i) {
-            dst[i] = reference[i];
-          }
-          // Sort the lower half of references[permut[0]] with the current thread.
-          // Ensure that the partition p cycles as x, y, z, w...
-          signed_size_t p1 = (p + 1 < dim) ? p + 1 : 0;
-          MergeSort<K>::mergeSortReferenceAscending(dst, tmp, start, median - 1, p1, dim,
-                                                    maximumSubmitDepth, depth + 1);
-          // Sort the upper half of references[permut[0]] with the current thread.
-          MergeSort<K>::mergeSortReferenceAscending(dst, tmp, median + 1, end, p1, dim,
-                                                    maximumSubmitDepth, depth + 1);
-        }
-
-        // Partition the reference arrays specified by 'startIndex' in
-        // a priori sorted order by comparing super keys.  Store the
-        // result from references[permut[i]]] in references[permut[i-1]]
-        // where permut is the permutation vector for this level of the
-        // tree, thus permuting the reference arrays. Skip the element
-        // of references[permut[i]] that equals the tuple that is stored
-        // in the new KdNode.
-        auto const tuple = node->tuple;
-        for (signed_size_t i = startIndex; i < dim; ++i) {
-          // Specify the source and destination reference arrays.
-          auto const src = references[permutation[depth][i]];
-          auto const dst = references[permutation[depth][i-1]];
-
-          // Fill the lower and upper halves of one reference array
-          // in ascending order with the current thread.
-          for (signed_size_t j = start, lower = start - 1, upper = median; j <= end; ++j) {
-            auto const src_j = src[j];
-            auto const compare = MergeSort<K>::superKeyCompare(src_j, tuple, p, dim);
-            if (compare < 0) {
-              dst[++lower] = src_j;
-            }
-            else if (compare > 0) {
-              dst[++upper] = src_j;
-            }
-          }
-        }
-
-        // Recursively build the < branch of the tree with the current thread.
-        node->ltChild = buildKdTree(references, permutation, kdNodes, start, median - 1,
-                                    maximumSubmitDepth, depth + 1);
-
-        // Then recursively build the > branch of the tree with the current thread.
-        node->gtChild = buildKdTree(references, permutation, kdNodes, median + 1, end,
-                                    maximumSubmitDepth, depth + 1);
-
-      } else {
-
-        // Yes, child threads are available, so two threads will be used.
-        // Initialize endIndex=0 so that the 'for' loop that partitions the
-        // reference arrays will partition a number of arrays equal to dim.
-        signed_size_t startIndex = 1;
-
-        // If depth < dim-1, copy references[permut[dim]] to references[permut[0]]
-        // where permut is the permutation vector for this level of the tree.
-        // Sort the two halves of references[permut[0]] with p+1 as the most
-        // significant key of the super key. Use as the temporary array
-        // references[permut[1]] because that array is not used for partitioning.
-        // Partition a number of reference arrays equal to the tree depth because
-        // those reference arrays are already sorted.
-        if (depth < dim - 1) {
-          startIndex = dim - depth;
-          auto const dst = references[permutation[depth][0]];
-          auto const tmp = references[permutation[depth][1]];
-          // Copy and sort the lower half of references[permut[0]] with a child thread.
-          // Ensure that the partition p cycles as x, y, z, w...
-          signed_size_t p1 = (p + 1 < dim) ? p + 1 : 0;
-          auto copyFuture =
-            async(launch::async, [&] {
-                                   for (int i = start; i <= median - 1; ++i) {
-                                     dst[i] = reference[i];
-                                   }
-                                   MergeSort<K>::mergeSortReferenceAscending(dst, tmp, start, median - 1, p1,
-                                                                             dim, maximumSubmitDepth, depth);
-                                 });
-
-          // Copy and sort the upper half of references[permut[0]] with the current thread.
-          for (int i = median + 1; i <= end; ++i) {
-            dst[i] = reference[i];
-          }
-          MergeSort<K>::mergeSortReferenceAscending(dst, tmp, median + 1, end, p1,
-                                                    dim, maximumSubmitDepth, depth);
-
-          // Wait for the child thread to finish execution.
-          try {
-            copyFuture.get();
-          }
-          catch (exception const& e) {
-            throw runtime_error("\n\ncaught exception for copy future in buildKdTree\n");
-          }
-        }
-
-        // Create a copy of the node->tuple array so that the current thread
-        // and the child thread do not contend for read access to this array.
-        auto const tuple = node->tuple;
-        vector<K> point(dim);
-        for (signed_size_t i = 0; i < dim; ++i) {
-          point[i] = tuple[i];
-        }
-
-        // Partition the reference arrays specified by 'startIndex' in
-        // a priori sorted order by comparing super keys.  Store the
-        // result from references[permut[i]]] in references[permut[i-1]]
-        // where permut is the permutation vector for this level of the
-        // tree, thus permuting the reference arrays. Skip the element
-        // of references[permut[i]] that equals the tuple that is stored
-        // in the new KdNode.
-        for (signed_size_t i = startIndex; i < dim; ++i) {
-          // Specify the source and destination reference arrays.
-          auto const src = references[permutation[depth][i]];
-          auto const dst = references[permutation[depth][i-1]];
-
-          // Fill one reference array in ascending order with a child thread.
-          auto partitionFuture =
-            async(launch::async, [&] {
-                                  for (signed_size_t lower = start - 1, upper = median, j = start; j <= median; ++j) {
-                                    auto const src_j = src[j];
-                                    auto const compare = MergeSort<K>::superKeyCompare(src_j, point.data(), p, dim);
-                                    if (compare < 0) {
-                                      dst[++lower] = src_j;
-                                    }
-                                    else if (compare > 0) {
-                                      dst[++upper] = src_j;
-                                    }
-                                  }
-                                });
-
-          // Simultaneously fill the same reference array in descending order with the current thread.
-          for (signed_size_t lower = median, upper = end + 1, k = end; k > median; --k) {
-            auto const src_k = src[k];
-            auto const compare = MergeSort<K>::superKeyCompare(src_k, tuple, p, dim);
-            if (compare < 0) {
-              dst[--lower] = src_k;
-            }
-            else if (compare > 0) {
-              dst[--upper] = src_k;
-            }
-          }
-
-          // Wait for the child thread to finish execution.
-          try {
-            partitionFuture.get();
-          }
-          catch (exception const& e) {
-            throw runtime_error("\n\ncaught exception for partition future in buildKdTree\n");
-          }
-        }
-
-        // Recursively build the < branch of the tree with a child thread.
-        auto buildFuture = async(launch::async,
-                                 buildKdTree,
-                                 references,
-                                 ref(permutation),
-                                 ref(kdNodes),
-                                 start,
-                                 median - 1,
-                                 maximumSubmitDepth,
-                                 depth + 1);
-
-        // And simultaneously build the > branch of the tree with the current thread.
-        node->gtChild = buildKdTree(references, permutation, kdNodes, median + 1, end,
-                                    maximumSubmitDepth, depth + 1);
-
-        // Wait for the child thread to finish execution.
-        try {
-          node->ltChild = buildFuture.get();
-        }
-        catch (exception const& e) {
-          throw runtime_error("\n\ncaught exception for build future in buildKdTree\n");
-        }
-      }
-#ifdef KD_TREE_DYNAMIC_H
-      // Compute the height at this node as the recursion unwinds.
-      node->height = KdTreeDynamic<K>::computeHeight(node);
-#endif
-
-    }
-    else if (end < start) {
-
-      // This is an illegal condition that should never occur, so test for it last.
-      ostringstream buffer;
-      buffer << "\n\nerror has occurred at depth = " << depth << " : end = " << end
-             << "  <  start = " << start << " in buildKdTree\n";
-      throw runtime_error(buffer.str());
-
-    }
-
-    // Return the pointer to the root of the k-d tree.
-    return node;
-  }
-
-  /*
-   * The swap function swaps two vector elements.
-   *
-   * Calling parameters:
-   *
-   * a - the vector
-   * i - the index of the first element
-   * j - the index of the second element
-   */
-private:
-  inline static void swap(vector<signed_size_t>& a,
-                          signed_size_t const i,
-                          signed_size_t const j) {
-    
-    signed_size_t const t = a[i];
-    a[i] = a[j];
-    a[j] = t;
-  }
-
-  /*
    * The createKdTree function performs the necessary initialization then calls the buildKdTree function.
    * This version of createKdTree is called from the KdTreeDynamic::rebuildSubtree function.
    *
@@ -735,6 +410,331 @@ public:
 
     // Return the pointer to the k-d tree.
     return tree;
+  }
+
+  /*
+   * The buildKdTree function builds a k-d tree by recursively partitioning
+   * the reference arrays and adding KdNodes to the tree.  These arrays
+   * are permuted cyclically for successive levels of the tree in
+   * order that sorting occur in the order x, y, z, w...
+   *
+   * Calling parameters:
+   *
+   * references - a K*** of references to each of the (x, y, z, w...) tuples
+   * permutation - a vector<vector<signed_size_t>> that indicates permutation of the reference arrays
+   * kdNodes - a vector<KdNode<K>>* if PREALLOCATE is defined and KD_TREE_DYNAMIC_h is undefined
+   *         - a vector<KdNode<K>*> if PREALLOCATE is undefined or KD_TREE_DYNAMIC_H is defined
+   * start - start element of the reference array
+   * end - end element of the reference array
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * depth - the depth in the tree
+   *
+   * returns: a KdNode pointer to the root of the k-d tree
+   */
+private:
+  static KdNode<K>* buildKdTree(K*** const references,
+                                vector<vector<signed_size_t>> const& permutation,
+#if !defined(PREALLOCATE) || defined(KD_TREE_DYNAMIC_H)
+                                vector<KdNode<K>*> const& kdNodes,
+#else
+                                vector<KdNode<K>>* const kdNodes,
+#endif
+                                signed_size_t const start,
+                                signed_size_t const end,
+                                signed_size_t const maximumSubmitDepth,
+                                signed_size_t const depth) {
+
+    KdNode<K>* node = nullptr;
+
+    // The partition permutes as x, y, z, w... and specifies the leading dimension of the key.
+    signed_size_t const p = permutation[depth][permutation[0].size() - 1];
+
+    // Get the number of dimensions.
+    signed_size_t const dim = permutation[0].size() - 2;
+
+    // Obtain the reference array that corresponds to the most significant key.
+    auto const reference = references[permutation[depth][dim]];
+
+    if (end == start) {
+
+      // Only one reference was passed to this function, so add it to the tree.
+      node = KdNode<K>::getKdNode(reference, kdNodes, end);
+#ifdef KD_TREE_DYNAMIC_H
+      node->height = 1;
+#endif
+
+    }
+    else if (end == start + 1) {
+
+      // Two references were passed to this function in sorted order, so store the start
+      // element at this level of the tree and store the end element as the > child.
+      node = KdNode<K>::getKdNode(reference, kdNodes, start);
+      node->gtChild = KdNode<K>::getKdNode(reference, kdNodes, end);
+#ifdef KD_TREE_DYNAMIC_H
+      node->gtChild->height = 1;
+      node->height = 2;
+#endif
+
+    }
+    else if (end == start + 2) {
+
+      // Three references were passed to this function in sorted order, so
+      // store the median element at this level of the tree, store the start
+      // element as the < child and store the end element as the > child.
+      node = KdNode<K>::getKdNode(reference, kdNodes, start + 1);
+      node->ltChild = KdNode<K>::getKdNode(reference, kdNodes, start);
+      node->gtChild = KdNode<K>::getKdNode(reference, kdNodes, end);
+#ifdef KD_TREE_DYNAMIC_H
+      node->ltChild->height = node->gtChild->height = 1;
+      node->height = 2;
+#endif
+
+    }
+    else if (end > start + 2) {
+
+      // Four or more references were passed to this function, so the
+      // median element of the reference array is chosen as the tuple
+      // about which the other reference arrays will be partitioned
+      // Avoid overflow when computing the median.  Note that a < child
+      // and a > child will always exist for this case.
+      signed_size_t const median = start + ((end - start) / 2);
+
+      // Store the median element of the reference array in a new KdNode.
+      node = KdNode<K>::getKdNode(reference, kdNodes, median);
+
+      // Build both branches with child threads at as many levels of the tree
+      // as possible.  Create the child threads as high in the tree as possible.
+      // Are child threads available to build both branches of the tree, and are
+      // there sufficient array elements to justify spawning a child thread?
+      if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
+          || end - start < KNLOGN_CUTOFF) {
+
+        // No, child threads are not available, so one thread will be used.
+        // Initialize startIndex=1 so that the 'for' loop that partitions the
+        // reference arrays will partition a number of arrays equal to dim.
+        signed_size_t startIndex = 1;
+
+        // If depth < dim-1, copy references[permut[dim]] to references[permut[0]]
+        // where permut is the permutation vector for this level of the tree.
+        // Sort the two halves of references[permut[0]] with p+1 as the most
+        // significant key of the super key. Use as the temporary array
+        // references[permut[1]] because that array is not used for partitioning.
+        // Partition a number of reference arrays equal to the tree depth because
+        // those reference arrays are already sorted.
+        if (depth < dim - 1) {
+          startIndex = dim - depth;
+          auto const dst = references[permutation[depth][0]];
+          auto const tmp = references[permutation[depth][1]];
+          for (int i = start; i <= end; ++i) {
+            dst[i] = reference[i];
+          }
+          // Sort the lower half of references[permut[0]] with the current thread.
+          // Ensure that the partition p cycles as x, y, z, w...
+          signed_size_t p1 = (p + 1 < dim) ? p + 1 : 0;
+          MergeSort<K>::mergeSortReferenceAscending(dst, tmp, start, median - 1, p1, dim,
+                                                    maximumSubmitDepth, depth + 1);
+          // Sort the upper half of references[permut[0]] with the current thread.
+          MergeSort<K>::mergeSortReferenceAscending(dst, tmp, median + 1, end, p1, dim,
+                                                    maximumSubmitDepth, depth + 1);
+        }
+
+        // Partition the reference arrays specified by 'startIndex' in
+        // a priori sorted order by comparing super keys.  Store the
+        // result from references[permut[i]]] in references[permut[i-1]]
+        // where permut is the permutation vector for this level of the
+        // tree, thus permuting the reference arrays. Skip the element
+        // of references[permut[i]] that equals the tuple that is stored
+        // in the new KdNode.
+        auto const tuple = node->tuple;
+        for (signed_size_t i = startIndex; i < dim; ++i) {
+          // Specify the source and destination reference arrays.
+          auto const src = references[permutation[depth][i]];
+          auto const dst = references[permutation[depth][i-1]];
+
+          // Fill the lower and upper halves of one reference array
+          // in ascending order with the current thread.
+          for (signed_size_t j = start, lower = start - 1, upper = median; j <= end; ++j) {
+            auto const src_j = src[j];
+            auto const compare = MergeSort<K>::superKeyCompare(src_j, tuple, p, dim);
+            if (compare < 0) {
+              dst[++lower] = src_j;
+            }
+            else if (compare > 0) {
+              dst[++upper] = src_j;
+            }
+          }
+        }
+
+        // Recursively build the < branch of the tree with the current thread.
+        node->ltChild = buildKdTree(references, permutation, kdNodes, start, median - 1,
+                                    maximumSubmitDepth, depth + 1);
+
+        // Then recursively build the > branch of the tree with the current thread.
+        node->gtChild = buildKdTree(references, permutation, kdNodes, median + 1, end,
+                                    maximumSubmitDepth, depth + 1);
+
+      } else {
+
+        // Yes, child threads are available, so two threads will be used.
+        // Initialize endIndex=0 so that the 'for' loop that partitions the
+        // reference arrays will partition a number of arrays equal to dim.
+        signed_size_t startIndex = 1;
+
+        // If depth < dim-1, copy references[permut[dim]] to references[permut[0]]
+        // where permut is the permutation vector for this level of the tree.
+        // Sort the two halves of references[permut[0]] with p+1 as the most
+        // significant key of the super key. Use as the temporary array
+        // references[permut[1]] because that array is not used for partitioning.
+        // Partition a number of reference arrays equal to the tree depth because
+        // those reference arrays are already sorted.
+        if (depth < dim - 1) {
+          startIndex = dim - depth;
+          auto const dst = references[permutation[depth][0]];
+          auto const tmp = references[permutation[depth][1]];
+          // Copy and sort the lower half of references[permut[0]] with a child thread.
+          // Ensure that the partition p cycles as x, y, z, w...
+          signed_size_t p1 = (p + 1 < dim) ? p + 1 : 0;
+          auto copyFuture =
+            async(launch::async, [&] {
+                                   for (int i = start; i <= median - 1; ++i) {
+                                     dst[i] = reference[i];
+                                   }
+                                   MergeSort<K>::mergeSortReferenceAscending(dst, tmp, start, median - 1, p1,
+                                                                             dim, maximumSubmitDepth, depth);
+                                 });
+
+          // Copy and sort the upper half of references[permut[0]] with the current thread.
+          for (int i = median + 1; i <= end; ++i) {
+            dst[i] = reference[i];
+          }
+          MergeSort<K>::mergeSortReferenceAscending(dst, tmp, median + 1, end, p1,
+                                                    dim, maximumSubmitDepth, depth);
+
+          // Wait for the child thread to finish execution.
+          try {
+            copyFuture.get();
+          }
+          catch (exception const& e) {
+            throw runtime_error("\n\ncaught exception for copy future in buildKdTree\n");
+          }
+        }
+
+        // Create a copy of the node->tuple array so that the current thread
+        // and the child thread do not contend for read access to this array.
+        auto const tuple = node->tuple;
+        vector<K> point(dim);
+        for (signed_size_t i = 0; i < dim; ++i) {
+          point[i] = tuple[i];
+        }
+
+        // Partition the reference arrays specified by 'startIndex' in
+        // a priori sorted order by comparing super keys.  Store the
+        // result from references[permut[i]]] in references[permut[i-1]]
+        // where permut is the permutation vector for this level of the
+        // tree, thus permuting the reference arrays. Skip the element
+        // of references[permut[i]] that equals the tuple that is stored
+        // in the new KdNode.
+        for (signed_size_t i = startIndex; i < dim; ++i) {
+          // Specify the source and destination reference arrays.
+          auto const src = references[permutation[depth][i]];
+          auto const dst = references[permutation[depth][i-1]];
+
+          // Fill one reference array in ascending order with a child thread.
+          auto partitionFuture =
+            async(launch::async, [&] {
+                                  for (signed_size_t lower = start - 1, upper = median, j = start; j <= median; ++j) {
+                                    auto const src_j = src[j];
+                                    auto const compare = MergeSort<K>::superKeyCompare(src_j, point.data(), p, dim);
+                                    if (compare < 0) {
+                                      dst[++lower] = src_j;
+                                    }
+                                    else if (compare > 0) {
+                                      dst[++upper] = src_j;
+                                    }
+                                  }
+                                });
+
+          // Simultaneously fill the same reference array in descending order with the current thread.
+          for (signed_size_t lower = median, upper = end + 1, k = end; k > median; --k) {
+            auto const src_k = src[k];
+            auto const compare = MergeSort<K>::superKeyCompare(src_k, tuple, p, dim);
+            if (compare < 0) {
+              dst[--lower] = src_k;
+            }
+            else if (compare > 0) {
+              dst[--upper] = src_k;
+            }
+          }
+
+          // Wait for the child thread to finish execution.
+          try {
+            partitionFuture.get();
+          }
+          catch (exception const& e) {
+            throw runtime_error("\n\ncaught exception for partition future in buildKdTree\n");
+          }
+        }
+
+        // Recursively build the < branch of the tree with a child thread.
+        auto buildFuture = async(launch::async,
+                                 buildKdTree,
+                                 references,
+                                 ref(permutation),
+                                 ref(kdNodes),
+                                 start,
+                                 median - 1,
+                                 maximumSubmitDepth,
+                                 depth + 1);
+
+        // And simultaneously build the > branch of the tree with the current thread.
+        node->gtChild = buildKdTree(references, permutation, kdNodes, median + 1, end,
+                                    maximumSubmitDepth, depth + 1);
+
+        // Wait for the child thread to finish execution.
+        try {
+          node->ltChild = buildFuture.get();
+        }
+        catch (exception const& e) {
+          throw runtime_error("\n\ncaught exception for build future in buildKdTree\n");
+        }
+      }
+#ifdef KD_TREE_DYNAMIC_H
+      // Compute the height at this node as the recursion unwinds.
+      node->height = KdTreeDynamic<K>::computeHeight(node);
+#endif
+
+    }
+    else if (end < start) {
+
+      // This is an illegal condition that should never occur, so test for it last.
+      ostringstream buffer;
+      buffer << "\n\nerror has occurred at depth = " << depth << " : end = " << end
+             << "  <  start = " << start << " in buildKdTree\n";
+      throw runtime_error(buffer.str());
+
+    }
+
+    // Return the pointer to the root of the k-d tree.
+    return node;
+  }
+
+  /*
+   * The swap function swaps two vector elements.
+   *
+   * Calling parameters:
+   *
+   * a - the vector
+   * i - the index of the first element
+   * j - the index of the second element
+   */
+private:
+  inline static void swap(vector<signed_size_t>& a,
+                          signed_size_t const i,
+                          signed_size_t const j) {
+    
+    signed_size_t const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
   }
 
 }; // class KdTreeKnlogn
