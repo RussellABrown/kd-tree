@@ -41,7 +41,6 @@
 #define KD_MAP_NODE_H
 
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <climits>
 #include <exception>
@@ -64,7 +63,6 @@
 #include <utility>
 #include <vector>
 
-using std::atomic;
 using std::async;
 using std::cout;
 using std::chrono::duration_cast;
