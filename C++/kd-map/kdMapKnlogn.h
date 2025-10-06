@@ -82,6 +82,289 @@ template <typename K, typename V>
 class KdTreeKnlogn
 {
   /*
+   * The createKdTree function performs the necessary initialization then calls the buildKdTree function.
+   * This version of createKdTree is called from the KdTreeDynamic::rebuildSubtree function.
+   *
+   * Calling parameters:
+   *
+   * kdNodes - a vector<KdNode<K>*> whose KdNodes store the (x, y, z, w...) coordinates
+   * dim - the number of dimensions (required when KD_MAP_DYNAMIC_H is defined)
+   * coordinates - a vector of pairs that store the coordinates and their associated values
+   * p - the leading dimension
+   *
+   * returns: a KdNode pointer to the root of the k-d tree
+   */
+public:
+  static KdTree<K,V>* createKdTree(vector<KdNode<K,V>*> const& kdNodes,
+                                   size_t const dim,
+                                   signed_size_t const maximumSubmitDepth,
+                                   signed_size_t const p) {
+
+    // Allocate the references arrays including one additional array.
+    size_t numDimensions = dim;
+    KdNode<K,V>*** references = new KdNode<K,V>**[numDimensions + 1];
+    for (size_t i = 0; i < numDimensions + 1; ++i) {
+      references[i] = new KdNode<K,V>*[kdNodes.size()];
+    }
+
+    // Create a KdTree instance.
+    auto tree = new KdTree<K,V>(numDimensions, maximumSubmitDepth);
+
+    // Don't allocate KdNodes instances for the pth references array
+    // (where p is the leading dimension) instead of the first
+    // references array to permit KdTreeDynamic::balanceSubtree
+    // to build a sub-tree whose root node has a non-zero
+    // partition coordinate.
+    //
+    // Copy pointers from the KdNode instances of the kdNodes vector.
+    // These pointers will be re-ordered by the MergeSort member
+    // functions and then copied back to the kdNode instances by the
+    // KdNode::getKdNode function. For this case where KD_MAP_DYNAMIC_H
+    // is defined, the tuples will be deallocated by the ~KdNode destructor
+    // when a KdNode instance is deleted from the dynamic k-d tree.
+    for (size_t i = 0; i < kdNodes.size(); ++i) {
+      references[p][i] = kdNodes[i];
+    }
+
+    // Sort the pth references array using multiple threads, where p
+    // is the leading dimension. Importantly, or compatibility with the
+    // permutation vector initialized below, use the pth dimension as
+    // the leading key of the super key. Also, only the pth references
+    // array has been populated with KdNode instances.
+    MergeSort<K,V>::mergeSortReferenceAscending(references[p], references[numDimensions],
+                                                0, kdNodes.size() - 1,
+                                                p, numDimensions, maximumSubmitDepth, 0);
+
+    // For a dynamic k-d tree, it is unnecessary remove duplicate coordinates,
+    // so only specify the end index.
+    signed_size_t const end = kdNodes.size() - 1;
+
+    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
+    signed_size_t maxDepth = 1;
+    signed_size_t size = kdNodes.size();
+    while (size > 0) {
+      ++maxDepth;
+      size >>= 1;
+    }
+
+    // It is unnecessary to compute the partition coordinate upon each recursive call of
+    // the buildKdTree function because that coordinate depends only on the depth of
+    // recursion, so it may be pre-computed and stored in the permutation vector.
+    //
+    // first create an array the tracks which reference array contains each coordinate.
+    // index 0 is for x, index 1 is for y ... index dim (i.e., numDimensions) is the
+    // reference array that MergeSort::mergeSortReferenceAscending used as a temporary array.
+    std::vector<signed_size_t> current(numDimensions + 1);
+    for(size_t i = 0;  i <= numDimensions; ++i) {
+      current[i] = i;
+    }
+    std::vector<signed_size_t> indices(numDimensions + 2);
+
+    // Create a 2D 'permutation' vector from the 'indices' vector to specify permutation
+    // of the reference arrays and of the partition coordinate, and a 'verifyPermutation'
+    // vector to specify permutation of the partition coordinate for verifyKdTree.
+    vector< vector<signed_size_t> > permutation(maxDepth, vector<signed_size_t>(numDimensions + 2));
+
+    // Fill the permutation vector by calculating the permutation of the indices vector
+    // and the the partition coordinate of the tuple at each depth in the tree.
+    for (signed_size_t depth = 0; depth < maxDepth; ++depth) {
+      signed_size_t p0 = (depth + p) % numDimensions;
+      // The last entry of the indices vector contains the partition coordinate.
+      indices[numDimensions + 1] = p0;
+      // The penultimate entry of the indices vector specifies the source reference array.
+      indices[numDimensions] = current[p0];
+      // The first entry of the indices vector specifies the temporary reference array.
+      indices[0] = current[numDimensions];
+      size_t k = 1;
+      // do the partitioning swaps
+      for (size_t i = 1;  i < numDimensions; ++i) {
+        size_t j = (i + p0) % numDimensions;  // this is the coordinate index following the primary
+        indices[k] = current[j];  // write the reference index for that coordinate to the indices array
+        swap(current, numDimensions, j);  // keep track of where the coordinate will have been have been swapped to
+        ++k;
+      }
+      permutation[depth] = indices;  // write the index vector to he current level of the permutation vector
+    }
+
+    // Build the k-d tree with multiple threads if possible.
+    tree->root = buildKdTree(references, permutation, 0, end, maximumSubmitDepth, 0);
+
+    // Delete the references arrays but not the KdNodes instances that they point to
+    // because those KdNodes instances will be deleted by the ~KdTree destructor.
+    for (size_t i = 0; i < numDimensions + 1; ++i) {
+      delete[] references[i];
+    }
+    delete[] references;
+
+    // Return the pointer to the KdTree instance.
+    return tree;
+  }
+
+  /*
+   * The createKdTree function performs the necessary initialization then calls the buildKdTree function.
+   *
+   * Calling parameters:
+   *
+   * coordinates - a vector of pairs that store the coordinates and their associated values
+   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
+   * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
+   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times returned by reference
+   *
+   * returns: a KdNode pointer to the root of the k-d tree
+   */
+public:
+  static KdTree<K,V>* createKdTree(vector<pair<vector<K>,V>> const& coordinates,
+                                   signed_size_t const maximumSubmitDepth,
+                                   signed_size_t& numberOfNodes,
+                                   double& allocateTime,
+                                   double& sortTime,
+                                   double& removeTime,
+                                   double& kdTime,
+                                   double& verifyTime,
+                                   double& deallocateTime) {
+
+   // Allocate the references arrays including one additional array.
+    auto beginTime = steady_clock::now();
+    size_t numDimensions = coordinates[0].first.size();
+    KdNode<K,V>*** references = new KdNode<K,V>**[numDimensions + 1];
+    for (size_t i = 0; i < numDimensions + 1; ++i) {
+      references[i] = new KdNode<K,V>*[coordinates.size()];
+    }
+
+    // Create a KdTree instance.
+    auto tree = new KdTree<K,V>(numDimensions, maximumSubmitDepth);
+
+ #ifdef PREALLOCATE
+    // Allocate all KdNodes instances as a single vector so that they
+    // may be subsequently deleted as a single vector by the ~KdTree
+    // destructor, which is faster than deleting them individually.
+    //
+    // Point each element of the first references array to a KdNode instance
+    // that is an element of the kdNodes vector and initalize that instance.
+    // KdNode::tuple is an array of 1 element that is extended
+    // to dimensions elements by appending dimensions-1 elements
+    // to the KdNode instance.
+    //
+    // Because KdNode::tuple contains one element of type K,
+    // the alignment of KdNode at least as large as the
+    // alignment of K. Round up all alignments to the next
+    // multiple of kdNodeAlign.
+    size_t const kdNodeAlign = alignof(KdNode<K,V>);
+    size_t const kdNodeSize = ((sizeof(KdNode<K,V>) + kdNodeAlign - 1) / kdNodeAlign) * kdNodeAlign;
+    size_t const setSize = ((sizeof(set<V>) + kdNodeAlign - 1) / kdNodeAlign) * kdNodeAlign;
+    size_t const tupleSize = ((sizeof(K) * (numDimensions - 1)) / kdNodeAlign) * kdNodeAlign;
+    tree->entrySize = kdNodeSize + setSize + tupleSize;
+    // The following kdNodeAlign argument to new is likely redundant and requires c++17. See
+    // https://stackoverflow.com/questions/15511909/does-the-alignas-specifier-work-with-new
+    tree->kdNodes = new vector<uint8_t>(tree->entrySize * coordinates.size(), kdNodeAlign); // requires c++17
+    for (size_t i = 0; i < coordinates.size(); ++i) {
+      new(&(*(tree->kdNodes))[tree->entrySize * i]) KdNode<K,V>(coordinates, i);
+      references[0][i] = reinterpret_cast<KdNode<K,V>*>(&(*(tree->kdNodes))[tree->entrySize * i]);
+    }
+#else
+    // Allocate KdNode instances for the first references array. These
+    // KdNode instances will be deallocated by the ~KdTree destructor.
+    for (size_t i = 0; i < coordinates.size(); ++i) {
+      references[0][i] = new KdNode<K,V>(coordinates, i);
+    }
+#endif
+
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Sort the first references array using multiple threads. Importantly,
+    // for compatibility with the 'permutation' vector initialized below,
+    // use the first dimension (0) as the leading key of the super key.
+    // Also, only the first references array is populated with T arrays.
+    beginTime = steady_clock::now();
+    MergeSort<K,V>::mergeSortReferenceAscending(references[0], references[numDimensions],
+                                                0, coordinates.size() - 1,
+                                                0, numDimensions, maximumSubmitDepth, 0);
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    sortTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Remove references to duplicate coordinates via one pass through the first reference array.
+    beginTime = steady_clock::now();
+    signed_size_t const end = KdNode<K,V>::removeDuplicates(references[0], 0, numDimensions, coordinates.size());
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    removeTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Start the timer to time building the k-d tree.
+    beginTime = steady_clock::now();
+
+    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
+    signed_size_t maxDepth = 1;
+    signed_size_t size = coordinates.size();
+    while (size > 0) {
+      ++maxDepth;
+      size >>= 1;
+    }
+
+    // It is unnecessary to compute either the permutation of the reference array or
+    // the partition coordinate upon each recursive call of the buildKdTree function
+    // because both depend only on the depth of recursion, so they may be pre-computed.
+    //
+    // Because this vector is initialized with 0, 1, 2, 3, 0, 1, 2, 3, etc. (for
+    // e.g. 4-dimensional data), the leading key of the super key will be 0 at the
+    // first level of the nascent tree, consistent with having sorted the reference
+    // array above using 0 as the leading key of the super key.
+    //
+    // Begin by creating an 'indices' vector.
+    vector<signed_size_t> indices(numDimensions + 2);
+    for (size_t i = 0; i < indices.size() - 1; ++i) {
+      indices[i] = i;
+    }
+
+    // Create a 2D 'permutation' vector from the 'indices' vector to specify permutation
+    // of the reference arrays and of the partition coordinate.
+    vector< vector<signed_size_t> > permutation(maxDepth, vector<signed_size_t>(numDimensions + 2));
+    vector<signed_size_t> permutationVerify(maxDepth);
+
+    // Fill the permutation vector by calculating the permutation of the indices vector
+    // and the the partition coordinate of the tuple at each depth in the tree.
+    for (size_t i = 0; i < permutation.size(); ++i) {
+      // The last entry of the indices vector contains the partition coordinate.
+      indices[numDimensions + 1] = permutationVerify[i] = i % numDimensions;
+      // Swap the first and second to the last elements of the indices vector.
+      swap(indices, 0, numDimensions);
+      // Copy the indices vector to one row of the permutation vector.
+      permutation[i] = indices;
+      // Swap the third and second to the last elements of the indices vector.
+      swap(indices, numDimensions - 1, numDimensions);
+    }
+
+    // Build the k-d tree with multiple threads if possible.
+    tree->root = buildKdTree(references, permutation, 0, end, maximumSubmitDepth, 0);
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Verify the k-d tree and report the number of kdNodes.
+    beginTime = steady_clock::now();
+    numberOfNodes = tree->root->verifyKdTree(permutationVerify, numDimensions, maximumSubmitDepth, 0);
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    verifyTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+  
+    // Delete the references arrays but not the KdNodes instances that they point to
+    // because those KdNodes instances will be deleted by the ~KdTree destructor.
+    beginTime = steady_clock::now();
+    for (size_t i = 0; i < numDimensions + 1; ++i) {
+      delete[] references[i];
+    }
+    delete[] references;
+    endTime = steady_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
+    deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
+
+    // Return the pointer to the KdTree instance.
+    return tree;
+  }
+
+  /*
    * The buildKdTree function builds a k-d tree by recursively partitioning
    * the reference arrays and adding KdNodes to the tree.  These arrays
    * are permuted cyclically for successive levels of the tree in
@@ -397,289 +680,6 @@ private:
     signed_size_t const t = a[i];
     a[i] = a[j];
     a[j] = t;
-  }
-
-  /*
-   * The createKdTree function performs the necessary initialization then calls the buildKdTree function.
-   * This version of createKdTree is called from the KdTreeDynamic::rebuildSubtree function.
-   *
-   * Calling parameters:
-   *
-   * kdNodes - a vector<KdNode<K>*> whose KdNodes store the (x, y, z, w...) coordinates
-   * dim - the number of dimensions (required when KD_MAP_DYNAMIC_H is defined)
-   * coordinates - a vector of pairs that store the coordinates and their associated values
-   * p - the leading dimension
-   *
-   * returns: a KdNode pointer to the root of the k-d tree
-   */
-public:
-  static KdTree<K,V>* createKdTree(vector<KdNode<K,V>*> const& kdNodes,
-                                   size_t const dim,
-                                   signed_size_t const maximumSubmitDepth,
-                                   signed_size_t const p) {
-
-    // Allocate the references arrays including one additional array.
-    size_t numDimensions = dim;
-    KdNode<K,V>*** references = new KdNode<K,V>**[numDimensions + 1];
-    for (size_t i = 0; i < numDimensions + 1; ++i) {
-      references[i] = new KdNode<K,V>*[kdNodes.size()];
-    }
-
-    // Create a KdTree instance.
-    auto tree = new KdTree<K,V>(numDimensions, maximumSubmitDepth);
-
-    // Don't allocate KdNodes instances for the pth references array
-    // (where p is the leading dimension) instead of the first
-    // references array to permit KdTreeDynamic::balanceSubtree
-    // to build a sub-tree whose root node has a non-zero
-    // partition coordinate.
-    //
-    // Copy pointers from the KdNode instances of the kdNodes vector.
-    // These pointers will be re-ordered by the MergeSort member
-    // functions and then copied back to the kdNode instances by the
-    // KdNode::getKdNode function. For this case where KD_MAP_DYNAMIC_H
-    // is defined, the tuples will be deallocated by the ~KdNode destructor
-    // when a KdNode instance is deleted from the dynamic k-d tree.
-    for (size_t i = 0; i < kdNodes.size(); ++i) {
-      references[p][i] = kdNodes[i];
-    }
-
-    // Sort the pth references array using multiple threads, where p
-    // is the leading dimension. Importantly, or compatibility with the
-    // permutation vector initialized below, use the pth dimension as
-    // the leading key of the super key. Also, only the pth references
-    // array has been populated with KdNode instances.
-    MergeSort<K,V>::mergeSortReferenceAscending(references[p], references[numDimensions],
-                                                0, kdNodes.size() - 1,
-                                                p, numDimensions, maximumSubmitDepth, 0);
-
-    // For a dynamic k-d tree, it is unnecessary remove duplicate coordinates,
-    // so only specify the end index.
-    signed_size_t const end = kdNodes.size() - 1;
-
-    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
-    signed_size_t maxDepth = 1;
-    signed_size_t size = kdNodes.size();
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
-
-    // It is unnecessary to compute the partition coordinate upon each recursive call of
-    // the buildKdTree function because that coordinate depends only on the depth of
-    // recursion, so it may be pre-computed and stored in the permutation vector.
-    //
-    // first create an array the tracks which reference array contains each coordinate.
-    // index 0 is for x, index 1 is for y ... index dim (i.e., numDimensions) is the
-    // reference array that MergeSort::mergeSortReferenceAscending used as a temporary array.
-    std::vector<signed_size_t> current(numDimensions + 1);
-    for(size_t i = 0;  i <= numDimensions; ++i) {
-      current[i] = i;
-    }
-    std::vector<signed_size_t> indices(numDimensions + 2);
-
-    // Create a 2D 'permutation' vector from the 'indices' vector to specify permutation
-    // of the reference arrays and of the partition coordinate, and a 'verifyPermutation'
-    // vector to specify permutation of the partition coordinate for verifyKdTree.
-    vector< vector<signed_size_t> > permutation(maxDepth, vector<signed_size_t>(numDimensions + 2));
-
-    // Fill the permutation vector by calculating the permutation of the indices vector
-    // and the the partition coordinate of the tuple at each depth in the tree.
-    for (signed_size_t depth = 0; depth < maxDepth; ++depth) {
-      signed_size_t p0 = (depth + p) % numDimensions;
-      // The last entry of the indices vector contains the partition coordinate.
-      indices[numDimensions + 1] = p0;
-      // The penultimate entry of the indices vector specifies the source reference array.
-      indices[numDimensions] = current[p0];
-      // The first entry of the indices vector specifies the temporary reference array.
-      indices[0] = current[numDimensions];
-      size_t k = 1;
-      // do the partitioning swaps
-      for (size_t i = 1;  i < numDimensions; ++i) {
-        size_t j = (i + p0) % numDimensions;  // this is the coordinate index following the primary
-        indices[k] = current[j];  // write the reference index for that coordinate to the indices array
-        swap(current, numDimensions, j);  // keep track of where the coordinate will have been have been swapped to
-        ++k;
-      }
-      permutation[depth] = indices;  // write the index vector to he current level of the permutation vector
-    }
-
-    // Build the k-d tree with multiple threads if possible.
-    tree->root = buildKdTree(references, permutation, 0, end, maximumSubmitDepth, 0);
-
-    // Delete the references arrays but not the KdNodes instances that they point to
-    // because those KdNodes instances will be deleted by the ~KdTree destructor.
-    for (size_t i = 0; i < numDimensions + 1; ++i) {
-      delete[] references[i];
-    }
-    delete[] references;
-
-    // Return the pointer to the KdTree instance.
-    return tree;
-  }
-
-  /*
-   * The createKdTree function performs the necessary initialization then calls the buildKdTree function.
-   *
-   * Calling parameters:
-   *
-   * coordinates - a vector of pairs that store the coordinates and their associated values
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
-   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times returned by reference
-   *
-   * returns: a KdNode pointer to the root of the k-d tree
-   */
-public:
-  static KdTree<K,V>* createKdTree(vector<pair<vector<K>,V>> const& coordinates,
-                                   signed_size_t const maximumSubmitDepth,
-                                   signed_size_t& numberOfNodes,
-                                   double& allocateTime,
-                                   double& sortTime,
-                                   double& removeTime,
-                                   double& kdTime,
-                                   double& verifyTime,
-                                   double& deallocateTime) {
-
-   // Allocate the references arrays including one additional array.
-    auto beginTime = steady_clock::now();
-    size_t numDimensions = coordinates[0].first.size();
-    KdNode<K,V>*** references = new KdNode<K,V>**[numDimensions + 1];
-    for (size_t i = 0; i < numDimensions + 1; ++i) {
-      references[i] = new KdNode<K,V>*[coordinates.size()];
-    }
-
-    // Create a KdTree instance.
-    auto tree = new KdTree<K,V>(numDimensions, maximumSubmitDepth);
-
- #ifdef PREALLOCATE
-    // Allocate all KdNodes instances as a single vector so that they
-    // may be subsequently deleted as a single vector by the ~KdTree
-    // destructor, which is faster than deleting them individually.
-    //
-    // Point each element of the first references array to a KdNode instance
-    // that is an element of the kdNodes vector and initalize that instance.
-    // KdNode::tuple is an array of 1 element that is extended
-    // to dimensions elements by appending dimensions-1 elements
-    // to the KdNode instance.
-    //
-    // Because KdNode::tuple contains one element of type K,
-    // the alignment of KdNode at least as large as the
-    // alignment of K. Round up all alignments to the next
-    // multiple of kdNodeAlign.
-    size_t const kdNodeAlign = alignof(KdNode<K,V>);
-    size_t const kdNodeSize = ((sizeof(KdNode<K,V>) + kdNodeAlign - 1) / kdNodeAlign) * kdNodeAlign;
-    size_t const setSize = ((sizeof(set<V>) + kdNodeAlign - 1) / kdNodeAlign) * kdNodeAlign;
-    size_t const tupleSize = ((sizeof(K) * (numDimensions - 1)) / kdNodeAlign) * kdNodeAlign;
-    tree->entrySize = kdNodeSize + setSize + tupleSize;
-    // The following kdNodeAlign argument to new is likely redundant and requires c++17. See
-    // https://stackoverflow.com/questions/15511909/does-the-alignas-specifier-work-with-new
-    tree->kdNodes = new vector<uint8_t>(tree->entrySize * coordinates.size(), kdNodeAlign); // requires c++17
-    for (size_t i = 0; i < coordinates.size(); ++i) {
-      new(&(*(tree->kdNodes))[tree->entrySize * i]) KdNode<K,V>(coordinates, i);
-      references[0][i] = reinterpret_cast<KdNode<K,V>*>(&(*(tree->kdNodes))[tree->entrySize * i]);
-    }
-#else
-    // Allocate KdNode instances for the first references array. These
-    // KdNode instances will be deallocated by the ~KdTree destructor.
-    for (size_t i = 0; i < coordinates.size(); ++i) {
-      references[0][i] = new KdNode<K,V>(coordinates, i);
-    }
-#endif
-
-    auto endTime = steady_clock::now();
-    auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Sort the first references array using multiple threads. Importantly,
-    // for compatibility with the 'permutation' vector initialized below,
-    // use the first dimension (0) as the leading key of the super key.
-    // Also, only the first references array is populated with T arrays.
-    beginTime = steady_clock::now();
-    MergeSort<K,V>::mergeSortReferenceAscending(references[0], references[numDimensions],
-                                                0, coordinates.size() - 1,
-                                                0, numDimensions, maximumSubmitDepth, 0);
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    sortTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Remove references to duplicate coordinates via one pass through the first reference array.
-    beginTime = steady_clock::now();
-    signed_size_t const end = KdNode<K,V>::removeDuplicates(references[0], 0, numDimensions, coordinates.size());
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    removeTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Start the timer to time building the k-d tree.
-    beginTime = steady_clock::now();
-
-    // Determine the maximum depth of the k-d tree, which is log2( coordinates.size() ).
-    signed_size_t maxDepth = 1;
-    signed_size_t size = coordinates.size();
-    while (size > 0) {
-      ++maxDepth;
-      size >>= 1;
-    }
-
-    // It is unnecessary to compute either the permutation of the reference array or
-    // the partition coordinate upon each recursive call of the buildKdTree function
-    // because both depend only on the depth of recursion, so they may be pre-computed.
-    //
-    // Because this vector is initialized with 0, 1, 2, 3, 0, 1, 2, 3, etc. (for
-    // e.g. 4-dimensional data), the leading key of the super key will be 0 at the
-    // first level of the nascent tree, consistent with having sorted the reference
-    // array above using 0 as the leading key of the super key.
-    //
-    // Begin by creating an 'indices' vector.
-    vector<signed_size_t> indices(numDimensions + 2);
-    for (size_t i = 0; i < indices.size() - 1; ++i) {
-      indices[i] = i;
-    }
-
-    // Create a 2D 'permutation' vector from the 'indices' vector to specify permutation
-    // of the reference arrays and of the partition coordinate.
-    vector< vector<signed_size_t> > permutation(maxDepth, vector<signed_size_t>(numDimensions + 2));
-    vector<signed_size_t> permutationVerify(maxDepth);
-
-    // Fill the permutation vector by calculating the permutation of the indices vector
-    // and the the partition coordinate of the tuple at each depth in the tree.
-    for (size_t i = 0; i < permutation.size(); ++i) {
-      // The last entry of the indices vector contains the partition coordinate.
-      indices[numDimensions + 1] = permutationVerify[i] = i % numDimensions;
-      // Swap the first and second to the last elements of the indices vector.
-      swap(indices, 0, numDimensions);
-      // Copy the indices vector to one row of the permutation vector.
-      permutation[i] = indices;
-      // Swap the third and second to the last elements of the indices vector.
-      swap(indices, numDimensions - 1, numDimensions);
-    }
-
-    // Build the k-d tree with multiple threads if possible.
-    tree->root = buildKdTree(references, permutation, 0, end, maximumSubmitDepth, 0);
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    kdTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Verify the k-d tree and report the number of kdNodes.
-    beginTime = steady_clock::now();
-    numberOfNodes = tree->root->verifyKdTree(permutationVerify, numDimensions, maximumSubmitDepth, 0);
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    verifyTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-  
-    // Delete the references arrays but not the KdNodes instances that they point to
-    // because those KdNodes instances will be deleted by the ~KdTree destructor.
-    beginTime = steady_clock::now();
-    for (size_t i = 0; i < numDimensions + 1; ++i) {
-      delete[] references[i];
-    }
-    delete[] references;
-    endTime = steady_clock::now();
-    duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
-    deallocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-
-    // Return the pointer to the KdTree instance.
-    return tree;
   }
 
 }; // class KdTreeKnlogn

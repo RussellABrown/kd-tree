@@ -127,17 +127,6 @@ public:
   }
 
 public:
-  bool isEmpty() {
-    return (root == nullptr);
-  }
-  
-#if defined(PREALLOCATE) && !defined(KD_MAP_DYNAMIC_H)
-public:
-  size_t entrySize;
-  vector<uint8_t>* kdNodes = nullptr;
-#endif
-
-public:
   ~KdTree() {
 
     // If the KdNode instances are contained by a preallocated vector,
@@ -153,6 +142,7 @@ public:
     // vector, deletion of that vector will not delete the values set
     // of each KdNode instance, so delete those values sets via the
     // deleteValues function prior to deletion of the vector.
+
 #ifndef KD_MAP_DYNAMIC_H
 #ifdef PREALLOCATE
     if (root != nullptr) {
@@ -166,6 +156,12 @@ public:
 #endif
 
   }
+
+#if defined(PREALLOCATE) && !defined(KD_MAP_DYNAMIC_H)
+public:
+  size_t entrySize;
+  vector<uint8_t>* kdNodes = nullptr;
+#endif
 
   /*
    * Delete the values set of each KdNode instance in the tree.
@@ -252,6 +248,12 @@ public:
 
   }
 
+  /* Determine whether the tree is empty. */
+public:
+  bool isEmpty() {
+    return (root == nullptr);
+  }
+  
   /* Return the root of the tree. */
 public:
   KdNode<K,V>* getRoot() {

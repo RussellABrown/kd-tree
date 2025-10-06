@@ -495,7 +495,7 @@ int main(int argc, char** argv) {
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     double const vectorTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-    cout << "vector initialization  time = " << fixed << setprecision(2) << vectorTime << " seconds" << endl << endl;
+    cout << "vector initialization  time = " << fixed << setprecision(3) << vectorTime << " seconds" << endl << endl;
 
     beginTime = steady_clock::now();
     tree->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions, numNeighbors, maximumSubmitDepth);
@@ -503,14 +503,14 @@ int main(int argc, char** argv) {
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     double const reverseNearestNeighborTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-    cout << "reverse nearest neighbor time = " << fixed << setprecision(2) << reverseNearestNeighborTime << " seconds" << endl << endl;
+    cout << "reverse nearest neighbor time = " << fixed << setprecision(3) << reverseNearestNeighborTime << " seconds" << endl << endl;
     cout << "number of non-empty nearest neighbors lists = " << tree->nonEmptyLists(nn) << endl;
     cout << "number of non-empty reverse nearest neighbors lists = " << tree->nonEmptyLists(rnn) << endl << endl;
 
     // Report the mean and standard deviation distance and number of reverse nearest neighbors.
     double meanSize, stdSize, meanDist, stdDist;
     tree->calculateMeanStd(rnn, meanSize, stdSize, meanDist, stdDist);
-    cout << "mean reverse nearest neighbor distance = " << scientific << meanDist
+    cout << "mean reverse nearest neighbor distance = " << scientific << setprecision(3) << meanDist
          << "  standard deviation = " << stdDist << endl;
     cout << "mean reverse nearest neighbor list size = " << fixed << setprecision(3) << meanSize
          << "  standard deviation = " << stdSize << endl << endl;
