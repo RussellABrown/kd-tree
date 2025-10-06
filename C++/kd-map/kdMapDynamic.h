@@ -1373,8 +1373,6 @@ public:
         return node->height;
     }
 
-    friend class KdTree<K,V>;
-    friend class KdNode<K,V>;
 };
 
 #endif // KD_MAP_DYNAMIC_H

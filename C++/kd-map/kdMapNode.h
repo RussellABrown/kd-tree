@@ -35,13 +35,13 @@
  * time by first sorting the data in each of k dimensions, then building the k-d tree
  * in a manner that preserves the order of the k sorts while recursively partitioning
  * the data at each level of the k-d tree. No further sorting is necessary.
- * -h Help
  */
 
 #ifndef KD_MAP_NODE_H
 #define KD_MAP_NODE_H
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <climits>
 #include <exception>
@@ -64,6 +64,7 @@
 #include <utility>
 #include <vector>
 
+using std::atomic;
 using std::async;
 using std::cout;
 using std::chrono::duration_cast;
@@ -79,6 +80,7 @@ using std::list;
 using std::map;
 using std::lock_guard;
 using std::make_pair;
+using std::memory_order_relaxed;
 using std::min;
 using std::mutex;
 using std::numeric_limits;
@@ -133,12 +135,15 @@ class NearestNeighborHeap;
 template <typename, typename>
 class KdTreeNlogn;
 
+template <typename, typename>
+class KdTreeKnlogn;
+
 /* One node of a k-d tree where K is key type and V is value type */
 template <typename K, typename V>
 class KdNode {
 public:
-  KdNode<K,V> *ltChild, *gtChild;
   set<V>* values;
+  KdNode<K,V> *ltChild = nullptr, *gtChild = nullptr;
 
   // A dynamic k-d tree requires a height.
   //
@@ -295,8 +300,10 @@ public:
         // values set.
 #if !defined(PREALLOCATE) || defined(KD_MAP_DYNAMIC_H)
         delete kdNodes[j];
+        kdNodes[j] = nullptr;
 #else
         delete kdNodes[j]->values;
+        kdNodes[j]->values = nullptr;
 #endif
 
       }
@@ -1032,7 +1039,7 @@ private:
 
       // No, so visit the < sub-tree with the master thread.
       if (ltChild != nullptr) {
-        ltChild->nearestNeighborsForEach(nn, rnn, mutexes,root, numDimensions,
+        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1);
       }
     
@@ -1090,7 +1097,6 @@ private:
    * nn - the nearest neighbors vector that is passed by reference and modified
    * rnn - the reverse nearest neighbors vector that is passed by reference and modified
    * mutexes - a vector of mutexes to make individual rnn list update thread safe
-   * permutation - vector that specifies permutation of the partition coordinate
    * root - the root of the k-d tree where a search for nearest neighbors must begin
    * numDimensions - the dimensionality k of the k-d tree
    * numNeighbors - the number M of nearest neighbors to attempt to find
@@ -1102,7 +1108,6 @@ private:
   void nearestNeighborsForEach(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
                                vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
                                vector<mutex>& mutexes,
-                               vector<signed_size_t> const& permutation,
                                KdNode<K,V>* const root,
                                signed_size_t const numDimensions,
                                signed_size_t const numNeighbors,
@@ -1117,7 +1122,7 @@ private:
     // without copying the list.
     vector<K> const query(tuple, tuple + numDimensions);
     auto& nnList = nn[this->index];
-    root->findNearestNeighbors(nnList, query, permutation, numNeighbors, enable);
+    root->findNearestNeighbors(nnList, query, numNeighbors, enable);
     nnList.pop_front();
 
     // Iterate over the remaining list of nearest neighbors and prepend
@@ -1142,13 +1147,13 @@ private:
 
       // No, so visit the < sub-tree with the master thread.
       if (ltChild != nullptr) {
-        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
+        ltChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1, enable);
       }
     
       // And then visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1, enable);
       }
     } else {
@@ -1164,7 +1169,6 @@ private:
                                                ref(nn),
                                                ref(rnn),
                                                ref(mutexes),
-                                               ref(permutation),
                                                root,
                                                numDimensions,
                                                numNeighbors,
@@ -1176,7 +1180,7 @@ private:
 
       // And simultaneously visit the > sub-tree with the master thread.
       if (gtChild != nullptr) {
-        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, permutation, root, numDimensions,
+        gtChild->nearestNeighborsForEach(nn, rnn, mutexes, root, numDimensions,
                                          numNeighbors, maximumSubmitDepth, depth + 1, enable);
       }
 
@@ -1259,14 +1263,8 @@ public:
                                    signed_size_t const maximumSubmitDepth,
                                    vector<bool> const& enable) {
     
-    // It is unnecessary to compute the partition coordinate upon each recursive call
-    // of the nearestNeighbors function because that coordinate depends only on the depth
-    // of recursion, so it may be pre-computed and stored in the 'permutation' vector.
-    vector<signed_size_t> permutation;
-    createPermutation(permutation, numDimensions, nn.size());
-
     // Walk the k-d tree and build the nearest neighbors lists.
-    nearestNeighborsForEach(nn, rnn, mutexes, permutation, this, numDimensions,
+    nearestNeighborsForEach(nn, rnn, mutexes, this, numDimensions,
                             numNeighbors, maximumSubmitDepth, 0, enable);
   }
 
@@ -1295,11 +1293,12 @@ private:
    *
    * nn - the nearest neighbors vector
    * rnn - the reverse nearest neighbors vector
-   * size - the number of KdNode instances prior to calling KdMapNode::removeDuplicates
+   * size - the size of the coordinates vector, including duplicates
    *
    * Although this function does not directly access the k-d tree, it requires the persistence
    * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
    */
+public:
   void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
                               vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
                               size_t const size) {
@@ -1343,6 +1342,7 @@ private:
    * Although this function does not directly access the k-d tree, it requires the persistence
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
+public:
   void calculateMeanStd(vector< forward_list< pair<double, KdNode<K,V>*> > >& vec,
                         double& meanSize,
                         double& stdSize,
@@ -1515,10 +1515,6 @@ public:
     }
   }
 
-  friend class KdTree<K,V>;
-  friend class KdTreeDynamic<K,V>;
-  friend class MergeSort<K,V>;
-  friend class NearestNeighborHeap<K,V>;
 }; // class KdNode
 
 #endif // KD_MAP_NODE_H

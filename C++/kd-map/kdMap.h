@@ -83,9 +83,6 @@ class KdTreeNlogn;
 template <typename, typename>
 class KdTreeKnlogn;
 
-template <typename,typename>
-class KdTreeYuCao;
-
 /* The KdTree class defines the k-d tree API. */
 template <typename K, typename V>
 class KdTree {
@@ -261,7 +258,10 @@ public:
     return root;
   }
 
-  /* Return the height of the tree, or 0 if the tree is empty. */
+  /*
+   * Return the height of the tree, or 0 if the tree is empty
+   * or if KD_MAP_DYNAMIC_H is not defined.
+   */
 public:
   size_t getHeight() {
 
@@ -271,6 +271,8 @@ public:
     } else {
       return root->height;
     }
+#else
+    return 0;
 #endif
 
   }
