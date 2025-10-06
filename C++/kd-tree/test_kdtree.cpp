@@ -561,7 +561,7 @@ int main(int argc, char** argv) {
 
     // Verify the consistency between the nearest neighbors and reverse nearest neighbors vectors.
     beginTime = steady_clock::now();
-    tree->verifyReverseNeighbors(nn, rnn, numberOfNodes);
+    tree->verifyReverseNeighbors(nn, rnn, coordinates.size());
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     double const verifyReverseTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;

@@ -251,22 +251,21 @@ public:
 
   }
 
-  /* Return the root of the tree. */
-public:
-  KdNode<K>* getRoot() {
-    return root;
-  }
-
-  /* Return the height of the tree, or 0 if the tree is empty. */
+  /*
+   * Return the height of the tree, or 0 if the tree is empty
+   * or if KD_MAP_DYNAMIC_H is not defined.
+   */
 public:
   size_t getHeight() {
 
-#ifdef KD_TREE_DYNAMIC_H
+#ifdef KD_MAP_DYNAMIC_H
     if (root == nullptr) {
       return 0;
     } else {
       return root->height;
     }
+#else
+    return 0;
 #endif
 
   }

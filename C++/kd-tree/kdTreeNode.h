@@ -237,6 +237,7 @@ public:
         // will be deleted en masse by the ~KdTree destructor.
 #ifndef PREALLOCATE
         delete[] reference[j];
+        reference[j] = nullptr;
 #endif
       }
     }
@@ -1289,7 +1290,7 @@ private:
    *
    * nn - the nearest neighbors vector
    * rnn - the reverse nearest neighbors vector
-   * numberOfNodes - the number of nodes in the k-d tree
+   * size - the size of the coordinates vector, including duplicates
    *
    * Although this function does not directly access the k-d tree, it requires the persistence
    * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
@@ -1297,10 +1298,10 @@ private:
 public:
   void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K>*> > >& nn,
                               vector< forward_list< pair<double, KdNode<K>*> > >& rnn,
-                              signed_size_t const numberOfNodes) {
+                              signed_size_t const size) {
 
     // Create a kdNodes vector because the createKdTree function doesn't return it.
-    vector<KdNode<K>*> kdNodes(numberOfNodes);
+    vector<KdNode<K>*> kdNodes(size);
     populateKdNodes(kdNodes);
 
     // Iterate through the reverse nearest neighbors vector and verify the correctness of that list.
