@@ -568,20 +568,13 @@ public:
    * The verifyKdTree function walks the k-d tree and checks that the
    * children of a node are in the correct branch of that node.
    *
-   * Calling parameters:
-   *
-   * permutation - the permutation vector
-   * dim - the number of dimensions
-   * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-   *
    * returns: a count of the number of kdNodes in the k-d tree
    */
 public:
-  signed_size_t verifyKdTree(signed_size_t const dim,
-                             signed_size_t const maximumSubmitDepth) {
+  signed_size_t verifyKdTree() {
 
     if (root != nullptr) {
-      return root->verifyKdTree(dim, maximumSubmitDepth, 0, 0);
+      return root->verifyKdTree(numDimensions, maxSubmitDepth, 0, 0);
     } else {
       return 0;
     }

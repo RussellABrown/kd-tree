@@ -453,7 +453,7 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < coordinates.size(); ++i) {
       if (tree->insert(coordinates[i])) {
         if (verify) {
-          tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+          tree->verifyKdTree();
         }
       } else {
         cout << "\n\nfailed to insert tuple " << i << " ";
@@ -468,7 +468,7 @@ int main(int argc, char** argv) {
 
     // Verify correct order of each node in the k-d tree and count the nodes.
     beginTime = steady_clock::now();
-    numberOfNodes = tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+    numberOfNodes = tree->verifyKdTree();
     endTime = steady_clock::now();
     duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     verifyTime[k] += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
@@ -557,7 +557,7 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < coordinates.size(); ++i) {
       if (tree->erase(coordinates[i])) {
         if (verify) {
-          tree->verifyKdTree(numDimensions, maximumSubmitDepth);
+          tree->verifyKdTree();
         }
         if (find && tree->contains(coordinates[i])) {
           cout << "\n\nfound tuple after erasing tuple:";
