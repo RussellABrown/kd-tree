@@ -59,10 +59,10 @@ public class KdTreeDynamic extends KdTree {
     KdTreeDynamic(final int numDimensions,
                   final ExecutorService executor,
                   final int maxSubmitDepth,
-                  KdNode node)
+                  KdTree tree)
     {
         super(numDimensions, executor, maxSubmitDepth);
-        root = node;
+        root = tree.root;
     }
 
     protected boolean isEmpty()
@@ -349,7 +349,7 @@ public class KdTreeDynamic extends KdTree {
                             nodePtr.values.addAll(predecessor.values);
                             predecessor.values.clear();
                             // value is a dummy argument because the predecessor node's
-                            // value set is empty.
+                            // values set is empty.
                             nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, p+1);
 
                             // Assuming that the subtree rooted at the one-child

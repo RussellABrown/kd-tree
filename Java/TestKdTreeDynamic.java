@@ -566,7 +566,7 @@ public class TestKdTreeDynamic {
                         throw new RuntimeException("failed to find next tuple after erasing tuple " + i);
                    }
                     } else {
-                        throw new RuntimeException("failed to erase tuple " + i);
+                        throw new RuntimeException("failed to erase tuple " + i + " in dynamic tree");
                     }
                 }
             }
@@ -600,6 +600,23 @@ public class TestKdTreeDynamic {
                     throw new RuntimeException("number of nodes from createKdTree = " + nN[0] +
                                             "  != number of nodes from returned root = " + numberOfNodes);
                 }
+
+                // Provide the static k-d tree to the KdTreeDynamic constructor and then
+                // search the dynamic k-d tree for each of the coordinates. Creation of
+                // this dynamic k-d tree provides an example of how to provide a static
+                // k-d tree to the dynamic k-d tree constructor, and thereafter treat
+                // the static k-d tree as a dynamic k-d tree for various purposes, such
+                // as insertion, deletion, and search of individual coordinates.
+                final KdTreeDynamic dynamicTree = new KdTreeDynamic(numDimensions, executor,
+                                                                    maximumSubmitDepth, staticTree);
+                long cTime = System.currentTimeMillis();
+                for (int i = 0; i < coordinates.length; ++i) {
+                        if (!dynamicTree.contains(coordinates[i])) {
+                            throw new RuntimeException("failed to find tuple " + i + " in static tree");
+                        }
+                    }
+                cTime = System.currentTimeMillis() - cTime;
+                containsTime[k] += (double) cTime / Constants.MILLISECONDS_TO_SECONDS;
             }
 
             System.out.println("finished iteration " + (k + 1));
@@ -628,6 +645,8 @@ public class TestKdTreeDynamic {
             System.out.println("number of nodes = " + numberOfNodes + "  k-d tree height = " + staticTreeHeight + "\n");
             calcMeanStd(createTime, mean, std);
             System.out.printf("create time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            calcMeanStd(containsTime, mean, std);
+            System.out.printf("search time = %.4f  std dev = %.4f\n", mean[0], std[0]);
         }
 
         if (neighbors) {
