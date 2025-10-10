@@ -114,16 +114,16 @@ public:
    * 
    * numDimensions (IN) the number of dimension k of the k-d tree
    * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-   * root (IN) the KdTree::root node
+   * tree (IN) a KdTree instance
    */
 public:
   KdTree(signed_size_t const numDimensions,
          signed_size_t const maxSubmitDepth,
-         KdNode<K,V>* const root)
+         KdTree<K,V>* const tree)
   {
     this->numDimensions = numDimensions;
     this->maxSubmitDepth = maxSubmitDepth;
-    this->root = root;
+    this->root = tree->root;
   }
 
 public:
