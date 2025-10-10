@@ -444,7 +444,18 @@ int main(int argc, char** argv) {
         tree->verifyRegionSearch(fastRegionList, slowRegionList);
       }
 
-      // No further need for the balanced k-d tree, so delete it.
+      // Create a KdTreeDynamic instance from the KdTreeInstance
+      // and then delete that KdTreeDynamic instance in order to
+      // delete the KdNode instances that compose the k-d tree.
+      // This is the only way to delete those KdNode instances,
+      // because the ~KdTree destructor will not delete them when
+      // KD_TREE_DYNAMIC_H is defined.
+      auto dynamicTree =
+        new KdTreeDynamic<kdKey_t>(numDimensions, maximumSubmitDepth, tree);
+      delete dynamicTree;
+
+      // Delete the KdTree instance, which will not delete its
+      // KdNode instances, as discussed above.
       delete tree;
     }
 
@@ -467,7 +478,7 @@ int main(int argc, char** argv) {
       // can thereafter be modified as a dynamic k-d tree.
       auto dynamicTree = new KdTreeDynamic<kdKey_t>(numDimensions,
                                                     maximumSubmitDepth,
-                                                    tree->getRoot());
+                                                    tree);
 
       // Walk the static k-d tree in increasing order and
       // copy each tuple into a coordinate, which sorts the

@@ -43,6 +43,7 @@
 
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;
+using std::copy;
 using std::cout;
 using std::endl;
 using std::ostringstream;
@@ -129,14 +130,14 @@ public:
      * 
      * numDimensions (IN) the number of dimension k of the k-d tree
      * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-     * root (IN) the KdTree::root node
+     * tree (IN) a KdTree instance
      */
 public:
     KdTreeDynamic(signed_size_t const numDimensions,
                   signed_size_t const maxSubmitDepth,
-                  KdNode<K>* const root)
+                  KdTree<K>* const tree)
 
-    : KdTree<K>(numDimensions, maxSubmitDepth, root) {}
+    : KdTree<K>(numDimensions, maxSubmitDepth, tree) {}
 
     /*
      * If KD_TREE_DYNAMIC_H is defined, the ~KdTree destructor does not
@@ -490,9 +491,7 @@ private:
                     // back to the < child, including that child.
                     KdNode<K>* predecessor = nodePtr->ltChild;
                     predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
-                    for (signed_size_t i = 0; i < dim; ++i) {
-                        nodePtr->tuple[i] = predecessor->tuple[i];
-                    }
+                    copy(predecessor->tuple, predecessor->tuple + dim, nodePtr->tuple);
                     nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
 
                     // Assuming that the subtree rooted at the one-child
@@ -558,9 +557,7 @@ private:
                     // path back to the > child, including that child.
                     KdNode<K>* successor = nodePtr->gtChild;
                     successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
-                    for (signed_size_t i = 0; i < dim; ++i) {
-                        nodePtr->tuple[i] = successor->tuple[i];
-                    }
+                    copy(successor->tuple, successor->tuple + dim, nodePtr->tuple);
                     nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
 
                     // Assuming that the subtree rooted at the one-child
@@ -643,9 +640,7 @@ private:
                         // predecessor node to (but excluding) this two-child node.
                         KdNode<K>* predecessor = nodePtr->ltChild;
                         predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
-                        for (signed_size_t i = 0; i < dim; ++i) {
-                            nodePtr->tuple[i] = predecessor->tuple[i];
-                        }
+                        copy(predecessor->tuple, predecessor->tuple + dim, nodePtr->tuple);
                         nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
 
                         // The height may have changed, so if the subtree
@@ -674,9 +669,7 @@ private:
                         // successor node to (but excluding) this two-child node.
                         KdNode<K>* successor = nodePtr->gtChild;
                         successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
-                        for (signed_size_t i = 0; i < dim; ++i) {
-                            nodePtr->tuple[i] = successor->tuple[i];
-                        }
+                        copy(successor->tuple, successor->tuple + dim, nodePtr->tuple);
                         nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
 
                         // The height may have changed, so if the subtree

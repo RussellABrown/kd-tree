@@ -43,6 +43,7 @@
 
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;
+using std::copy;
 using std::cout;
 using std::endl;
 using std::ostringstream;
@@ -144,14 +145,14 @@ public:
      * 
      * numDimensions (IN) the number of dimension k of the k-d tree
      * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-     * root (IN) the KdTree::root node
+     * tree (IN) a KdTree instance
      */
 public:
     KdTreeDynamic(signed_size_t const numDimensions,
                   signed_size_t const maxSubmitDepth,
-                  KdNode<K>* const root)
+                  KdTree<K>* const tree)
 
-    : KdTree<K>(numDimensions, maxSubmitDepth, root)
+    : KdTree<K>(numDimensions, maxSubmitDepth, tree)
     {
 
 #ifdef STATISTICS
@@ -708,9 +709,7 @@ private:
                     KdNode<K>* predecessor = nodePtr->ltChild;
 #ifndef STATISTICS
                     predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
-                    for (signed_size_t i = 0; i < dim; ++i) {
-                        nodePtr->tuple[i] = predecessor->tuple[i];
-                    }
+                    copy(predecessor->tuple, predecessor->tuple + dim, nodePtr->tuple);
                     nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
 #else
                     ++eraseFindCount;
@@ -719,9 +718,7 @@ private:
                     auto endTime = steady_clock::now();
                     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                     eraseFindTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-                    for (signed_size_t i = 0; i < dim; ++i) {
-                        nodePtr->tuple[i] = predecessor->tuple[i];
-                    }
+                    copy(predecessor->tuple, predecessor->tuple + dim, nodePtr->tuple);
                     beginTime = steady_clock::now();
                     nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
                     endTime = steady_clock::now();
@@ -799,9 +796,7 @@ private:
                     KdNode<K>* successor = nodePtr->gtChild;
 #ifndef STATISTICS
                     successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
-                    for (signed_size_t i = 0; i < dim; ++i) {
-                        nodePtr->tuple[i] = successor->tuple[i];
-                    }
+                    copy(successor->tuple, successor->tuple + dim, nodePtr->tuple);
                     nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
 #else
                     ++eraseFindCount;
@@ -810,9 +805,7 @@ private:
                     auto endTime = steady_clock::now();
                     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                     eraseFindTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-                    for (signed_size_t i = 0; i < dim; ++i) {
-                        nodePtr->tuple[i] = successor->tuple[i];
-                    }
+                    copy(successor->tuple, successor->tuple + dim, nodePtr->tuple);
                     beginTime = steady_clock::now();
                     nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
                     endTime = steady_clock::now();
@@ -929,9 +922,7 @@ private:
                         KdNode<K>* predecessor = nodePtr->ltChild;
 #ifndef STATISTICS
                         predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
-                        for (signed_size_t i = 0; i < dim; ++i) {
-                            nodePtr->tuple[i] = predecessor->tuple[i];
-                        }
+                        copy(predecessor->tuple, predecessor->tuple + dim, nodePtr->tuple);
                         nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
 #else
                         ++eraseFindCount;
@@ -940,9 +931,7 @@ private:
                         auto endTime = steady_clock::now();
                         auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                         eraseFindTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-                        for (signed_size_t i = 0; i < dim; ++i) {
-                            nodePtr->tuple[i] = predecessor->tuple[i];
-                        }
+                        copy(predecessor->tuple, predecessor->tuple + dim, nodePtr->tuple);
                         beginTime = steady_clock::now();
                         nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, dim, p+1);
                         endTime = steady_clock::now();
@@ -999,9 +988,7 @@ private:
                         KdNode<K>* successor = nodePtr->gtChild;
 #ifndef STATISTICS
                         successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
-                        for (signed_size_t i = 0; i < dim; ++i) {
-                            nodePtr->tuple[i] = successor->tuple[i];
-                        }
+                        copy(successor->tuple, successor->tuple + dim, nodePtr->tuple);
                         nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
 #else
                         ++eraseFindCount;
@@ -1010,9 +997,7 @@ private:
                         auto endTime = steady_clock::now();
                         auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
                         eraseFindTime += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
-                        for (signed_size_t i = 0; i < dim; ++i) {
-                            nodePtr->tuple[i] = successor->tuple[i];
-                        }
+                        copy(successor->tuple, successor->tuple + dim, nodePtr->tuple);
                         beginTime = steady_clock::now();
                         nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, dim, p+1);
                         endTime = steady_clock::now();
