@@ -195,7 +195,7 @@ public class KdTreeDynamic extends KdTree {
 
         erased = changed = false;
         if (root != null) {
-            root = erase(root, coordinate.getKey(), coordinate.getValue(), 0, false);
+            root = erase(root, coordinate.getKey(), coordinate.getValue(), 0);
 
             // Has the height changed due to an erasure?
             if (root != null && changed) {
@@ -221,15 +221,13 @@ public class KdTreeDynamic extends KdTree {
      * @param key - a {@code long}[] tuple
      * @param value - a {@code String}
      * @param q - the leading dimension that is permuted cyclically
-     * @param clearSet - clear all values in the values set
      * @return the (@code KdNode) root of the subtree
      * </p>
      */
     private KdNode erase(final KdNode node,
                          final long[] key,
                          final String value,
-                         final int q,
-                         final boolean clearSet) {
+                         final int q) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus operator for p <= dim.
@@ -242,7 +240,7 @@ public class KdTreeDynamic extends KdTree {
         // Determine which child to search recursively for a deletion point.
         if (MergeSort.superKeyCompare(key, nodePtr.tuple, p) < 0L) {
             if (nodePtr.ltChild != null) {
-                nodePtr.ltChild = erase(nodePtr.ltChild, key, value, p+1, clearSet);
+                nodePtr.ltChild = erase(nodePtr.ltChild, key, value, p+1);
 
                 // Has the height changed due to an erasure? 
                 if (erased) {
@@ -266,7 +264,7 @@ public class KdTreeDynamic extends KdTree {
             }
         } else if (MergeSort.superKeyCompare(key, nodePtr.tuple, p) > 0L) {
             if (nodePtr.gtChild != null) {
-                nodePtr.gtChild = erase(nodePtr.gtChild, key, value, p+1, clearSet);
+                nodePtr.gtChild = erase(nodePtr.gtChild, key, value, p+1);
              
                 // Has the height changed due to an erasure? 
                 if (erased) {
@@ -289,21 +287,19 @@ public class KdTreeDynamic extends KdTree {
                 erased = changed = false;
             }
         } else {
-            // The tree contains the key, so if clearSet is false,
-            // and if the values set does not contain the value, no
-            // value is removed and the tree height doesn't change.
-            if ( !clearSet && !nodePtr.values.contains(value) ) {
+            // The tree contains the key, so if the values set
+            // is not empty and the values set does not contain
+            // the value, no value is removed and the tree height
+            // doesn't change.
+            if ( !nodePtr.values.isEmpty() && !nodePtr.values.contains(value) ) {
                 erased = changed = false;
             } else {
-                // Either clearSet is true, or the values set
-                // contains the value. So if clearSet is true,
-                // clear the values set; otherwise, remove the
-                // value from the values set.
-                if (clearSet) {
-                    nodePtr.values.clear();
-                } else {
-                    nodePtr.values.remove(value);
-                }
+                // Either the values set is empty or it contains
+                // the value. So remove the value from the values set.
+                // If the values set is empty, as is the case if the
+                // call to this erase method is to erase a replacement
+                // node, the call to the TreeSet.remove method is a no-op.
+                nodePtr.values.remove(value);
 
                 // Is the values set now empty?
                 if ( !nodePtr.values.isEmpty() ) {
@@ -343,16 +339,18 @@ public class KdTreeDynamic extends KdTree {
                             // No, the < child subtree contains > 3 nodes. So, find
                             // the immediate predecessor node, copy the tuple and the
                             // values set from that predecessor node to the one-child
-                            // node, delete the predecessor node recursively (clearing
-                            // its values set), and recompute the height along the path
-                            // back to the < child, including that child.
+                            // node (whose values set is now empty), clear the values
+                            // set of the predecessor node, delete the predecessor node
+                            // recursively, and recompute the height along the path back
+                            // to the < child, including that child.
                             KdNode predecessor = nodePtr.ltChild;
                             predecessor = findPredecessor(nodePtr.ltChild, predecessor, p, p+1);
                             System.arraycopy(predecessor.tuple, 0, nodePtr.tuple, 0, dim);
-                            nodePtr.values.clear();
                             nodePtr.values.addAll(predecessor.values);
-                            // value is a dummy argument because the clearSet argument is true
-                            nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, p+1, true);
+                            predecessor.values.clear();
+                            // value is a dummy argument because the predecessor node's
+                            // value set is empty.
+                            nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, p+1);
 
                             // Assuming that the subtree rooted at the one-child
                             // node was balanced prior to deletion of a node
@@ -407,16 +405,18 @@ public class KdTreeDynamic extends KdTree {
                             // No, the > child subtree contains > 3 nodes. So, find
                             // the immediate successor node, copy the tuple and the
                             // values set from that successor node to the one-child
-                            // node, delete the successor node recursively (clearing
-                            // its values set), and recompute the height along the path
-                            // back to the > child, including that child.
+                            // node (whose values set is now empty), clear the values
+                            // set of the successor node, delete the successor node
+                            // recursively, and recompute the height along the path back
+                            // to the > child, including that child.
                             KdNode successor = nodePtr.gtChild;
                             successor = findSuccessor(nodePtr.gtChild, successor, p, p+1);
                             System.arraycopy(successor.tuple, 0, nodePtr.tuple, 0, dim);
-                            nodePtr.values.clear();
                             nodePtr.values.addAll(successor.values);
-                            // value is a dummy argument because the clearSet argument is true
-                            nodePtr.gtChild = erase(nodePtr.gtChild, nodePtr.tuple, value, p+1, true);
+                            successor.values.clear();
+                            // value is a dummy argument because the successor node's
+                            // values set is empty.
+                            nodePtr.gtChild = erase(nodePtr.gtChild, nodePtr.tuple, value, p+1);
 
                             // Assuming that the subtree rooted at the one-child
                             // node was balanced prior to deletion of a node
@@ -484,17 +484,19 @@ public class KdTreeDynamic extends KdTree {
                                 // Find the node with the largest super-key in the
                                 // subtree rooted at the < child, which is the
                                 // predecessor node. Copy the predecessor node's tuple
-                                // and values set to this two-child node, delete the
-                                // predecessor node recursively (clearing its values set),
-                                // and recompute the heights along the path from the
+                                // and values set to this two-child node (whose values
+                                // set is now empty), clear the predecessor node's values
+                                // set, delete the predecessor node recursively, and
+                                // recompute the heights along the path from the
                                 // predecessor node to (but excluding) this two-child node.
                                 KdNode predecessor = nodePtr.ltChild;
                                 predecessor = findPredecessor(nodePtr.ltChild, predecessor, p, p+1);
                                 System.arraycopy(predecessor.tuple, 0, nodePtr.tuple, 0, dim);
-                                nodePtr.values.clear();
                                 nodePtr.values.addAll(predecessor.values);
-                                // value is a dummy argument because the clearSet argument is true
-                                nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, p+1, true);
+                                predecessor.values.clear();
+                                // value is a dummy argument because the predecessor node's
+                                // values set is empty
+                                nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, p+1);
 
                                 // The height may have changed, so if the subtree
                                 // rooted at this two-child node remains balanced,
@@ -515,17 +517,19 @@ public class KdTreeDynamic extends KdTree {
                                 // Find the node with the smallest super-key in the
                                 // subtree rooted at the > child, which is the
                                 // successor node. Copy the successor node's tuple
-                                // and values set to this two-child node, delete the
-                                // successor node recursively (clearing its values set),
-                                // and recompute the heights along the path from the
+                                // and values set to this two-child node (whose values
+                                // set is now empty), clear the successor node's values
+                                // set, delete the successor node recursively, and
+                                // recompute the heights along the path from the
                                 // successor node to (but excluding) this two-child node.
                                 KdNode successor = nodePtr.gtChild;
                                 successor = findSuccessor(nodePtr.gtChild, successor, p, p+1);
                                 System.arraycopy(successor.tuple, 0, nodePtr.tuple, 0, dim);
-                                nodePtr.values.clear();
                                 nodePtr.values.addAll(successor.values);
-                                // value is a dummy argument because the clearSet argument is true
-                                nodePtr.gtChild = erase(nodePtr.gtChild, nodePtr.tuple, value, p+1, true);
+                                successor.values.clear();
+                                // value is a dummy argument because the successor node's
+                                // values set is empty.
+                                nodePtr.gtChild = erase(nodePtr.gtChild, nodePtr.tuple, value, p+1);
 
                                 // The height may have changed, so if the subtree
                                 // rooted at this two-child node remains balanced,
