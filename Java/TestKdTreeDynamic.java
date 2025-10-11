@@ -577,8 +577,8 @@ public class TestKdTreeDynamic {
                 throw new RuntimeException("tree is not empty");
             }
 
-            // Build a static k-d tree. Return the number of nodes and execution times
-            // by  reference via single-element arrays.
+            // Wrap a static k-d tree in a dynamic k-d tree. Return the number of
+            // nodes and execution times by reference via single-element arrays.
             if (balanced)
             {
                 final long[] nN = new long[1];
@@ -588,30 +588,37 @@ public class TestKdTreeDynamic {
                 final double[] kT = new double[1]; // k-d tree-build time
                 final double[] vT = new double[1]; // verify time
 
-                final KdTree staticTree = KdTree.createKdTree(coordinates, executor, maximumSubmitDepth,
-                                                              nN, iT, sT, rT, kT, vT);
+                final KdTree arbre = new KdTreeDynamic(numDimensions, executor,
+                                                       maximumSubmitDepth,
+                                                       KdTree.createKdTree(coordinates,
+                                                                           executor,
+                                                                           maximumSubmitDepth,
+                                                                           nN,
+                                                                           iT,
+                                                                           sT,
+                                                                           rT,
+                                                                           kT,
+                                                                           vT));
 
-                staticTreeHeight = staticTree.getTreeHeight();
+                staticTreeHeight = arbre.getTreeHeight();
                 createTime[k] = iT[0] + sT[0] + rT[0] + kT[0] + vT[0];
 
                 // Check that the two versions of verifyKdTree report the same number of nodes.
-                staticNumberOfNodes = staticTree.verifyKdTree();
+                staticNumberOfNodes = arbre.verifyKdTree();
                 if (nN[0] != numberOfNodes) {
                     throw new RuntimeException("number of nodes from createKdTree = " + nN[0] +
-                                            "  != number of nodes from returned root = " + numberOfNodes);
+                                               "  != number of nodes from returned root = " +
+                                               numberOfNodes);
                 }
 
-                // Provide the static k-d tree to the KdTreeDynamic constructor and then
-                // search the dynamic k-d tree for each of the coordinates. Creation of
+                // Search the dynamic k-d tree for each of the coordinates. Creation of
                 // this dynamic k-d tree provides an example of how to provide a static
                 // k-d tree to the dynamic k-d tree constructor, and thereafter treat
                 // the static k-d tree as a dynamic k-d tree for various purposes, such
                 // as insertion, deletion, and search of individual coordinates.
-                final KdTreeDynamic dynamicTree = new KdTreeDynamic(numDimensions, executor,
-                                                                    maximumSubmitDepth, staticTree);
                 long cTime = System.currentTimeMillis();
                 for (int i = 0; i < coordinates.length; ++i) {
-                        if (!dynamicTree.contains(coordinates[i])) {
+                        if (!arbre.contains(coordinates[i])) {
                             throw new RuntimeException("failed to find tuple " + i + " in static tree");
                         }
                     }
@@ -624,7 +631,8 @@ public class TestKdTreeDynamic {
 
         // Report k-d tree statistics.
         System.out.println("\ndynamic tree:\n");
-        System.out.println("number of nodes = " + numberOfNodes + "  k-d tree height = " + treeHeight + "\n");
+        System.out.println("number of nodes = " + numberOfNodes + "  k-d tree height = " +
+                           treeHeight + "\n");
 
         // Here is a kludge for passing parameters to the calcMeanStd method by reference.
         final double[] mean = new double[1];
@@ -642,7 +650,8 @@ public class TestKdTreeDynamic {
 
         if (balanced) {
             System.out.println("static tree:\n");
-            System.out.println("number of nodes = " + numberOfNodes + "  k-d tree height = " + staticTreeHeight + "\n");
+            System.out.println("number of nodes = " + numberOfNodes + "  k-d tree height = " +
+                               staticTreeHeight + "\n");
             calcMeanStd(createTime, mean, std);
             System.out.printf("create time = %.4f  std dev = %.4f\n", mean[0], std[0]);
             calcMeanStd(containsTime, mean, std);

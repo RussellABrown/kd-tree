@@ -41,7 +41,7 @@ import java.util.TreeSet;
  * The {@code KdTreeDynamic}  class extends the (@code KdTree} class and
  * accessess KdTree.root so that an instance of KdTreeDynamic
  * may use KdTree member functions that require access to root.
-  * </p>
+ * </p>
  */
 public class KdTreeDynamic extends KdTree {
 
@@ -59,7 +59,7 @@ public class KdTreeDynamic extends KdTree {
     KdTreeDynamic(final int numDimensions,
                   final ExecutorService executor,
                   final int maxSubmitDepth,
-                  KdTree tree)
+                  final KdTree tree)
     {
         super(numDimensions, executor, maxSubmitDepth);
         root = tree.root;
