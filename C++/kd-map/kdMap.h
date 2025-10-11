@@ -85,30 +85,23 @@ class KdTreeKnlogn;
 
 /* The KdTree class defines the k-d tree API. */
 template <typename K, typename V>
-class KdTree {
+class KdTree
+{
 public:
   KdNode<K,V>* root = nullptr;
   signed_size_t numDimensions = 3;
   signed_size_t maxSubmitDepth = -1;
 
-  /*
-   * This is the basic constructor.
-   *
-   * Calling parameters:
-   * 
-   * numDimensions (IN) the number of dimension k of the k-d tree
-   * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-   */
-public:
-  KdTree(signed_size_t const numDimensions,
-         signed_size_t const maxSubmitDepth)
-  {
-    this->numDimensions = numDimensions;
-    this->maxSubmitDepth = maxSubmitDepth;
-  }
+#ifdef KD_MAP_DYNAMIC_H
+
+private:
+  KdTree<K,V>* tree = nullptr;
 
   /*
-   * This constructor assigns the KdTree::root node.
+   * This constructor assigns the KdTree::root node, assigns
+   * the KdTree instance that provides the root node, and
+   * sets the root node of that KdTree instance to nullptr,
+   * which in effect transfers the root node to KdTree::root.
    *
    * Calling parameters:
    * 
@@ -124,6 +117,26 @@ public:
     this->numDimensions = numDimensions;
     this->maxSubmitDepth = maxSubmitDepth;
     this->root = tree->root;
+    tree->root = nullptr;
+    this->tree = tree;
+  }
+
+#endif
+
+  /*
+   * This is the basic constructor.
+   *
+   * Calling parameters:
+   * 
+   * numDimensions (IN) the number of dimension k of the k-d tree
+   * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
+   */
+public:
+  KdTree(signed_size_t const numDimensions,
+         signed_size_t const maxSubmitDepth)
+  {
+    this->numDimensions = numDimensions;
+    this->maxSubmitDepth = maxSubmitDepth;
   }
 
 public:
@@ -142,7 +155,10 @@ public:
     // vector, deletion of that vector will not delete the values set
     // of each KdNode instance, so delete those values sets via the
     // deleteValues function prior to deletion of the vector.
-
+    //
+    // Moreover, if KD_TREE_DYNAMIC_H is defined, delete the KdTree instance
+    // that provided the root, and whose root has been assigned to nullptr
+    // by the above KdTree constructor.  
 #ifndef KD_MAP_DYNAMIC_H
 #ifdef PREALLOCATE
     if (root != nullptr) {
@@ -153,6 +169,8 @@ public:
 #else
     delete root;
 #endif
+#else
+    delete tree;
 #endif
 
   }

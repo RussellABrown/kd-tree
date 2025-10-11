@@ -387,15 +387,25 @@ int main(int argc, char** argv) {
       // Create a static KdTree instance tree from the coordinates.
     if (balanced) {
 
-      // Create the static k-d tree.
-      vector<pair<vector<kdKey_t>,kdValue_t>> copyCoordinates = coordinates;
+      // Create an instance of a static k-d tree, and wrap it in an instance
+      // of a dynamic k-d tree, because deletion of a static k-d tree does
+      // not delete the k-d node instances when KD_MAP_DYNAMIC_H is defined,
+      // whereas deletion of a dynamic k-d tree does delete the k-d node instances.
+      vector<pair<vector<kdKey_t>, kdValue_t>> copyCoordinates = coordinates;
       signed_size_t numNodes;
       double allocateTime, sortTime, removeTime, kdTime,
-             verifyTime, deallocateTime;
-      KdTree<kdKey_t, kdValue_t>* const tree =
-        KdTree<kdKey_t, kdValue_t>::createKdTree(copyCoordinates, maximumSubmitDepth, numNodes,
-                                                 allocateTime, sortTime, removeTime, kdTime,
-                                                 verifyTime, deallocateTime);
+             verifyTime, deallocateTime, unsortTime;
+      KdTreeDynamic<kdKey_t, kdValue_t>* const tree =
+        new KdTreeDynamic<kdKey_t, kdValue_t>(numDimensions, maximumSubmitDepth,
+                                              KdTree<kdKey_t, kdValue_t>::createKdTree(copyCoordinates,
+                                                                                       maximumSubmitDepth,
+                                                                                       numNodes,
+                                                                                       allocateTime,
+                                                                                       sortTime,
+                                                                                       removeTime,
+                                                                                       kdTime,
+                                                                                       verifyTime,
+                                                                                       deallocateTime));
 
       // Record the time for k-d tree creation, ignoring verifyTime and unsortTime.
       createTime[k] = allocateTime + sortTime + removeTime + kdTime + deallocateTime;
@@ -444,18 +454,8 @@ int main(int argc, char** argv) {
         tree->verifyRegionSearch(fastRegionList, slowRegionList);
       }
 
-      // Create a KdTreeDynamic instance from the KdTreeInstance
-      // and then delete that KdTreeDynamic instance in order to
-      // delete the KdNode instances that compose the k-d tree.
-      // This is the only way to delete those KdNode instances,
-      // because the ~KdTree destructor will not delete them when
-      // KD_MAP_DYNAMIC_H is defined.
-      auto dynamicTree =
-        new KdTreeDynamic<kdKey_t, kdValue_t>(numDimensions, maximumSubmitDepth, tree);
-      delete dynamicTree;
-
-      // Delete the KdTree instance, which will not delete its
-      // KdNode instances, as discussed above.
+      // Delete the dynamic k-d tree, which also deletes the static k-d tree
+      // and the k-d node instances.
       delete tree;
     }
 
