@@ -94,31 +94,31 @@ public:
 
 #ifdef KD_MAP_DYNAMIC_H
 
-private:
-  KdTree<K,V>* tree = nullptr;
-
   /*
-   * This constructor assigns the KdTree::root node, assigns
-   * the KdTree instance that provides the root node, and
-   * sets the root node of that KdTree instance to nullptr,
-   * which in effect transfers the root node to KdTree::root.
+   * This constructor assigns the KdTree::root node from
+   * the root node of another KdTree instance, sets the
+   * root node of that other KdTree instance to nullptr
+   * (which transfers that other root node to KdTree::root),
+   * deletes that other KdTree instance, and sets it to
+   * nullptr so that it doesn't remain a dangling pointer.
    *
    * Calling parameters:
    * 
    * numDimensions (IN) the number of dimension k of the k-d tree
    * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-   * tree (IN) a KdTree instance
+   * tree (MODIFIED) a pointer to a KdTree instance
    */
 public:
   KdTree(signed_size_t const numDimensions,
          signed_size_t const maxSubmitDepth,
-         KdTree<K,V>* const tree)
+         KdTree<K,V>*& tree)
   {
     this->numDimensions = numDimensions;
     this->maxSubmitDepth = maxSubmitDepth;
     this->root = tree->root;
     tree->root = nullptr;
-    this->tree = tree;
+    delete tree;
+    tree = nullptr;
   }
 
 #endif
@@ -155,10 +155,6 @@ public:
     // vector, deletion of that vector will not delete the values set
     // of each KdNode instance, so delete those values sets via the
     // deleteValues function prior to deletion of the vector.
-    //
-    // Moreover, if KD_TREE_DYNAMIC_H is defined, delete the KdTree instance
-    // that provided the root, and whose root has been assigned to nullptr
-    // by the above KdTree constructor.  
 #ifndef KD_MAP_DYNAMIC_H
 #ifdef PREALLOCATE
     if (root != nullptr) {
@@ -169,8 +165,6 @@ public:
 #else
     delete root;
 #endif
-#else
-    delete tree;
 #endif
 
   }
