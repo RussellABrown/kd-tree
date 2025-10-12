@@ -476,7 +476,7 @@ public class KdTreeDynamic extends KdTree {
                             // > 3 nodes, excluding this two-child node, so replace this
                             // two-child node by either its predecessor or its successor.
                             //
-                            // If Constants.ENABLE_PREFERRED_TEST is true, select the replacement
+                            // If Constants.ENABLE_PREFERRED_NODE is true, select the replacement
                             // node from the taller of the child subtrees.
                             if (Constants.ENABLE_PREFERRED_NODE
                                 && (getHeight(nodePtr.ltChild) >= getHeight(nodePtr.gtChild)))

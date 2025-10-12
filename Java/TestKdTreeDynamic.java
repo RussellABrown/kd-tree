@@ -36,7 +36,7 @@
  *
  * NLOGN - If true, specifies the O[n log(n)] algorithm instead of the O[kn log(n)] algorithm.
  * 
- * ENABLE_PREFERRED_TEST - If true, compare the heights of a deleted 2-child node's
+ * ENABLE_PREFERRED_NODE - If true, compare the heights of a deleted 2-child node's
  *                          child subtrees to select a preferred replacement node.
  * 
  * ENABLE_1TO3 - If true, curtails recursive deletion when a subtree contains <= 3 nodes.

@@ -36,20 +36,6 @@
  *
  * NLOGN - If true, specifies the O[n log(n)] algorithm instead of the O[kn log(n)] algorithm.
  * 
- * ENABLE_PREFERRED_TEST - If true, compare the heights of a deleted 2-child node's
- *                          child subtrees to select a preferred replacement node.
- * 
- * ENABLE_1TO3 - If true, curtails recursive deletion when a subtree contains <= 3 nodes.
- * 
- * AVL_BALANCE - If true, the KdTreeDynamic.isBalanced method checks AVL balance;
- *               otherwise, this method checks for red-black balance.
- * 
- * HEIGHT_DIFF - An integer that specifies, for red-black balance, the maximum allowed
- *               height difference between the < and > subtrees of a node when one subtree
- *               is empty; or for AVL balance, the maximum allowed height difference
- *               between the < and > subtrees of a node. This balance is used to maintain
- *               the balance of a dynamic k-d tree, not a static k-d tree.
- * 
  * INSERTION_SORT_CUTOFF - An integer that specifies the number of nodes at which insertion
  *                         sort replaces merge sort in the MergeSort.mergeSort* methods.
  * 
