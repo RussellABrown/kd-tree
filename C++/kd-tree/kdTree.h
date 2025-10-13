@@ -115,7 +115,7 @@ public:
    * 
    * numDimensions (IN) the number of dimension k of the k-d tree
    * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-   * tree (MODIFIED) a pointer to a KdTree instance
+   * tree (MODIFIED) a pointer to a KdTree instance, passed by reference
    */
 public:
   KdTree(signed_size_t const numDimensions,
