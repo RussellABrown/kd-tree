@@ -389,7 +389,7 @@ int main(int argc, char** argv) {
 
       // Create an instance of a static k-d tree and wrap it in an instance
       // of a dynamic k-d tree, because deletion of a static k-d tree does
-      // not delete the k-d node instances when KD_TREE_DYNAMIC_H is defined,
+      // not delete the k-d node instances when KD_MAP_DYNAMIC_H is defined,
       // whereas deletion of a dynamic k-d tree deletes the k-d node instances.
       //
       // The KdTreeDynamic constructor specifies an R-VALUE BY-REFERENCE
