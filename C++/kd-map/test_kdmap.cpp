@@ -130,7 +130,7 @@ typedef string kdValue_t; // Add required #include and using to kdMapNode.h
   * 
   * return a pair that contains the mean and standard deviation
   */
-pair<double, double> calcMeanStd(vector<double> const& vec) {
+pair<double, double> calcMeanStd(const vector<double>& vec) {
   double sum = 0, sum2 = 0;
   for (size_t i = 0; i < vec.size(); ++i) {
     sum += vec[i];

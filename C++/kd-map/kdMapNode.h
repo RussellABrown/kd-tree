@@ -64,6 +64,7 @@
 #include <vector>
 
 using std::async;
+using std::copy;
 using std::cout;
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;
@@ -194,7 +195,7 @@ public:
   }
 
 public:
-  KdNode(vector<pair<vector<K>,V>> const& p,
+  KdNode(const vector<pair<vector<K>,V>>& p,
          size_t const i) {
 
     ltChild = gtChild = nullptr;
@@ -202,20 +203,20 @@ public:
     // If tuple is not a member array of KdNode,
     // allocate an array that will be deallocated
     // by the ~KdNode destructor.
-    size_t numDimensions = p[0].first.size();
+    const vector<K>& key = p[i].first;
+    size_t numDimensions = key.size();
 
 #if !defined(PREALLOCATE) || defined(KD_MAP_DYNAMIC_H)
     tuple = new K[numDimensions];
 #endif
 
     // Copy the (x, y, z, w...) coordinates (i.e., the key) into tuple.
-    for (size_t j = 0; j < numDimensions; ++j) {
-      tuple[j] = p[i].first[j];
-    }
+    copy(key.data(), key.data() + numDimensions, tuple);
 
     // Insert the value into the values set.
     values = new set<V>();
-    values->insert(p[i].second);
+    const V& value = p[i].second;
+    values->insert(value);
 
 #ifdef REVERSE_NEAREST_NEIGHBORS
     index = i;
@@ -324,7 +325,7 @@ public:
    * returns: a count of the number of kdNodes in the k-d tree
    */
 public:
-  signed_size_t verifyKdTree(vector<signed_size_t> const& permutation,
+  signed_size_t verifyKdTree(const vector<signed_size_t>& permutation,
                              signed_size_t const dim,
                              signed_size_t const maximumSubmitDepth,
                              signed_size_t const depth) const {
@@ -552,12 +553,12 @@ public:
    */
 private:
   void regionSearch(list<KdNode<K,V>*>& result,
-                    vector<K> const& queryLower,
-                    vector<K> const& queryUpper,
+                    const vector<K>& queryLower,
+                    const vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
                     signed_size_t const depth,
                     size_t p,
-                    vector<bool> const&  enable) {
+                    const vector<bool>&  enable) {
 
     // Permute the most significant dimension p cyclically using
     // a fast alternative to the modulus opeator for p <= dim.
@@ -675,15 +676,6 @@ public:
                     signed_size_t const maximumSubmitDepth,
                     bool const enableAll) {
     
-    // Ensure that each query lower bound <= the corresponding query upper bound.
-    for (size_t i = 0; i < queryLower.size(); ++i) {
-      if (queryLower[i] > queryUpper[i]) {
-        auto const tmp = queryLower[i];
-        queryLower[i] = queryUpper[i];
-        queryUpper[i] = tmp;
-      }
-    }
-
     // Search the tree over all dimensions to obtain the resulting list of KdNodes.
     vector<bool> enable(queryLower.size(), enableAll);
     searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enable);
@@ -708,8 +700,17 @@ public:
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
-                    vector<bool> const& enable) {
+                    const vector<bool>& enable) {
     
+    // Ensure that each query lower bound <= the corresponding query upper bound.
+    for (size_t i = 0; i < queryLower.size(); ++i) {
+      if (queryLower[i] > queryUpper[i]) {
+        auto const tmp = queryLower[i];
+        queryLower[i] = queryUpper[i];
+        queryUpper[i] = tmp;
+      }
+    }
+
     // Search the tree over all dimensions to obtain the resulting list of KdNodes.
     regionSearch(result, queryLower, queryUpper, maximumSubmitDepth, 0, 0, enable);
   }
@@ -824,7 +825,7 @@ private:
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
-                            vector<K> const& query,
+                            const vector<K>& query,
                             signed_size_t const numNeighbors) {
     
     // Create the heap and search the k-d tree for nearest neighbors.
@@ -851,9 +852,9 @@ public:
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
-                            vector<K> const& query,
+                            const vector<K>& query,
                             signed_size_t const numNeighbors,
-                            vector<bool> const& enable) {
+                            const vector<bool>& enable) {
     
     // Create the heap and search the k-d tree for nearest neighbors.
     NearestNeighborHeap<K,V> heap(query, numNeighbors, enable);
@@ -880,8 +881,8 @@ public:
    * of the k-d tree for access to the KdNodes via the lists. Hence, this function is not static.
    */
 public:
-  void verifyNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighborsFast,
-                              forward_list< pair<double, KdNode<K,V>*> >& neighborsSlow) const {
+  void verifyNearestNeighbors(const forward_list< pair<double, KdNode<K,V>*> >& neighborsFast,
+                              const forward_list< pair<double, KdNode<K,V>*> >& neighborsSlow) const {
     
     auto itf1 = neighborsFast.begin();
     auto its1 = neighborsSlow.begin();
@@ -948,9 +949,9 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  forward_list<pair<double, KdNode<K,V>*>> sortByDistance(list<KdNode<K,V>*> const& kdList,
-                                                          vector<K> const& query,
-                                                          signed_size_t const& maxNodes) {
+  forward_list<pair<double, KdNode<K,V>*>> sortByDistance(list<KdNode<K,V>*>& kdList,
+                                                          const vector<K>& query,
+                                                          signed_size_t const maxNodes) {
 
     // Create a heap and add each KdNode on the list to the heap
     // if that KdNode's distance to the query point is less than
@@ -1111,7 +1112,7 @@ private:
                                signed_size_t const numNeighbors,
                                signed_size_t const maximumSubmitDepth,
                                signed_size_t const depth,
-                               vector<bool> const& enable) {
+                               const vector<bool>& enable) {
 
     // Create a query point from the KdNode's tuple, find at most the M
     // nearest neighbors to it, prepend those neighbors to a nearest
@@ -1259,7 +1260,7 @@ public:
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
                                    signed_size_t const maximumSubmitDepth,
-                                   vector<bool> const& enable) {
+                                   const vector<bool>& enable) {
     
     // Walk the k-d tree and build the nearest neighbors lists.
     nearestNeighborsForEach(nn, rnn, mutexes, this, numDimensions,
@@ -1297,8 +1298,8 @@ private:
    * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
    */
 public:
-  void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
-                              vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
+  void verifyReverseNeighbors(const vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
+                              const vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
                               size_t const size) {
 
     // Create a kdNodes vector because the createKdTree function doesn't return it.
@@ -1341,7 +1342,7 @@ public:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  void calculateMeanStd(vector< forward_list< pair<double, KdNode<K,V>*> > >& vec,
+  void calculateMeanStd(const vector< forward_list< pair<double, KdNode<K,V>*> > >& vec,
                         double& meanSize,
                         double& stdSize,
                         double& meanDist,
@@ -1383,7 +1384,7 @@ public:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  size_t nonEmptyLists(vector< forward_list< pair<double, KdNode<K,V>*> > >& vec) const {
+  size_t nonEmptyLists(const vector< forward_list< pair<double, KdNode<K,V>*> > >& vec) const {
 
     size_t count = 0;
     for (size_t i = 0; i < vec.size(); ++i) {
@@ -1429,7 +1430,7 @@ private:
    */
 public:
   void bruteNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
-                             vector<K> const& query,
+                             const vector<K>& query,
                              signed_size_t const numNeighbors) {
     
     // Create the heap, walk the k-d tree, and attempt to add each KdNode to the heap.
@@ -1475,7 +1476,7 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  static void printTuple(vector<K> const& tuple) {
+  static void printTuple(const vector<K>& tuple) {
     
     cout << "(" << tuple[0] << ",";
     for (size_t i = 1; i < tuple.size() - 1; ++i) cout << tuple[i] << ",";
@@ -1496,7 +1497,7 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  void printTuples(forward_list<pair<double, KdNode<K,V>*>> const& regionList,
+  void printTuples(const forward_list<pair<double, KdNode<K,V>*>>& regionList,
                    signed_size_t const maximumNumberOfNodesToPrint,
                    signed_size_t const numDimensions) const {
     

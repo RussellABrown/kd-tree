@@ -171,13 +171,13 @@ public:
      * @return true if the key was found; otherwise, false
      */
 public:
-    inline bool contains(pair<vector<K>, V> const& coordinate) {
+    inline bool contains(const pair<vector<K>, V>& coordinate) {
 
         if (KdTree<K,V>::root != nullptr) {
-            vector<K> const tuple = coordinate.first;
+            const vector<K>& tuple = coordinate.first;
             signed_size_t const dim = tuple.size();
             K* const key = const_cast<K* const>(tuple.data());
-            V const value = coordinate.second;
+            const V& value = coordinate.second;
             return contains(KdTree<K,V>::root, key, value, dim, 0);
         } else {
             return false;
@@ -199,7 +199,7 @@ public:
 private:
     inline bool contains(KdNode<K,V>* const node,
                          K* const key,
-                         V const& value,
+                         const V& value,
                          signed_size_t const dim,
                          signed_size_t p) {
 
@@ -234,13 +234,13 @@ private:
      * @return true if the key was inserted into a node's set; otherwise, false
      */
 public:
-    inline bool insert(pair<vector<K>, V> const& coordinate) {
+    inline bool insert(pair<vector<K>, V>& coordinate) {
 
         inserted = changed = false;
-        vector<K> const tuple = coordinate.first;
+        const vector<K>& tuple = coordinate.first;
         signed_size_t const dim = tuple.size();
         K* const key = const_cast<K* const>(tuple.data());
-        V const value = coordinate.second;
+        const V& value = coordinate.second;
         if (KdTree<K,V>::root != nullptr) {
             KdTree<K,V>::root = insert(KdTree<K,V>::root, key, value, dim, 0);
 
@@ -287,7 +287,7 @@ public:
 private:
     KdNode<K,V>* insert(KdNode<K,V>* const node,
                         K* const key,
-                        V const& value,
+                        const V& value,
                         signed_size_t dim,
                         signed_size_t p) {
 
@@ -308,9 +308,7 @@ private:
                 nodePtr->ltChild->height = 1;
                 // The tuple member field will be deleted by the ~KdNode destructor.
                 nodePtr->ltChild->tuple = new K[dim];
-                for (signed_size_t i = 0; i < dim; ++i) {
-                    nodePtr->ltChild->tuple[i] = key[i];
-                }
+                copy(key, key + dim, nodePtr->ltChild->tuple);
                 // The values member field will be cleared by the ~KdNode destructor.
                 nodePtr->ltChild->values->insert(value);
                 // The value was inserted and the tree height changed.
@@ -325,9 +323,7 @@ private:
                 nodePtr->gtChild->height = 1;
                 // The tuple member field will be deleted by the ~KdNode destructor.
                 nodePtr->gtChild->tuple = new K[dim];
-                for (signed_size_t i = 0; i < dim; ++i) {
-                    nodePtr->gtChild->tuple[i] = key[i];
-                }
+                copy(key, key + dim, nodePtr->gtChild->tuple);
                 // The values member field will be cleared by the ~KdNode destructor.
                 nodePtr->gtChild->values->insert(value);
                 // The value was inserted and the tree height changed.
@@ -371,14 +367,14 @@ private:
      * @return true if the key erased from a node's set; otherwise, false
      */
 public:
-    inline bool erase(pair<vector<K>, V> const& coordinate) {
+    inline bool erase(const pair<vector<K>, V>& coordinate) {
 
         erased = changed = false;
         if (KdTree<K,V>::root != nullptr) {
-            vector<K> const tuple = coordinate.first;
+            const vector<K>& tuple = coordinate.first;
             signed_size_t const dim = tuple.size();
             K* const key = const_cast<K* const>(tuple.data());
-            V const value = coordinate.second;
+            const V& value = coordinate.second;
             KdTree<K,V>::root = erase(KdTree<K,V>::root, key, value, dim, 0);
 
             // Has the height changed due to an erasure?
@@ -412,10 +408,10 @@ public:
      */
 private:
     KdNode<K,V>* erase(KdNode<K,V>* const node,
-                      K* const key,
-                      V const& value,
-                      signed_size_t const dim,
-                      signed_size_t p) {
+                       K* const key,
+                       const V& value,
+                       signed_size_t const dim,
+                       signed_size_t p) {
 
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus operator for p <= dim.
@@ -530,17 +526,19 @@ private:
 
                         {
                             // No, the < child subtree contains > 3 nodes. So, find
-                            // the immediate predecessor node, copy the tuple and the
-                            // values set from that predecessor node to the one-child
-                            // node (whose values set is currently empty), clear the
-                            // predecessor node's values set, delete the predecessor
-                            // node recursively, and recompute the height along the
-                            // path back to the < child, including that child.
+                            // the immediate predecessor node, copy the tuple from that
+                            // prdecessor node to the one-child node, swap the values
+                            // set of that predecessor node with the values set of the
+                            // one-child node (whose values set is currently empty),
+                            // delete the predecessor node recursively, and recompute
+                            // the height along the path back to the < child, including
+                            // the < child.
                             KdNode<K,V>* predecessor = nodePtr->ltChild;
                             predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                             copy(predecessor->tuple, predecessor->tuple + dim, nodePtr->tuple);
-                            nodePtr->values->insert(predecessor->values->begin(), predecessor->values->end());
-                            predecessor->values->clear();
+                            set<V>* const tmp = predecessor->values;
+                            predecessor->values = nodePtr->values;
+                            nodePtr->values = tmp;
                             // value is a dummy argument because the predecessor node's
                             // values set is empty.
                             nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1);
@@ -602,17 +600,19 @@ private:
 
                         {
                             // No, the > child subtree contains > 3 nodes. So, find
-                            // the immediate successor node, copy the tuple and the
-                            // values set from that successor node to the one-child
-                            // node (whose values set is currently empty), clear the
-                            // successor node's values set, delete the successor
-                            // node recursively, and recompute the height along the
-                            // path back to the > child, including that child.
+                            // the immediate successor node, copy the tuple from that
+                            // successor node to the one-child node, swap the values
+                            // set of that successor node with the values set of the
+                            // one-child node (whose values set is currently empty),
+                            // delete the successor node recursively, and recompute
+                            // the height along the path back to the > child, including
+                            // the > child.
                             KdNode<K,V>* successor = nodePtr->gtChild;
                             successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                             copy(successor->tuple, successor->tuple + dim, nodePtr->tuple);
-                            nodePtr->values->insert(successor->values->begin(), successor->values->end());
-                            successor->values->clear();
+                            set<V>* const tmp = successor->values;
+                            successor->values = nodePtr->values;
+                            nodePtr->values = tmp;
                             // value is a dummy argument because the successor node's
                             // values set is empty.
                             nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1);
@@ -690,17 +690,19 @@ private:
                             {
                                 // Find the node with the largest super-key in the
                                 // subtree rooted at the < child, which is the
-                                // predecessor node. Copy the predecessor node's tuple
-                                // and values set to this two-child node (whose values
-                                // set is currently empty), clear the precedessor node's
-                                // values set, delete the predecessor node recursively,
-                                // and recompute the heights along the path from the
-                                // predecessor node to (but excluding) this two-child node.
+                                // immediate predecessor node. Copy the tuple from that
+                                // prdecessor node to the two-child node, swap the values
+                                // set of that predecessor node with the values set of the
+                                // two-child node (whose values set is currently empty),
+                                // delete the predecessor node recursively, and recompute
+                                // the heights along the path from the predecessor node
+                                // to (but excluding) the two-child node.
                                 KdNode<K,V>* predecessor = nodePtr->ltChild;
                                 predecessor = findPredecessor(nodePtr->ltChild, predecessor, dim, p, p+1);
                                 copy(predecessor->tuple, predecessor->tuple + dim, nodePtr->tuple);
-                                nodePtr->values->insert(predecessor->values->begin(), predecessor->values->end());
-                                predecessor->values->clear();
+                                set<V>* const tmp = predecessor->values;
+                                predecessor->values = nodePtr->values;
+                                nodePtr->values = tmp;
                                 // value is a dummy argument because the predecessor node's
                                 // values set is empty.
                                 nodePtr->ltChild = erase(nodePtr->ltChild, nodePtr->tuple, value, dim, p+1);
@@ -725,17 +727,19 @@ private:
                             {
                                 // Find the node with the smallest super-key in the
                                 // subtree rooted at the > child, which is the
-                                // successor node. Copy the successor node's tuple
-                                // and values set to this two-child node (whose values
-                                // set is currently empty), clear the successor node's
-                                // values set, delete the successor node recursively,
-                                // and recompute the heights along the path from the
-                                // successor node to (but excluding) this two-child node.
+                                // immediate successor node. Copy the tuple from that
+                                // successor node to the two-child node, swap the values
+                                // set of that successor node with the values set of the
+                                // two-child node (whose values set is currently empty),
+                                // delete the successor node recursively, and recompute
+                                // the heights along the path from the successor node
+                                // to (but excluding) the two-child node.
                                 KdNode<K,V>* successor = nodePtr->gtChild;
                                 successor = findSuccessor(nodePtr->gtChild, successor, dim, p, p+1);
                                 copy(successor->tuple, successor->tuple + dim, nodePtr->tuple);
-                                nodePtr->values->insert(successor->values->begin(), successor->values->end());
-                                successor->values->clear();
+                                set<V>* const tmp = successor->values;
+                                successor->values = nodePtr->values;
+                                nodePtr->values = tmp;
                                 // value is a dummy argument because the successor node's
                                 // values set is empty.
                                 nodePtr->gtChild = erase(nodePtr->gtChild, nodePtr->tuple, value, dim, p+1);
@@ -1039,7 +1043,7 @@ private:
      */
 private:
     inline KdNode<K,V>* rebuildSubTree1to3(KdNode<K,V>* const node,
-                                           vector<KdNode<K,V>*> const& kdNodes,
+                                           const vector<KdNode<K,V>*>& kdNodes,
                                            size_t const dim,
                                            signed_size_t const p) {
 

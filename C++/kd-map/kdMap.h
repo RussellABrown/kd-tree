@@ -207,7 +207,7 @@ private:
    * returns: a KdTree pointer
    */
 public:
-  static KdTree<K,V>* createKdTree(vector<KdNode<K,V>*> const& kdNodes,
+  static KdTree<K,V>* createKdTree(const vector<KdNode<K,V>*>& kdNodes,
                                    size_t const dim,
                                    signed_size_t const maximumSubmitDepth,
                                    signed_size_t const p)
@@ -235,7 +235,7 @@ public:
    * returns: a KdTree pointer
    */
 public:
-  static KdTree<K,V>* createKdTree(vector<pair<vector<K>,V>> const& coordinates,
+  static KdTree<K,V>* createKdTree(const vector<pair<vector<K>,V>>& coordinates,
                                   signed_size_t const maximumSubmitDepth,
                                   signed_size_t& numberOfNodes,
                                   double& allocateTime,
@@ -336,7 +336,7 @@ public:
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
-                    vector<bool> const& enable) {
+                    const vector<bool>& enable) {
     
     root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enable);
   }
@@ -367,7 +367,7 @@ public:
   */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
-                            vector<K> const& query,
+                            const vector<K>& query,
                             signed_size_t const numNeighbors) {
     
     root->findNearestNeighbors(neighbors, query, numNeighbors);
@@ -385,9 +385,9 @@ public:
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
-                            vector<K> const& query,
+                            const vector<K>& query,
                             signed_size_t const numNeighbors,
-                           vector<bool> const& enable) {
+                            const vector<bool>& enable) {
     
     root->findNearestNeighbors(neighbors, query, numNeighbors, enable);
   }
@@ -405,8 +405,8 @@ public:
    * of the k-d tree for access to the KdNodes via the lists. Hence, this function is not static.
    */
 public:
-  void verifyNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighborsFast,
-                              forward_list< pair<double, KdNode<K,V>*> >& neighborsSlow) const {
+  void verifyNearestNeighbors(const forward_list< pair<double, KdNode<K,V>*> >& neighborsFast,
+                              const forward_list< pair<double, KdNode<K,V>*> >& neighborsSlow) const {
     
     root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
   }
@@ -427,9 +427,9 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  forward_list<pair<double, KdNode<K,V>*>> sortByDistance(list<KdNode<K,V>*> const& kdList,
-                                                           vector<K> const& query,
-                                                           signed_size_t const& maxNodes) {
+  forward_list<pair<double, KdNode<K,V>*>> sortByDistance(list<KdNode<K,V>*>& kdList,
+                                                           const vector<K>& query,
+                                                           signed_size_t const maxNodes) {
 
     return root->sortByDistance(kdList, query, maxNodes);
   }
@@ -498,7 +498,7 @@ public:
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
                                    signed_size_t const maximumSubmitDepth,
-                                   vector<bool> const& enable) {
+                                   const vector<bool>& enable) {
     
     root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions, numNeighbors, maximumSubmitDepth, enable);
    }
@@ -534,7 +534,7 @@ public:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  void calculateMeanStd(vector< forward_list< pair<double, KdNode<K,V>*> > >& vec,
+  void calculateMeanStd(const vector< forward_list< pair<double, KdNode<K,V>*> > >& vec,
                         double& meanSize,
                         double& stdSize,
                         double& meanDist,
@@ -554,7 +554,7 @@ public:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  size_t nonEmptyLists(vector< forward_list< pair<double, KdNode<K,V>*> > >& vec) const {
+  size_t nonEmptyLists(const vector< forward_list< pair<double, KdNode<K,V>*> > >& vec) const {
 
     return root->nonEmptyLists(vec);
   }
@@ -572,7 +572,7 @@ public:
    */
 public:
   void bruteNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
-                             vector<K> const& query,
+                             const vector<K>& query,
                              signed_size_t const numNeighbors) {
     
     root->bruteNearestNeighbors(neighbors, query, numNeighbors);
@@ -625,7 +625,7 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  void printTuple(vector<K> const& tuple) {
+  void printTuple(const vector<K>& tuple) {
     
     KdNode<K,V>::printTuple(tuple);
   }
@@ -644,7 +644,7 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  void printTuples(forward_list<pair<double, KdNode<K,V>*>> const& regionList,
+  void printTuples(const forward_list<pair<double, KdNode<K,V>*>>& regionList,
                    signed_size_t const maximumNumberOfNodesToPrint,
                    signed_size_t const numDimensions) const {
     

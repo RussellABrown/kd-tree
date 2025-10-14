@@ -122,7 +122,7 @@ class KdTreeNlogn
    * returns: a KdNode pointer to the root of the k-d tree
    */
 public:
-  static KdTree<K,V>* createKdTree(vector<KdNode<K,V>*> const& kdNodes,
+  static KdTree<K,V>* createKdTree(const vector<KdNode<K,V>*>& kdNodes,
                                    size_t const dim,
                                    signed_size_t const maximumSubmitDepth,
                                    signed_size_t const p) {
@@ -202,7 +202,7 @@ public:
    * returns: a KdNode pointer to the root of the k-d tree
    */
 public:
-  static KdTree<K,V>* createKdTree(vector<pair<vector<K>,V>> const& coordinates,
+  static KdTree<K,V>* createKdTree(const vector<pair<vector<K>,V>>& coordinates,
                                    signed_size_t const maximumSubmitDepth,
                                    signed_size_t& numberOfNodes,
                                    double& allocateTime,
@@ -361,7 +361,7 @@ public:
 private:
   static KdNode<K,V>* buildKdTree(KdNode<K,V>** reference,
                                   KdNode<K,V>** temporary,
-                                  vector<signed_size_t> const& permutation,
+                                  const vector<signed_size_t>& permutation,
                                   signed_size_t start,
                                   signed_size_t end,
                                   signed_size_t size,
@@ -571,7 +571,7 @@ private:
 private:
   static KdNode<K,V>* buildKdTreePresorted(KdNode<K,V>** reference,
                                           KdNode<K,V>** temporary,
-                                          vector<signed_size_t> const& permutation,
+                                          const vector<signed_size_t>& permutation,
                                           signed_size_t start,
                                           signed_size_t end,
                                           signed_size_t size,
