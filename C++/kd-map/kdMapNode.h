@@ -1427,6 +1427,33 @@ private:
    * neighbors - the nearest neighbors list that is passed by reference and modified.
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to find
+   * enable - a vector that specifies the dimensions for which to test distance
+   */
+public:
+  void bruteNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
+                             vector<K> const& query,
+                             signed_size_t const numNeighbors,
+                             vector<bool> const& enable) {
+    
+    // Create the heap, walk the k-d tree, and attempt to add each KdNode to the heap.
+    NearestNeighborHeap<K> heap(query, numNeighbors, enable);
+    allNeighbors(heap);
+
+    // Empty the heap by successively removing the top of the heap and appending it to a list.
+    for (signed_size_t i = 0; i < numNeighbors; ++i) {
+      neighbors.push_front(heap.removeTop());
+    }
+  }
+  
+  /*
+   * Find M nearest neighbors to the query vector via brute force
+   * and return them as a list ordered by increasing distance.
+   *
+   * Calling parameters:
+   *
+   * neighbors - the nearest neighbors list that is passed by reference and modified.
+   * query - the query vector
+   * numNeighbors - the number M of nearest neighbors to find
    */
 public:
   void bruteNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
