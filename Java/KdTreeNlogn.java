@@ -135,6 +135,7 @@ public class KdTreeNlogn
         final KdNode[] reference = new KdNode[numPoints];
         for (int i = 0; i < numPoints; ++i) {
             reference[i] = new KdNode(numDimensions);
+            System.arraycopy(coordinates[i].getKey(), 0, reference[i].tuple, 0, numDimensions);
             for (int j = 0; j < numDimensions; ++j) {
                 reference[i].tuple[j] = coordinates[i].getKey()[j];
             }

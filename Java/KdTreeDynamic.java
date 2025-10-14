@@ -337,17 +337,19 @@ public class KdTreeDynamic extends KdTree {
                         else
                         {
                             // No, the < child subtree contains > 3 nodes. So, find
-                            // the immediate predecessor node, copy the tuple and the
-                            // values set from that predecessor node to the one-child
-                            // node (whose values set is now empty), clear the values
-                            // set of the predecessor node, delete the predecessor node
-                            // recursively, and recompute the height along the path back
-                            // to the < child, including that child.
+                            // the immediate predecessor node, copy the tuple from that
+                            // prdecessor node to the one-child node, swap the values
+                            // set of that predecessor node with the values set of the
+                            // one-child node (whose values set is currently empty),
+                            // delete the predecessor node recursively, and recompute
+                            // the height along the path back to the < child, including
+                            // the < child.
                             KdNode predecessor = nodePtr.ltChild;
                             predecessor = findPredecessor(nodePtr.ltChild, predecessor, p, p+1);
                             System.arraycopy(predecessor.tuple, 0, nodePtr.tuple, 0, dim);
-                            nodePtr.values.addAll(predecessor.values);
-                            predecessor.values.clear();
+                            final TreeSet<String> tmp = predecessor.values;
+                            predecessor.values = nodePtr.values;
+                            nodePtr.values = tmp;
                             // value is a dummy argument because the predecessor node's
                             // values set is empty.
                             nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, p+1);
@@ -403,17 +405,19 @@ public class KdTreeDynamic extends KdTree {
                         else
                         {
                             // No, the > child subtree contains > 3 nodes. So, find
-                            // the immediate successor node, copy the tuple and the
-                            // values set from that successor node to the one-child
-                            // node (whose values set is now empty), clear the values
-                            // set of the successor node, delete the successor node
-                            // recursively, and recompute the height along the path back
-                            // to the > child, including that child.
+                            // the immediate successor node, copy the tuple from that
+                            // successor node to the one-child node, swap the values
+                            // set of that successor node with the values set of the
+                            // one-child node (whose values set is currently empty),
+                            // delete the successor node recursively, and recompute
+                            // the height along the path back to the > child, including
+                            // the > child.
                             KdNode successor = nodePtr.gtChild;
                             successor = findSuccessor(nodePtr.gtChild, successor, p, p+1);
                             System.arraycopy(successor.tuple, 0, nodePtr.tuple, 0, dim);
-                            nodePtr.values.addAll(successor.values);
-                            successor.values.clear();
+                            final TreeSet<String> tmp = successor.values;
+                            successor.values = nodePtr.values;
+                            nodePtr.values = tmp;
                             // value is a dummy argument because the successor node's
                             // values set is empty.
                             nodePtr.gtChild = erase(nodePtr.gtChild, nodePtr.tuple, value, p+1);
@@ -483,17 +487,19 @@ public class KdTreeDynamic extends KdTree {
                             {
                                 // Find the node with the largest super-key in the
                                 // subtree rooted at the < child, which is the
-                                // predecessor node. Copy the predecessor node's tuple
-                                // and values set to this two-child node (whose values
-                                // set is now empty), clear the predecessor node's values
-                                // set, delete the predecessor node recursively, and
-                                // recompute the heights along the path from the
-                                // predecessor node to (but excluding) this two-child node.
+                                // immediate predecessor node. Copy the tuple from that
+                                // prdecessor node to the two-child node, swap the values
+                                // set of that predecessor node with the values set of the
+                                // two-child node (whose values set is currently empty),
+                                // delete the predecessor node recursively, and recompute
+                                // the heights along the path from the predecessor node
+                                // to (but excluding) the two-child node.
                                 KdNode predecessor = nodePtr.ltChild;
                                 predecessor = findPredecessor(nodePtr.ltChild, predecessor, p, p+1);
                                 System.arraycopy(predecessor.tuple, 0, nodePtr.tuple, 0, dim);
-                                nodePtr.values.addAll(predecessor.values);
-                                predecessor.values.clear();
+                                final TreeSet<String> tmp = predecessor.values;
+                                predecessor.values = nodePtr.values;
+                                nodePtr.values = tmp;
                                 // value is a dummy argument because the predecessor node's
                                 // values set is empty
                                 nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, p+1);
@@ -516,17 +522,19 @@ public class KdTreeDynamic extends KdTree {
                             {
                                 // Find the node with the smallest super-key in the
                                 // subtree rooted at the > child, which is the
-                                // successor node. Copy the successor node's tuple
-                                // and values set to this two-child node (whose values
-                                // set is now empty), clear the successor node's values
-                                // set, delete the successor node recursively, and
-                                // recompute the heights along the path from the
-                                // successor node to (but excluding) this two-child node.
+                                // immediate successor node. Copy the tuple from that
+                                // successor node to the two-child node, swap the values
+                                // set of that successor node with the values set of the
+                                // two-child node (whose values set is currently empty),
+                                // delete the successor node recursively, and recompute
+                                // the heights along the path from the successor node
+                                // to (but excluding) the two-child node.
                                 KdNode successor = nodePtr.gtChild;
                                 successor = findSuccessor(nodePtr.gtChild, successor, p, p+1);
                                 System.arraycopy(successor.tuple, 0, nodePtr.tuple, 0, dim);
-                                nodePtr.values.addAll(successor.values);
-                                successor.values.clear();
+                                final TreeSet<String> tmp = successor.values;
+                                successor.values = nodePtr.values;
+                                nodePtr.values = tmp;
                                 // value is a dummy argument because the successor node's
                                 // values set is empty.
                                 nodePtr.gtChild = erase(nodePtr.gtChild, nodePtr.tuple, value, p+1);

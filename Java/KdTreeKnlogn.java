@@ -183,9 +183,7 @@ public class KdTreeKnlogn
         // These pointers will be re-ordered by the MergeSort methods.
         for (int i = 0; i < numPoints; ++i) {
             references[0][i] = new KdNode(numDimensions);
-            for (int j = 0; j < numDimensions; ++j) {
-                references[0][i].tuple[j] = coordinates[i].getKey()[j];
-            }
+            System.arraycopy(coordinates[i].getKey(), 0, references[0][i].tuple, 0, numDimensions);
             references[0][i].values.add(coordinates[i].getValue());
         }
         initTime = System.currentTimeMillis() - initTime;
