@@ -190,7 +190,7 @@ public:
    * returns: a KdTree pointer
    */
 public:
-  static KdTree<K>* createKdTree(vector<KdNode<K>*> const& kdNodes,
+  static KdTree<K>* createKdTree(const vector<KdNode<K>*>& kdNodes,
                                  size_t const dim,
                                  signed_size_t const maximumSubmitDepth,
                                  signed_size_t const p)
@@ -222,7 +222,7 @@ public:
    * returns: a KdTree pointer
    */
 public:
-  static KdTree<K>* createKdTree(vector<vector<K>> const& coordinates,
+  static KdTree<K>* createKdTree(const vector<vector<K>>& coordinates,
                                  signed_size_t const maximumSubmitDepth,
                                  signed_size_t& numberOfNodes,
                                  double& allocateTime,
@@ -336,7 +336,7 @@ public:
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
-                    vector<bool> const& enable) {
+                    const vector<bool>& enable) {
     
     if (root != nullptr) {
       root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enable);
@@ -350,8 +350,8 @@ public:
   * slowRegionList - a list of KdNode pointers found by brute-force search
   */
 public:
-  void verifyRegionSearch(list<KdNode<K>*> fastRegionList,
-                          list<KdNode<K>*> slowRegionList) {
+  void verifyRegionSearch(const list<KdNode<K>*>& fastRegionList,
+                          const list<KdNode<K>*>& slowRegionList) {
 
     if (root != nullptr) {
       root->verifyRegionSearch(fastRegionList, slowRegionList);
@@ -369,7 +369,7 @@ public:
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
+                            const vector<K>& query,
                             signed_size_t const numNeighbors) {
     
     if (root != nullptr) {
@@ -389,9 +389,9 @@ public:
    */
 public:
   void findNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                            vector<K> const& query,
+                            const vector<K>& query,
                             signed_size_t const numNeighbors,
-                            vector<bool> const& enable) {
+                            const vector<bool>& enable) {
     
     if (root != nullptr) {
       root->findNearestNeighbors(neighbors, query, numNeighbors, enable);
@@ -431,7 +431,7 @@ public:
    */
 public:
   void bruteNearestNeighbors(forward_list< pair<double, KdNode<K>*> >& neighbors,
-                             vector<K> const& query,
+                             const vector<K>& query,
                              signed_size_t const numNeighbors) {
     
     if (root != nullptr) {
@@ -471,9 +471,9 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  forward_list<pair<double, KdNode<K>*>> sortByDistance(list<KdNode<K>*> const& kdList,
-                                                         vector<K> const& query,
-                                                         signed_size_t const& maxNodes) {
+  forward_list<pair<double, KdNode<K>*>> sortByDistance(list<KdNode<K>*>& kdList,
+                                                         const vector<K>& query,
+                                                         signed_size_t maxNodes) {
 
     if (root != nullptr) {
       return root->sortByDistance(kdList, query, maxNodes);
@@ -550,7 +550,7 @@ public:
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
                                    signed_size_t const maximumSubmitDepth,
-                                   vector<bool> const& enable) {
+                                   const vector<bool>& enable) {
     
     if (root != nullptr) {
       root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions,
@@ -656,7 +656,7 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  void printTuple(vector<K> const& tuple) const {
+  void printTuple(const vector<K>& tuple) const {
     
     KdNode<K>::printTuple(tuple);
   }

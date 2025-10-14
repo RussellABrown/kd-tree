@@ -171,10 +171,10 @@ public:
      * @return true if the key was found; otherwise, false
      */
 public:
-    inline bool contains(vector<K> const& key) {
+    inline bool contains(const vector<K>& key) {
 
         if (KdTree<K>::root != nullptr) {
-            signed_size_t dim = key.size();
+            signed_size_t const dim = key.size();
             K* const tuple = const_cast<K* const>(key.data());
             return contains(KdTree<K>::root, tuple, dim, 0);
         } else {
@@ -229,10 +229,10 @@ private:
      * @return true if the key was added as a new node; otherwise, false
      */
 public:
-    inline bool insert(vector<K> const& key) {
+    inline bool insert(const vector<K>& key) {
 
         inserted = changed = false;
-        signed_size_t dim = key.size();
+        signed_size_t const dim = key.size();
         if (KdTree<K>::root != nullptr) {
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = insert(KdTree<K>::root, tuple, dim, 0);
@@ -352,11 +352,11 @@ private:
      * @return true if the key was found; otherwise, false
      */
 public:
-    inline bool erase(vector<K> const& key) {
+    inline bool erase(const vector<K>& key) {
 
         erased = false;
         if (KdTree<K>::root != nullptr) {
-            signed_size_t dim = key.size();
+            signed_size_t const dim = key.size();
             K* const tuple = const_cast<K* const>(key.data());
             KdTree<K>::root = erase(KdTree<K>::root, tuple, dim, 0);
             
@@ -968,7 +968,7 @@ private:
      */
 private:
     inline KdNode<K>* rebuildSubTree1to3(KdNode<K>* const node,
-                                         vector<KdNode<K>*> const& kdNodes,
+                                         const vector<KdNode<K>*>& kdNodes,
                                          size_t const dim,
                                          signed_size_t const p) {
 

@@ -102,7 +102,7 @@ class KdTreeYuCao
    * returns: a KdTree pointer
    */
 public:
-  static KdTree<K>* createKdTree(vector<vector<K>> const& coordinates,
+  static KdTree<K>* createKdTree(const vector<vector<K>>& coordinates,
                                  signed_size_t const maximumSubmitDepth,
                                  signed_size_t& numberOfNodes,
                                  double& allocateTime,
@@ -116,7 +116,7 @@ public:
     // Allocate the reference arrays including one additional array.
     auto beginTime = steady_clock::now();
     size_t n = coordinates.size();
-    size_t numDimensions = coordinates[0].size();
+    size_t const numDimensions = coordinates[0].size();
     K*** references = new K**[numDimensions + 1];
     for (size_t i = 0; i < numDimensions + 1; ++i) {
       references[i] = new K*[n];
@@ -136,9 +136,7 @@ public:
     // array but perhaps not for a floating-point array.
     for (size_t i = 0; i < n; ++i) {
       references[0][i] = new K[numDimensions+1];
-      for (size_t j = 0; j < numDimensions; ++j) {
-        references[0][i][j] = coordinates[i][j];
-      }
+      copy(coordinates[i].data(), coordinates[i].data() + numDimensions, references[0][i]);
       references[0][i][numDimensions] = i;
     }
 
@@ -162,9 +160,7 @@ public:
     tree->tuples = new vector<K>((numDimensions+1) * n);
     for (size_t i = 0; i < n; ++i) {
       references[0][i] = &(*(tree->tuples)).data()[(numDimensions+1) * i];
-      for (size_t j = 0; j < numDimensions; ++j) {
-        references[0][i][j] = coordinates[i][j];
-      }
+      copy(coordinates[i].data(), coordinates[i].data() + numDimensions, references[0][i]);
       references[0][i][numDimensions] = i;
     }
 
@@ -451,10 +447,10 @@ public:
    * returns: a KdNode pointer to the root of the current sub-tree
    */
 private:
-  static KdNode<K>* buildKdTree(vector<size_t> const& f,
+  static KdNode<K>* buildKdTree(const vector<size_t>& f,
                                 K** const t,
 #ifndef PREALLOCATE
-                                vector<KdNode<K>*> const& kdNodes,
+                                const vector<KdNode<K>*>& kdNodes,
 #else
                                 vector<KdNode<K>>* const kdNodes,
 #endif
@@ -539,7 +535,7 @@ private:
    * dim - the number of dimensions (aka k)
    */
 private:
-  static void algorithmYuCao1(vector<vector<size_t>> const&s,
+  static void algorithmYuCao1(const vector<vector<size_t>>& s,
                               vector<size_t>& f,
                               size_t const n,
                               size_t const dim) {
@@ -658,14 +654,14 @@ private:
    * n - the number of tuples
    */
 private:
-  static void split(vector<vector<size_t>> const& s,
+  static void split(const vector<vector<size_t>>& s,
                     vector<size_t>& bn,
                     vector<size_t>& ss,
                     vector<size_t>& curFwd,
                     vector<size_t>& curRev,
                     atomic<size_t>& zeroCount,
-                    size_t const& d,
-                    size_t const& n) {
+                    size_t const d,
+                    size_t const n) {
 
     // Process each element of the s vector in sorted order.
     for (signed_size_t i = n-1; i >= static_cast<signed_size_t>(n/2); --i) {
@@ -743,7 +739,7 @@ private:
    * dim - the number of dimensions (aka k)
    */
 private:
-  static void algorithmYuCao2(vector<vector<size_t>> const&s,
+  static void algorithmYuCao2(const vector<vector<size_t>>& s,
                               vector<size_t>& f,
                               size_t const n,
                               size_t const dim) {

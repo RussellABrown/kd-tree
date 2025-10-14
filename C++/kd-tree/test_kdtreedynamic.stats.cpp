@@ -169,7 +169,7 @@ typedef int64_t kdKey_t; // Add required #include and using to kdTreeNode.h
   */
 
  template <typename T>
- pair<double, double> calcMeanStd(vector<T> const& vec) {
+ pair<double, double> calcMeanStd(const vector<T>& vec) {
   double sum = 0, sum2 = 0;
   for (size_t i = 0; i < vec.size(); ++i) {
     sum += vec[i];

@@ -100,7 +100,7 @@ class KdTreeKnlogn
    * returns: a KdTree pointer
    */
 public:
-  static KdTree<K>* createKdTree(vector<KdNode<K>*> const& kdNodes,
+  static KdTree<K>* createKdTree(const vector<KdNode<K>*>& kdNodes,
                                  size_t const dim,
                                  signed_size_t const maximumSubmitDepth,
                                  signed_size_t const p) {
@@ -221,7 +221,7 @@ public:
    * returns: a KdTree pointer
    */
 public:
-  static KdTree<K>* createKdTree(vector<vector<K>> const& coordinates,
+  static KdTree<K>* createKdTree(const vector<vector<K>>& coordinates,
                                  signed_size_t const maximumSubmitDepth,
                                  signed_size_t& numberOfNodes,
                                  double& allocateTime,
@@ -250,10 +250,8 @@ public:
     // Copy (x, y, z, w...) coordinates to each tuple array.
     for (size_t i = 0; i < coordinates.size(); ++i) {
       references[0][i] = new K[numDimensions];
-      for (size_t j = 0; j < numDimensions; ++j) {
-        references[0][i][j] = coordinates[i][j];
-      }
-    }
+      copy(coordinates[i].data(), coordinates[i].data() + numDimensions, references[0][i]);
+   }
 #else
     // Allocate a tuple vector that comprises all tuple arrays and
     // assign individual tuple arrays to the first references array.
@@ -262,9 +260,7 @@ public:
     tree->tuples = new vector<K>(numDimensions * coordinates.size());
     for (size_t i = 0; i < coordinates.size(); ++i) {
       references[0][i] = &(*(tree->tuples)).data()[numDimensions * i];
-      for (size_t j = 0; j < numDimensions; ++j) {
-        references[0][i][j] = coordinates[i][j];
-      }
+      copy(coordinates[i].data(), coordinates[i].data() + numDimensions, references[0][i]);
     }
 #endif
 
@@ -433,9 +429,9 @@ public:
    */
 private:
   static KdNode<K>* buildKdTree(K*** const references,
-                                vector<vector<signed_size_t>> const& permutation,
+                                const vector<vector<signed_size_t>>& permutation,
 #if !defined(PREALLOCATE) || defined(KD_TREE_DYNAMIC_H)
-                                vector<KdNode<K>*> const& kdNodes,
+                                const vector<KdNode<K>*>& kdNodes,
 #else
                                 vector<KdNode<K>>* const kdNodes,
 #endif

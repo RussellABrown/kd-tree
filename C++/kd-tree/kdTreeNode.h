@@ -65,6 +65,7 @@
 
 using std::async;
 using std::atomic;
+using std::copy;
 using std::cout;
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;
