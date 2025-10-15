@@ -250,4 +250,4 @@ public:
 
 }; // class NearestNeighborHeap
 
-#endif // KD_TREE_HEAP_SORT_T
+#endif // KD_TREE_HEAP_SORT_H
