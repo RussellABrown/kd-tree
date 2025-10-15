@@ -668,4 +668,4 @@ public:
 
 }; // class KdTree
 
-#endif // KD_MAP_KNLOGN_H
+#endif // KD_MAP_H
