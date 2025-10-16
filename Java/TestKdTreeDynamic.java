@@ -601,7 +601,7 @@ public class TestKdTreeDynamic {
                                                                            vT));
 
                 staticTreeHeight = arbre.getTreeHeight();
-                createTime[k] = iT[0] + sT[0] + rT[0] + kT[0] + vT[0];
+                createTime[k] = iT[0] + sT[0] + rT[0] + kT[0];
 
                 // Check that the two versions of verifyKdTree report the same number of nodes.
                 staticNumberOfNodes = arbre.verifyKdTree();

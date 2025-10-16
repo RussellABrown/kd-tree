@@ -402,7 +402,7 @@ public class TestKdTree {
             final KdTree tree = KdTree.createKdTree(coordinates, executor, maximumSubmitDepth,
                                                     nN, iT, sT, rT, kT, vT);
 
-            createTime[k] = iT[0] + sT[0] + rT[0] + kT[0] + vT[0];
+            createTime[k] = iT[0] + sT[0] + rT[0] + kT[0];
             initTime[k] = iT[0];
             sortTime[k] = sT[0];
             buildTime[k] = kT[0];
