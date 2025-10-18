@@ -909,6 +909,9 @@ int main(int argc, char** argv) {
         << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
 
     if (neighbors) {
+      cout << "\nFound " << numNeighborsNodes << " nearest neighbors to ";
+      tree->printTuple(query);
+      cout << endl;
       timePair = calcMeanStd<double>(neighborsTimeStatic);
       cout << "\nneighbors time = " << fixed << setprecision(6) << timePair.first
            << setprecision(6) << "  std dev = " << timePair.second << " seconds" << endl;
