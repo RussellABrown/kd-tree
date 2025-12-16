@@ -402,8 +402,7 @@ int main(int argc, char** argv) {
       // to return a std::shared_ptr
       auto copyCoordinates = coordinates;
       signed_size_t numNodes;
-      double allocateTime, sortTime, removeTime, kdTime,
-             verifyTime, deallocateTime, unsortTime;
+      double allocateTime, sortTime, removeTime, kdTime, verifyTime, unsortTime;
       auto const tree =
         new KdTreeDynamic<kdKey_t, kdValue_t>(numDimensions,
                                               maximumSubmitDepth,
@@ -414,11 +413,10 @@ int main(int argc, char** argv) {
                                                                                        sortTime,
                                                                                        removeTime,
                                                                                        kdTime,
-                                                                                       verifyTime,
-                                                                                       deallocateTime));
+                                                                                       verifyTime));
 
       // Record the time for k-d tree creation, ignoring verifyTime and unsortTime.
-      createTime[k] = allocateTime + sortTime + removeTime + kdTime + deallocateTime;
+      createTime[k] = allocateTime + sortTime + removeTime + kdTime;
 
       // Record the number of nodes and the tree height for the static tree.
       staticNumberOfNodes = numNodes;

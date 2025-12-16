@@ -39,10 +39,6 @@
  * 
  * The following compilation defines apply to both O(n log n) and O(kn log n) algorithms.
  * 
- * -D PREALLOCATE - If defined, all instances of KdNodes are allocated within a vector
- *                  instead of being allocated individually. This decreases the time
- *                  required to allocate and deallocate the KdNode instances.
- * 
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  *
  * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
@@ -309,8 +305,7 @@ int main(int argc, char** argv) {
   vector<double> removeTime(iterations);
   vector<double> kdTime(iterations);
   vector<double> verifyTime(iterations);
-  vector<double> deallocateTime(iterations);
-  vector<double> kdTotalTime(iterations);
+ vector<double> kdTotalTime(iterations);
   vector<double> containsTime(iterations);
   vector<double> neighborsTime(iterations);
   vector<double> bruteNeighborsTime(iterations);
@@ -354,19 +349,18 @@ int main(int argc, char** argv) {
     // Create the static k-d tree.
     vector<pair<vector<kdKey_t>, kdValue_t>> copyCoordinates = coordinates;
     signed_size_t numNodes;
-    double aT, sT, rT, kT, vT, dT;
+    double aT, sT, rT, kT, vT;
     tree = KdTree<kdKey_t, kdValue_t>::createKdTree(copyCoordinates, maximumSubmitDepth,
-                                                    numNodes, aT, sT, rT, kT, vT, dT);
+                                                    numNodes, aT, sT, rT, kT, vT);
 
     // Record the time for k-d tree creation, ignoring verifyTime and unsortTime.
-    kdTotalTime[k] += aT + sT + rT + kT + dT;
+    kdTotalTime[k] += aT + sT + rT + kT;
     allocateTime[k] += aT;
     sortTime[k] += sT;
     removeTime[k] += rT;
     kdTime[k] += kT;
     verifyTime[k] += vT;
-    deallocateTime[k] += dT;
-    
+   
     // Record the number of nodes and the tree height for the static tree.
     numberOfNodes = numNodes;
 
@@ -449,10 +443,6 @@ int main(int argc, char** argv) {
   timePair = calcMeanStd(verifyTime);
   cout << "verifyTime = " << fixed << setprecision(4) << timePair.first
        << setprecision(4) << "  std dev = " << timePair.second << " seconds" << endl;
-
-  timePair = calcMeanStd(deallocateTime);
-  cout << "deallocateTime = " << fixed << setprecision(6) << timePair.first
-       << setprecision(6) << "  std dev = " << timePair.second << " seconds" << endl;
 
   if (neighbors) {
       timePair = calcMeanStd(neighborsTime);

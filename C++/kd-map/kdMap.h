@@ -31,10 +31,6 @@
 /*
  * The following compilation defines are relevant.
  *
- * -D PREALLOCATE - If defined, all instances of KdNodes are allocated within a vector
- *                  instead of being allocated individually. This decreases the time
- *                  required to allocate and deallocate the KdNode instances.
- * 
  * -D NO_SUPER_KEY - Do not compare super-keys in the KdNode::regionSearch function.
  *
  * -D INSERTION_SORT_CUTOFF=n - A cutoff for switching from merge sort to insertion sort
@@ -142,38 +138,15 @@ public:
 public:
   ~KdTree() {
 
-    // If the KdNode instances are contained by a preallocated vector,
-    // delete it; otherwise, delete the KdNode::root so that the
-    // ~KdNode destructor will recursively delete all tuple arrays.
-    //
-    // However, do not delete the KdNode::root if KD_MAP_DYNAMIC_H
-    // is defined, because the KdTreeDynamic::rebuildSubTree function
-    // requires that the k-d tree persist. Instead, the ~KdTreeDynamic
+    // Do not delete the KdNode::root if KD_MAP_DYNAMIC_H is defined,
+    // because the KdTreeDynamic::rebuildSubTree function requires
+    // that the k-d tree persist. Instead, the ~KdTreeDynamic
     // destructor will delete KdNode::root.
-    //
-    // Also, if the KdNode instances are contained by a preallocated
-    // vector, deletion of that vector will not delete the values set
-    // of each KdNode instance, so delete those values sets via the
-    // deleteValues function prior to deletion of the vector.
 #ifndef KD_MAP_DYNAMIC_H
-#ifdef PREALLOCATE
-    if (root != nullptr) {
-      deleteValues(root);
-    }
-    delete kdNodes;
-
-#else
     delete root;
-#endif
 #endif
 
   }
-
-#if defined(PREALLOCATE) && !defined(KD_MAP_DYNAMIC_H)
-public:
-  size_t entrySize;
-  vector<uint8_t>* kdNodes = nullptr;
-#endif
 
   /*
    * Delete the values set of each KdNode instance in the tree.
@@ -202,7 +175,7 @@ private:
    * kdNodes - a vector<KdNode<K>*> whose KdNodes store the (x, y, z, w...) coordinates
    * dim - the number of dimensions (required when KD_TREE_DYNAMIC_H is defined)
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
-  * p - the leading dimension
+   * p - the leading dimension
    *
    * returns: a KdTree pointer
    */
@@ -229,7 +202,7 @@ public:
    * coordinates - a vector<vector<K>> that stores the (x, y, z, w...) coordinates
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * numberOfNodes - the number of nodes counted by KdNode::verifyKdTree - returned by reference
-   * allocateTime, sortTime, removeTime, kdTime, verifyTime, deallocateTime - execution times
+   * allocateTime, sortTime, removeTime, kdTime, verifyTime - execution times
    * p - optional leading dimension, aka partition coordnate (default 0)
    *
    * returns: a KdTree pointer
@@ -242,20 +215,19 @@ public:
                                   double& sortTime,
                                   double& removeTime,
                                   double& kdTime,
-                                  double& verifyTime,
-                                  double& deallocateTime)
+                                  double& verifyTime)
   {
 
 #ifdef NLOGN
     return KdTreeNlogn<K,V>::createKdTree(coordinates, maximumSubmitDepth,
                                           numberOfNodes, allocateTime,
                                           sortTime, removeTime, kdTime,
-                                          verifyTime, deallocateTime);
+                                          verifyTime);
 #else
     return KdTreeKnlogn<K,V>::createKdTree(coordinates, maximumSubmitDepth,
                                            numberOfNodes, allocateTime,
                                            sortTime, removeTime, kdTime,
-                                           verifyTime, deallocateTime);
+                                           verifyTime);
 #endif
 
   }
