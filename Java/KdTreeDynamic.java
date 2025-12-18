@@ -97,10 +97,7 @@ public class KdTreeDynamic extends KdTree {
                 }
             }
         } else {
-            root = new KdNode(coordinate.getKey().length);
-            root.height = 1;
-            System.arraycopy(coordinate.getKey(), 0, root.tuple, 0, root.tuple.length);
-            root.values.add(coordinate.getValue());
+            root = new KdNode(coordinate);
             inserted = changed = true;
         }
         return inserted;
@@ -118,9 +115,9 @@ public class KdTreeDynamic extends KdTree {
      * </p>
      */
     private KdNode insert(final KdNode node,
-                         final long[] key,
-                         final String value,
-                         final int q)
+                          final long[] key,
+                          final String value,
+                          final int q)
 {
         // Permute the most significant dimension p cyclically using
         // a fast alternative to the modulus operator for p <= dim.
@@ -136,10 +133,7 @@ public class KdTreeDynamic extends KdTree {
                 nodePtr.ltChild = insert(nodePtr.ltChild, key, value, p+1);
             } else {
                 // The tree does not contain the key, so insert it.
-                nodePtr.ltChild = new KdNode(dim);
-                nodePtr.ltChild.height = 1;
-                System.arraycopy(key, 0, nodePtr.ltChild.tuple, 0, dim);
-                nodePtr.ltChild.values.add(value);
+                nodePtr.ltChild = new KdNode(key, value);
                 // The value was inserted and the tree height changed.
                 inserted = changed = true;
             }
@@ -148,10 +142,7 @@ public class KdTreeDynamic extends KdTree {
                 nodePtr.gtChild = insert(nodePtr.gtChild, key, value, p+1);
             } else {
                 // The tree does not contain the key, so insert it.
-                nodePtr.gtChild = new KdNode(dim);
-                nodePtr.gtChild.height = 1;
-                System.arraycopy(key, 0, nodePtr.gtChild.tuple, 0, dim);
-                nodePtr.gtChild.values.add(value);
+                nodePtr.gtChild = new KdNode(key, value);
                 // The value was inserted and the tree height changed.
                 inserted = changed = true;
             }

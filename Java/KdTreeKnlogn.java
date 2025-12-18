@@ -182,9 +182,7 @@ public class KdTreeKnlogn
         // Copy references from the KdNode instances of the kdNodes array.
         // These pointers will be re-ordered by the MergeSort methods.
         for (int i = 0; i < numPoints; ++i) {
-            references[0][i] = new KdNode(numDimensions);
-            System.arraycopy(coordinates[i].getKey(), 0, references[0][i].tuple, 0, numDimensions);
-            references[0][i].values.add(coordinates[i].getValue());
+            references[0][i] = new KdNode(coordinates[i]);
         }
         initTime = System.currentTimeMillis() - initTime;
 

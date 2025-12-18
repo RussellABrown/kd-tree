@@ -59,12 +59,36 @@ public class KdNode {
      * <p>
      * KdNode constructor
      * 
-     * @param dim - the number of dimensions of the tuple
+     * @param coordinate - a key/value Pair
      * <p>
      */
-    public KdNode(final int numDimensions) {
+    public KdNode(final Pair coordinate)
+    {
+        final int numDimensions = coordinate.getKey().length;
         tuple = new long[numDimensions];
+        System.arraycopy(coordinate.getKey(), 0, tuple, 0, numDimensions);
         values = new TreeSet<String>();
+        values.add(coordinate.getValue());
+        height = 1;
+    }
+
+    /**
+     * <p>
+     * KdNode constructor
+     * 
+     * @param key - a long[] key
+     * @param value - a String value
+     * <p>
+     */
+    public KdNode(final long[] key,
+                  final String value)
+    {
+        final int numDimensions = key.length;
+        tuple = new long[numDimensions];
+        System.arraycopy(key, 0, tuple, 0, numDimensions);
+        values = new TreeSet<String>();
+        values.add(value);
+        height = 1;
     }
 
     /**
