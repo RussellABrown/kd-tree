@@ -90,10 +90,13 @@ public class MergeSort
                                             Integer.toString(i) + "], ref[" + Integer.toString(i-1) +
                                             "], (" + Integer.toString(p) + ") = " + Long.toString(compare) );
             } else if (compare > 0L) {
-                reference[++end] = reference[i]; // Keep this element of the reference array.
+                // Keep this element of the reference array by
+                // appending it to the kept elements of the array.
+                reference[++end] = reference[i];
             } else {
-                // Discard this element of the reference array and add
-                // its elements to the duplicate element that is kept.
+                // Add the values from this element of the reference
+                // array to the values set of the duplicate element
+                // that is kept, and do not keep this element.
                 reference[end].values.addAll(reference[i].values);
             }
         }
