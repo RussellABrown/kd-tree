@@ -84,40 +84,29 @@ template <typename K, typename V>
 class KdTree
 {
 public:
-  KdNode<K,V>* root = nullptr;
+  shared_ptr<KdNode<K,V>> root;
   signed_size_t numDimensions = 3;
   signed_size_t maxSubmitDepth = -1;
 
-#ifdef KD_MAP_DYNAMIC_H
-
   /*
    * This constructor assigns the KdTree::root node from
-   * the root node of another KdTree instance, sets the
-   * root node of that other KdTree instance to nullptr
-   * (which transfers that other root node to KdTree::root),
-   * deletes that other KdTree instance, and sets it to
-   * nullptr so that it doesn't remain a dangling pointer.
+   * the root node of another KdTree instance.
    *
    * Calling parameters:
    * 
    * numDimensions (IN) the number of dimension k of the k-d tree
    * maxSubmitDepth (IN) the maximum tree depth for creating a child thread
-   * tree (MODIFIED) a pointer to a KdTree instance, passed by reference
+   * tree unique_ptr to a KdTree instance
    */
 public:
   KdTree(signed_size_t const numDimensions,
          signed_size_t const maxSubmitDepth,
-         KdTree<K,V>*& tree)
+         const unique_ptr<KdTree<K,V>>& tree)
   {
     this->numDimensions = numDimensions;
     this->maxSubmitDepth = maxSubmitDepth;
     this->root = tree->root;
-    tree->root = nullptr;
-    delete tree;
-    tree = nullptr;
   }
-
-#endif
 
   /*
    * This is the basic constructor.
@@ -135,37 +124,6 @@ public:
     this->maxSubmitDepth = maxSubmitDepth;
   }
 
-public:
-  ~KdTree() {
-
-    // Do not delete the KdNode::root if KD_MAP_DYNAMIC_H is defined,
-    // because the KdTreeDynamic::rebuildSubTree function requires
-    // that the k-d tree persist. Instead, the ~KdTreeDynamic
-    // destructor will delete KdNode::root.
-#ifndef KD_MAP_DYNAMIC_H
-    delete root;
-#endif
-
-  }
-
-  /*
-   * Delete the values set of each KdNode instance in the tree.
-   *
-   * Calling parameter:
-   *
-   * node - the root node of the tree
-   */
-private:
-  void deleteValues(KdNode<K,V>* const node) {
-    delete node->values;
-    if (node->ltChild != nullptr) {
-      deleteValues(node->ltChild);
-    }
-    if (node->gtChild != nullptr) {
-      deleteValues(node->gtChild);
-    }
-  }
-
   /*
    * The createKdTree function performs the necessary initialization then calls the buildKdTree function.
    * This version of createKdTree is called from the KdTreeDynamic::rebuildSubtree function.
@@ -180,7 +138,7 @@ private:
    * returns: a KdTree pointer
    */
 public:
-  static KdTree<K,V>* createKdTree(const vector<KdNode<K,V>*>& kdNodes,
+  static KdTree<K,V>* createKdTree(const vector<shared_ptr<KdNode<K,V>>>& kdNodes,
                                    size_t const dim,
                                    signed_size_t const maximumSubmitDepth,
                                    signed_size_t const p)
@@ -209,13 +167,13 @@ public:
    */
 public:
   static KdTree<K,V>* createKdTree(const vector<pair<vector<K>,V>>& coordinates,
-                                  signed_size_t const maximumSubmitDepth,
-                                  signed_size_t& numberOfNodes,
-                                  double& allocateTime,
-                                  double& sortTime,
-                                  double& removeTime,
-                                  double& kdTime,
-                                  double& verifyTime)
+                                   signed_size_t const maximumSubmitDepth,
+                                   signed_size_t& numberOfNodes,
+                                   double& allocateTime,
+                                   double& sortTime,
+                                   double& removeTime,
+                                   double& kdTime,
+                                   double& verifyTime)
   {
 
 #ifdef NLOGN
@@ -283,8 +241,8 @@ public:
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
-                    bool const enableAll) {
-
+                    bool const enableAll)
+  {
     root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enableAll);
   }
 
@@ -294,7 +252,7 @@ public:
    *
    * Calling parameters:
    *
-   * result - a list of KdNode pointers that is passed by reference and modified
+   * result - a list<KdNode<K,V>*> that is passed by reference and modified
    * queryLower - the query lower bound vector that is passed by reference and modified
    * queryUpper - the query upper bound vector that is passed by reference and modified
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
@@ -308,21 +266,21 @@ public:
                     vector<K>& queryLower,
                     vector<K>& queryUpper,
                     signed_size_t const maximumSubmitDepth,
-                    const vector<bool>& enable) {
-    
+                    const vector<bool>& enable)
+  {
     root->searchRegion(result, queryLower, queryUpper, maximumSubmitDepth, enable);
   }
 
   /*
-  * Verify the results of region search.
-  *
-  * fastRegionList - a list of KdNode pointers found by region search
-  * slowRegionList - a list of KdNode pointers found by brute-force search
-  */
+   * Verify the results of region search.
+   *
+   * fastRegionList - a list of KdNode pointers found by region search
+   * slowRegionList - a list of KdNode pointers found by brute-force search
+   */
 public:
   void verifyRegionSearch(list<KdNode<K,V>*> fastRegionList,
-                          list<KdNode<K,V>*> slowRegionList) {
-
+                          list<KdNode<K,V>*> slowRegionList)
+  {
     if (root != nullptr) {
       root->verifyRegionSearch(fastRegionList, slowRegionList);
     }
@@ -336,12 +294,12 @@ public:
    * neighbors - the nearest neighbors list that is passed by reference and modified.
    * query - the query vector
    * numNeighbors - the number M of nearest neighbors to attempt to find
-  */
+   */
 public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
+  void findNearestNeighbors(forward_list<pair<double, KdNode<K,V>*>>& neighbors,
                             const vector<K>& query,
-                            signed_size_t const numNeighbors) {
-    
+                            signed_size_t const numNeighbors)
+  {
     root->findNearestNeighbors(neighbors, query, numNeighbors);
   }
   
@@ -356,11 +314,11 @@ public:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 public:
-  void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
+  void findNearestNeighbors(forward_list< pair<double, KdNode<K,V>*>>& neighbors,
                             const vector<K>& query,
                             signed_size_t const numNeighbors,
-                            const vector<bool>& enable) {
-    
+                            const vector<bool>& enable)
+  {
     root->findNearestNeighbors(neighbors, query, numNeighbors, enable);
   }
   
@@ -377,9 +335,9 @@ public:
    * of the k-d tree for access to the KdNodes via the lists. Hence, this function is not static.
    */
 public:
-  void verifyNearestNeighbors(const forward_list< pair<double, KdNode<K,V>*> >& neighborsFast,
-                              const forward_list< pair<double, KdNode<K,V>*> >& neighborsSlow) const {
-    
+  void verifyNearestNeighbors(const forward_list<pair<double, KdNode<K,V>*>>& neighborsFast,
+                              const forward_list<pair<double, KdNode<K,V>*>>& neighborsSlow) const
+  {
     root->verifyNearestNeighbors(neighborsFast, neighborsSlow);
   }
 
@@ -400,9 +358,9 @@ public:
    */
 public:
   forward_list<pair<double, KdNode<K,V>*>> sortByDistance(list<KdNode<K,V>*>& kdList,
-                                                           const vector<K>& query,
-                                                           signed_size_t const maxNodes) {
-
+                                                          const vector<K>& query,
+                                                          signed_size_t const maxNodes)
+  {
     return root->sortByDistance(kdList, query, maxNodes);
   }
 
@@ -430,13 +388,13 @@ public:
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    */
 public:
-  void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
-                                   vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
+  void findReverseNearestNeighbors(vector<forward_list<pair<double, KdNode<K,V>*>>>& nn,
+                                   vector<forward_list<pair<double, KdNode<K,V>*>>>& rnn,
                                    vector<mutex>& mutexes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
-                                   signed_size_t maximumSubmitDepth) {
-    
+                                   signed_size_t maximumSubmitDepth)
+  {
     root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions, numNeighbors, maximumSubmitDepth);
   }
 
@@ -464,16 +422,16 @@ public:
    * enable - a vector that specifies the dimensions for which to test distance
    */
 public:
-  void findReverseNearestNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> >* >& nn,
-                                   vector< forward_list< pair<double, KdNode<K,V>*> >* >& rnn,
+  void findReverseNearestNeighbors(vector<forward_list<pair<double, KdNode<K,V>*>>>& nn,
+                                   vector<forward_list<pair<double, KdNode<K,V>*>>>& rnn,
                                    vector<mutex>& mutexes,
                                    signed_size_t const numDimensions,
                                    signed_size_t const numNeighbors,
                                    signed_size_t const maximumSubmitDepth,
-                                   const vector<bool>& enable) {
-    
+                                   const vector<bool>& enable)
+  {
     root->findReverseNearestNeighbors(nn, rnn, mutexes, numDimensions, numNeighbors, maximumSubmitDepth, enable);
-   }
+  }
 
   /*
    * Verify the correctness of the reverse nearest neighbors vector.
@@ -488,10 +446,10 @@ public:
    * of the k-d tree for access to the KdNodes via the vectors. Hence, this function is not static.
    */
 public:
-  void verifyReverseNeighbors(vector< forward_list< pair<double, KdNode<K,V>*> > >& nn,
-                              vector< forward_list< pair<double, KdNode<K,V>*> > >& rnn,
-                              size_t const size) {
-
+  void verifyReverseNeighbors(vector<forward_list<pair<double, KdNode<K,V>*>>>& nn,
+                              vector<forward_list<pair<double, KdNode<K,V>*>>>& rnn,
+                              size_t const size)
+  {
     root->verifyReverseNeighbors(nn, rnn, size);
   }
 
@@ -506,12 +464,12 @@ public:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  void calculateMeanStd(const vector< forward_list< pair<double, KdNode<K,V>*> > >& vec,
+  void calculateMeanStd(const vector<forward_list<pair<double, KdNode<K,V>*>>>& vec,
                         double& meanSize,
                         double& stdSize,
                         double& meanDist,
-                        double& stdDist) const {
-
+                        double& stdDist) const
+  {
     root->calculateMeanStd(vec, meanSize, stdSize, meanDist, stdDist);
   }
 
@@ -526,8 +484,8 @@ public:
    * of the k-d tree for access to the KdNodes via the vector. Hence, this function is not static.
    */
 public:
-  size_t nonEmptyLists(const vector< forward_list< pair<double, KdNode<K,V>*> > >& vec) const {
-
+  size_t nonEmptyLists(const vector<forward_list<pair<double, KdNode<K,V>*>>>& vec) const
+  {
     return root->nonEmptyLists(vec);
   }
 #endif // REVERSE_NEAREST_NEIGHBORS
@@ -543,10 +501,10 @@ public:
    * numNeighbors - the number M of nearest neighbors to find
    */
 public:
-  void bruteNearestNeighbors(forward_list< pair<double, KdNode<K,V>*> >& neighbors,
+  void bruteNearestNeighbors(forward_list<pair<double, KdNode<K,V>*>>& neighbors,
                              const vector<K>& query,
-                             signed_size_t const numNeighbors) {
-    
+                             signed_size_t const numNeighbors)
+  {    
     root->bruteNearestNeighbors(neighbors, query, numNeighbors);
   }
   
@@ -557,8 +515,8 @@ public:
    * returns: a count of the number of kdNodes in the k-d tree
    */
 public:
-  signed_size_t verifyKdTree() {
-
+  signed_size_t verifyKdTree()
+  {
     if (root != nullptr) {
       return root->verifyKdTree(numDimensions, maxSubmitDepth, 0, 0);
     } else {
@@ -580,8 +538,8 @@ public:
    */
 public:
   void printTuple(K const* tuple,
-                  signed_size_t const dim) const {
-    
+                  signed_size_t const dim) const
+  {
     root->printTuple(tuple, dim);
   }
 
@@ -597,8 +555,8 @@ public:
    * type, so calling it as a non-static function is less cumbersome.
    */
 public:
-  void printTuple(const vector<K>& tuple) {
-    
+  void printTuple(const vector<K>& tuple)
+  {
     KdNode<K,V>::printTuple(tuple);
   }
 
@@ -618,8 +576,8 @@ public:
 public:
   void printTuples(const forward_list<pair<double, KdNode<K,V>*>>& regionList,
                    signed_size_t const maximumNumberOfNodesToPrint,
-                   signed_size_t const numDimensions) const {
-    
+                   signed_size_t const numDimensions) const
+  {
     root->printTuples(regionList, maximumNumberOfNodesToPrint, numDimensions);
   }
 
@@ -633,8 +591,8 @@ public:
    */
 public:
   void printKdTree(signed_size_t const dim,
-                   signed_size_t const depth) const {
-
+                   signed_size_t const depth) const
+  {
     root->printKdTree(dim, depth);
   }
 

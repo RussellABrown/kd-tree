@@ -110,7 +110,7 @@ class KdTreeNlogn
    *
    * Calling parameters:
    *
-   * kdNodes - a vector<KdNode<K>*> whose KdNodes store the (x, y, z, w...) coordinates
+   * kdNodes - a vector<shared_ptr<KdNode<K>>> whose KdNodes store the (x, y, z, w...) coordinates
    * dim - the number of dimensions (required when KD_MAP_DYNAMIC_H is defined)
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * p - the leading dimension
@@ -118,24 +118,22 @@ class KdTreeNlogn
    * returns: a KdNode pointer to the root of the k-d tree
    */
 public:
-  static KdTree<K,V>* createKdTree(const vector<KdNode<K,V>*>& kdNodes,
+  static KdTree<K,V>* createKdTree(const vector<shared_ptr<KdNode<K,V>>>& kdNodes,
                                    size_t const dim,
                                    signed_size_t const maximumSubmitDepth,
-                                   signed_size_t const p) {
-
+                                   signed_size_t const p)
+  {
     // Create a KdTree instance.
     size_t const numDimensions = dim;
     auto tree = new KdTree<K,V>(numDimensions, maximumSubmitDepth);
 
     // Allocate two references vectors.
-    vector<vector<KdNode<K,V>*>> references(2, vector<KdNode<K,V>*>(kdNodes.size()));
+    vector<vector<shared_ptr<KdNode<K,V>>>> references(2, vector<shared_ptr<KdNode<K,V>>>(kdNodes.size()));
 
     // Don't allocate KdNode instances for the first references vector.
     // Instead, copy pointers from the KdNode instances of the kdNodes
     // vector. These pointers will be re-ordered by the KdTree::partition
-    // function. For this case where KD_MAP_DYNAMIC_H is defined, the
-    // tuples will be deallocated by the ~KdNode destructor when a
-    // KdNode instance is deleted from the dynamic k-d tree.
+    // function.
     for (size_t i = 0; i < kdNodes.size(); ++i) {
       references[0][i] = kdNodes[i];
     }
@@ -195,20 +193,19 @@ public:
                                    double& sortTime,
                                    double& removeTime,
                                    double& kdTime,
-                                   double& verifyTime) {
-
+                                   double& verifyTime)
+  {
     // Create a KdTree instance.
     size_t const numDimensions = coordinates[0].first.size();
     auto tree = new KdTree<K,V>(numDimensions, maximumSubmitDepth);
 
     // Allocate two references vectors.
     auto beginTime = steady_clock::now();
-    vector<vector<KdNode<K,V>*>> references(2, vector<KdNode<K,V>*>(coordinates.size()));
+    vector<vector<shared_ptr<KdNode<K,V>>>> references(2, vector<shared_ptr<KdNode<K,V>>>(coordinates.size()));
 
-    // Allocate KdNode instances for the first references vector. These
-    // KdNode instances will be deallocated by the ~KdTree destructor.
+    // Allocate KdNode instances for the first references vector.
     for (size_t i = 0; i < coordinates.size(); ++i) {
-      references[0][i] = new KdNode<K,V>(coordinates, i);
+      references[0][i].reset(new KdNode<K,V>(coordinates, i));
     }
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
@@ -286,8 +283,8 @@ public:
    *
    * Calling parameters:
    *
-   * reference - a KdNode** array to recursively partition via its (x, y, z, w...) tuples array
-   * temporary - a KdNode** temporary array from which to copy sorted results;
+   * reference - a shared_ptr<KdNode>* array to recursively partition via its (x, y, z, w...) tuples array
+   * temporary - a shared_ptr<KdNode>* temporary array from which to copy sorted results;
    * permutation - a vector<signed_size_t> that indications permutation of the partition coordinate
    * start - start element of the reference array
    * end - end element of the reference array
@@ -296,20 +293,20 @@ public:
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * depth - the depth in the tree
    *
-   * returns: a KdNode pointer to the root of the k-d tree
+   * returns: a shared_ptr<KdNode>to the root of the k-d tree
    */
 private:
-  static KdNode<K,V>* buildKdTree(KdNode<K,V>** reference,
-                                  KdNode<K,V>** temporary,
-                                  const vector<signed_size_t>& permutation,
-                                  signed_size_t start,
-                                  signed_size_t end,
-                                  signed_size_t size,
-                                  signed_size_t dim,
-                                  signed_size_t maximumSubmitDepth,
-                                  signed_size_t depth) {
-
-    KdNode<K,V>* node = nullptr;
+  static shared_ptr<KdNode<K,V>> buildKdTree(shared_ptr<KdNode<K,V>>* reference,
+                                             shared_ptr<KdNode<K,V>>* temporary,
+                                             const vector<signed_size_t>& permutation,
+                                             signed_size_t start,
+                                             signed_size_t end,
+                                             signed_size_t size,
+                                             signed_size_t dim,
+                                             signed_size_t maximumSubmitDepth,
+                                             signed_size_t depth)
+  {
+    shared_ptr<KdNode<K,V>> node;
 
     // The partition permutes as x, y, z, w... and specifies the most significant key.
     signed_size_t const p = permutation[depth];
@@ -497,8 +494,8 @@ private:
  *
  * Calling parameters:
  *
- * reference - a KdNode** array sorted via its (x, y, z, w...) tuples array
- * temporary - a KdNode** temporary array from which to copy sorted results;
+ * reference - a shared_ptr<KdNode>* array sorted via its (x, y, z, w...) tuples array
+ * temporary - a shared_ptr<KdNode>* temporary array from which to copy sorted results;
  * permutation - a vector<signed_size_t> that indications permutation of the partition coordinate
  * start - start element of the reference array
  * end - end element of the reference array
@@ -506,19 +503,19 @@ private:
  * dim - the number of dimensions
  * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
  *
- * returns a KdNode pointer to the root of the k-d tree
+ * returns a shared_ptr<KdNode> to the root of the k-d tree
  */
 private:
-  static KdNode<K,V>* buildKdTreePresorted(KdNode<K,V>** reference,
-                                          KdNode<K,V>** temporary,
-                                          const vector<signed_size_t>& permutation,
-                                          signed_size_t start,
-                                          signed_size_t end,
-                                          signed_size_t size,
-                                          signed_size_t dim,
-                                          signed_size_t maximumSubmitDepth) {
-
-    KdNode<K,V>* node = nullptr;
+  static shared_ptr<KdNode<K,V>> buildKdTreePresorted(shared_ptr<KdNode<K,V>>* reference,
+                                                      shared_ptr<KdNode<K,V>>* temporary,
+                                                      const vector<signed_size_t>& permutation,
+                                                      signed_size_t start,
+                                                      signed_size_t end,
+                                                      signed_size_t size,
+                                                      signed_size_t dim,
+                                                      signed_size_t maximumSubmitDepth)
+  {
+    shared_ptr<KdNode<K,V>> node;
 
     // It is assumed that the reference array has been pre-sorted using the x:y:z:w... super key.
     signed_size_t const depth = 0;
@@ -639,12 +636,12 @@ private:
    * See also https://yiqi2.wordpress.com/2013/07/03/median-of-medians-selection-algorithm/
    * that contains a bug that causes a java.lang.ArrayIndexOutOfBoundsException.
    *
-   * a - a KdNode** array to recursively partition via its (x, y, z, w...) tuples array
+   * a - a shared_ptr<KdNode>* array to recursively partition via its (x, y, z, w...) tuples array
    * start - the start index for the elements to be considered
    * n - the number of elements to consider
    * size - the size of the array of references
    * k - the element to find
-   * medians - a scratch KdNode** array for the medians
+   * medians - a scratch shared_ptr<KdNode>* array for the medians
    * first - the first index for the scratch array
    * p - the most significant dimension or the partition coordinate
    * dim - the number of dimensions
@@ -653,17 +650,17 @@ private:
    * returns - the index of the kth element in the array about which the array has been partitioned
    */
 private:
-  static signed_size_t partition(KdNode<K,V>** const a,
+  static signed_size_t partition(shared_ptr<KdNode<K,V>>* const a,
                                  signed_size_t const start,
                                  signed_size_t const n,
                                  signed_size_t const size,
                                  signed_size_t const k,
-                                 KdNode<K,V>** const medians,
+                                 shared_ptr<KdNode<K,V>>* const medians,
                                  signed_size_t const first,
                                  signed_size_t const p,
                                  signed_size_t const dim,
-                                 bool const twoThreads) {
-
+                                 bool const twoThreads)
+  {
     if (n <= 0 || n > size) {
       ostringstream buffer;
       buffer << "\n\nn = " << n << "  size = " << size << " in partition\n";
@@ -725,21 +722,21 @@ private:
       // Calculate the lower set of medians with a child thread.
       auto medianFuture =
         async(launch::async, [&] {
-                               for (signed_size_t firstOfGroup = 0, i = 0; i < mid; ++i) {
+          for (signed_size_t firstOfGroup = 0, i = 0; i < mid; ++i) {
 
-                                 // Find the median of the group of GROUP_SIZE elements via select_2_5.
-                                 medians[first + i] = select_2_5(a[start + firstOfGroup],
-                                                                 a[start + firstOfGroup + 1],
-                                                                 a[start + firstOfGroup + 2],
-                                                                 a[start + firstOfGroup + 3],
-                                                                 a[start + firstOfGroup + 4],
-                                                                 p,
-                                                                 dim);
+            // Find the median of the group of GROUP_SIZE elements via select_2_5.
+            medians[first + i] = select_2_5(a[start + firstOfGroup],
+                                            a[start + firstOfGroup + 1],
+                                            a[start + firstOfGroup + 2],
+                                            a[start + firstOfGroup + 3],
+                                            a[start + firstOfGroup + 4],
+                                            p,
+                                            dim);
 
-                                 // Update the index to the next group of GROUP_SIZE elements.
-                                 firstOfGroup += GROUP_SIZE;
-                               }
-                             });
+            // Update the index to the next group of GROUP_SIZE elements.
+            firstOfGroup += GROUP_SIZE;
+          }
+        });
 
       // Calculate the upper set of medians with the current thread.
       for (signed_size_t i = mid; i < m; ++i) {
@@ -851,7 +848,7 @@ private:
     // Note: it is possible to allocate the medians array locally to this partition method
     // instead of providing it via a calling parameter to this method; however, because the
     // mergeSort method requires a temporary array, that array is re-used as the medians array.
-    auto const* const medianOfMedians =
+    auto const medianOfMedians =
       medians[partition(medians, first, m, first + m, (m + 1) >> 1, medians, first + m, p, dim, twoThreads)];
 
     // Find the index of the median of medians and swap it into a[start + n - 1]
@@ -867,13 +864,13 @@ private:
       // Search for the index in the lower half of the array a with a child thread.
       auto indexFuture =
         async(launch::async, [&] {
-                               for (signed_size_t i = 0; i < middle; ++i) {
-                                 if (a[start + i] == medianOfMedians) {
-                                   swap(a, start + i, start + n - 1);
-                                   break;
-                                 }
-                               }
-                             });
+          for (signed_size_t i = 0; i < middle; ++i) {
+            if (a[start + i] == medianOfMedians) {
+              swap(a, start + i, start + n - 1);
+              break;
+            }
+          }
+        });
 
       // Search for the index in the upper half of the array a with the current thread.
       for (signed_size_t i = middle; i < n - 1; ++i) {
@@ -984,19 +981,19 @@ private:
    *
    * Calling parameters:
    *
-   * a through e - KdNode* pointers to include in the selection
+   * a through e - shared_ptr<KdNode> to include in the selection
    * p - the sorting partition (x, y, z, w...)
    * dim - the number of dimensions
    *
-   * returns a KdNode* that represents the selected KdNode
+   * returns a shared_ptr<KdNode> that represents the selected KdNode
    */
 private:
   inline
-  static KdNode<K,V>* select_0_2(KdNode<K,V>* const a,
-                                 KdNode<K,V>* const b,
-                                 signed_size_t const p,
-                                 signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_0_2(const shared_ptr<KdNode<K,V>>& a,
+                                            const shared_ptr<KdNode<K,V>>& b,
+                                            signed_size_t const p,
+                                            signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(a->tuple, b->tuple, p, dim) < 0) {
       // a < b
       return a;
@@ -1009,11 +1006,11 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_1_2(KdNode<K,V>* const a,
-                                 KdNode<K,V>* const b,
-                                 signed_size_t const p,
-                                 signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_1_2(const shared_ptr<KdNode<K,V>>& a,
+                                            const shared_ptr<KdNode<K,V>>& b,
+                                            signed_size_t const p,
+                                            signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(a->tuple, b->tuple, p, dim) < 0) {
       // a < b
       return b;
@@ -1026,12 +1023,12 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_1_3_ab(KdNode<K,V>* const a,
-                                    KdNode<K,V>* const b,
-                                    KdNode<K,V>* const c,
-                                    signed_size_t const p,
-                                    signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_1_3_ab(const shared_ptr<KdNode<K,V>>& a,
+                                               const shared_ptr<KdNode<K,V>>& b,
+                                               const shared_ptr<KdNode<K,V>>& c,
+                                               signed_size_t const p,
+                                               signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(b->tuple, c->tuple, p, dim) < 0) {
       // a < b < c
       return b;
@@ -1044,12 +1041,12 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_1_3(KdNode<K,V>* const a,
-                                 KdNode<K,V>* const b,
-                                 KdNode<K,V>* const c,
-                                 signed_size_t const p,
-                                 signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_1_3(const shared_ptr<KdNode<K,V>>& a,
+                                            const shared_ptr<KdNode<K,V>>& b,
+                                            const shared_ptr<KdNode<K,V>>& c,
+                                            signed_size_t const p,
+                                            signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(a->tuple, b->tuple, p, dim) < 0) {
       // a < b
       return select_1_3_ab(a, b, c, p, dim);
@@ -1062,13 +1059,13 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_1_4_ab_cd(KdNode<K,V>* const a,
-                                       KdNode<K,V>* const b,
-                                       KdNode<K,V>* const c,
-                                       KdNode<K,V>* const d,
-                                       signed_size_t const p,
-                                       signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_1_4_ab_cd(const shared_ptr<KdNode<K,V>>& a,
+                                                  const shared_ptr<KdNode<K,V>>& b,
+                                                  const shared_ptr<KdNode<K,V>>& c,
+                                                  const shared_ptr<KdNode<K,V>>& d,
+                                                  signed_size_t const p,
+                                                  signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(c->tuple, a->tuple, p, dim) < 0) {
       // c < a < b && a ? d so c is eliminated and a ? d
       return select_0_2(a, d, p, dim);
@@ -1081,13 +1078,13 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_1_4_ab(KdNode<K,V>* const a,
-                                    KdNode<K,V>* const b,
-                                    KdNode<K,V>* const c,
-                                    KdNode<K,V>* const d,
-                                    signed_size_t const p,
-                                    signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_1_4_ab(const shared_ptr<KdNode<K,V>>& a,
+                                               const shared_ptr<KdNode<K,V>>& b,
+                                               const shared_ptr<KdNode<K,V>>& c,
+                                               const shared_ptr<KdNode<K,V>>& d,
+                                               signed_size_t const p,
+                                               signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(c->tuple, d->tuple, p, dim) < 0) {
       // a < b && c < d
       return select_1_4_ab_cd(a, b, c, d, p, dim);
@@ -1100,13 +1097,13 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_1_4(KdNode<K,V>* const a,
-                                 KdNode<K,V>* const b,
-                                 KdNode<K,V>* const c,
-                                 KdNode<K,V>* const d,
-                                 signed_size_t const p,
-                                 signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_1_4(const shared_ptr<KdNode<K,V>>& a,
+                                            const shared_ptr<KdNode<K,V>>& b,
+                                            const shared_ptr<KdNode<K,V>>& c,
+                                            const shared_ptr<KdNode<K,V>>& d,
+                                            signed_size_t const p,
+                                            signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(a->tuple, b->tuple, p, dim) < 0) {
       // a < b
       return select_1_4_ab(a, b, c, d, p, dim);
@@ -1119,14 +1116,14 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_2_5_ab_cd(KdNode<K,V>* const a,
-                                       KdNode<K,V>* const b,
-                                       KdNode<K,V>* const c,
-                                       KdNode<K,V>* const d,
-                                       KdNode<K,V>* const e,
-                                       signed_size_t const p,
-                                       signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_2_5_ab_cd(const shared_ptr<KdNode<K,V>>& a,
+                                                  const shared_ptr<KdNode<K,V>>& b,
+                                                  const shared_ptr<KdNode<K,V>>& c,
+                                                  const shared_ptr<KdNode<K,V>>& d,
+                                                  const shared_ptr<KdNode<K,V>>& e,
+                                                  signed_size_t const p,
+                                                  signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(c->tuple, a->tuple, p, dim) < 0) {
       // c < a < b && c < d ? e so c is eliminated and a < b && d ? e
       return select_1_4_ab(a, b, d, e, p, dim);
@@ -1139,14 +1136,14 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_2_5_ab(KdNode<K,V>* const a,
-                                    KdNode<K,V>* const b,
-                                    KdNode<K,V>* const c,
-                                    KdNode<K,V>* const d,
-                                    KdNode<K,V>* const e,
-                                    signed_size_t const p,
-                                    signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_2_5_ab(const shared_ptr<KdNode<K,V>>& a,
+                                               const shared_ptr<KdNode<K,V>>& b,
+                                               const shared_ptr<KdNode<K,V>>& c,
+                                               const shared_ptr<KdNode<K,V>>& d,
+                                               const shared_ptr<KdNode<K,V>>& e,
+                                               signed_size_t const p,
+                                               signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(c->tuple, d->tuple, p, dim) < 0) {
       // a < b && c < d
       return select_2_5_ab_cd(a, b, c, d, e, p, dim);
@@ -1159,14 +1156,14 @@ private:
 
 private:
   inline
-  static KdNode<K,V>* select_2_5(KdNode<K,V>* const a,
-                                 KdNode<K,V>* const b,
-                                 KdNode<K,V>* const c,
-                                 KdNode<K,V>* const d,
-                                 KdNode<K,V>* const e,
-                                 signed_size_t const p,
-                                 signed_size_t const dim) {
-    
+  static shared_ptr<KdNode<K,V>> select_2_5(const shared_ptr<KdNode<K,V>>& a,
+                                            const shared_ptr<KdNode<K,V>>& b,
+                                            const shared_ptr<KdNode<K,V>>& c,
+                                            const shared_ptr<KdNode<K,V>>& d,
+                                            const shared_ptr<KdNode<K,V>>& e,
+                                            signed_size_t const p,
+                                            signed_size_t const dim)
+  {
     if (MergeSort<K,V>::superKeyCompare(a->tuple, b->tuple, p, dim) < 0) {
       // a < b
       return select_2_5_ab(a, b, c, d, e, p, dim);
@@ -1188,13 +1185,11 @@ private:
    */
 private:
   inline
-  static void swap(KdNode<K,V>** const a,
+  static void swap(shared_ptr<KdNode<K,V>>* const a,
                    signed_size_t const i,
-                   signed_size_t const j) {
-    
-    auto const t = a[i];
-    a[i] = a[j];
-    a[j] = t;
+                   signed_size_t const j)
+  {
+    a[i].swap(a[j]);
   }
 
 }; // class KdTreeNlogn

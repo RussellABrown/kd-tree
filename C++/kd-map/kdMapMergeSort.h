@@ -139,8 +139,8 @@ public:
    *
    * Calling parameters:
    *
-   * reference - a KdNode** array to sort via its (x, y, z, w...) tuples array
-   * temporary - a KdNode** temporary array from which to copy sorted results;
+   * reference - a shared_ptr<KdNode>* array to sort via its (x, y, z, w...) tuples array
+   * temporary - a shared_ptr<KdNode>* temporary array from which to copy sorted results;
    *             this array must be as large as the reference array
    * low - the start index of the region of the reference array to sort
    * high - the end index of the region of the reference array to sort
@@ -150,8 +150,8 @@ public:
    * depth - the tree depth
    */
 public:
-  static void mergeSortReferenceAscending(KdNode<K,V>** const reference,
-                                          KdNode<K,V>** const temporary,
+  static void mergeSortReferenceAscending(shared_ptr<KdNode<K,V>>* const reference,
+                                          shared_ptr<KdNode<K,V>>* const temporary,
                                           signed_size_t const low,
                                           signed_size_t const high,
                                           signed_size_t const p,
@@ -208,12 +208,12 @@ public:
         // and merge them into the lower half of the reference array in ascending order.
         auto mergeFuture =
           async(launch::async, [&] {
-                                for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                  reference[k] =
-                                    (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) <= 0)
-                                    ? temporary[i++] : temporary[j--];
-                                }
-                              });
+            for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+              reference[k] =
+                (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) <= 0)
+                ? temporary[i++] : temporary[j--];
+            }
+          });
 
         // And simultaneously compare the results in the temporary array in descending order with the
         // current thread and merge them into the upper half of the reference array in ascending order.
@@ -232,13 +232,13 @@ public:
       }
     } else {
 
-      // Here is Jon Benley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
+      // Here is Jon Bentley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
       // Addison-Wesley, 1999, that sorts in ascending order and leaves the result in the reference array.
       for (signed_size_t i = low + 1; i <= high; ++i) {
-        KdNode<K,V>* const tmp = reference[i];
+        shared_ptr<KdNode<K,V>> tmp = reference[i];
         signed_size_t j;
-        for (j = i; j > low && superKeyCompare(reference[j - 1]->tuple, tmp->tuple, p, dim) > 0; --j) {
-          reference[j] = reference[j - 1];
+        for (j = i; j > low && superKeyCompare(reference[j-1]->tuple, tmp->tuple, p, dim) > 0; --j) {
+          reference[j] = reference[j-1];
         }
         reference[j] = tmp;
       }
@@ -251,8 +251,8 @@ public:
    *
    * Calling parameters:
    *
-   * reference - a KdNode** array to sort via its (x, y, z, w...) tuples array
-   * temporary - a KdNode** temporary array from which to copy sorted results;
+   * reference - a shared_ptr<KdNode>* array to sort via its (x, y, z, w...) tuples array
+   * temporary - a shared_ptr<KdNode>* temporary array from which to copy sorted results;
    *             this array must be as large as the reference array
    * low - the start index of the region of the reference array to sort
    * high - the end index of the region of the reference array to sort
@@ -262,8 +262,8 @@ public:
    * depth - the tree depth
    */
 private:
-  static void mergeSortReferenceDescending(KdNode<K,V>** const reference,
-                                           KdNode<K,V>** const temporary,
+  static void mergeSortReferenceDescending(shared_ptr<KdNode<K,V>>* const reference,
+                                           shared_ptr<KdNode<K,V>>* const temporary,
                                            signed_size_t const low,
                                            signed_size_t const high,
                                            signed_size_t const p,
@@ -320,12 +320,12 @@ private:
         // and merge them into the lower half of the reference array in descending order.
         auto mergeFuture =
           async(launch::async, [&] {
-                                for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                  reference[k] =
-                                    (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) >= 0)
-                                    ? temporary[i++] : temporary[j--];
-                                }
-                              });
+            for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+              reference[k] =
+                (superKeyCompare(temporary[i]->tuple, temporary[j]->tuple, p, dim) >= 0)
+                ? temporary[i++] : temporary[j--];
+            }
+          });
 
         // And simultaneously compare the results in the temporary array in descending order with the
         // current thread and merge them into the upper half of the reference array in descending order.
@@ -344,13 +344,13 @@ private:
       }
     } else {
 
-      // Here is Jon Benley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
+      // Here is Jon Bentley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
       // Addison-Wesley, 1999, that sorts in descending order and leaves the result in the reference array.
       for (signed_size_t i = low + 1; i <= high; ++i) {
-        KdNode<K,V>* tmp = reference[i];
+        shared_ptr<KdNode<K,V>> tmp = reference[i];
         signed_size_t j;
-        for (j = i; j > low && superKeyCompare(reference[j - 1]->tuple, tmp->tuple, p, dim) < 0; --j) {
-          reference[j] = reference[j - 1];
+        for (j = i; j > low && superKeyCompare(reference[j-1]->tuple, tmp->tuple, p, dim) < 0; --j) {
+          reference[j] = reference[j-1];
         }
         reference[j] = tmp;
       }
@@ -363,8 +363,8 @@ private:
    *
    * Calling parameters:
    *
-   * reference - a KdNode** array to sort via its (x, y, z, w...) tuples array
-   * temporary - a KdNode** temporary array from which to copy sorted results;
+   * reference - a shared_ptr<KdNode>* array to sort via its (x, y, z, w...) tuples array
+   * temporary - a shared_ptr<KdNode>* temporary array from which to copy sorted results;
    *             this array must be as large as the reference array
    * low - the start index of the region of the reference array to sort
    * high - the end index of the region of the reference array to sort
@@ -374,8 +374,8 @@ private:
    * depth - the tree depth
    */
 private:
-  static void mergeSortTemporaryAscending(KdNode<K,V>** const reference,
-                                          KdNode<K,V>** const temporary,
+  static void mergeSortTemporaryAscending(shared_ptr<KdNode<K,V>>* const reference,
+                                          shared_ptr<KdNode<K,V>>* const temporary,
                                           signed_size_t const low,
                                           signed_size_t const high,
                                           signed_size_t const p,
@@ -433,12 +433,12 @@ private:
         // and merge them into the lower half of the temporary array in ascending order.
         auto mergeFuture =
           async(launch::async, [&] {
-                                for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                  temporary[k] =
-                                    (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) <= 0)
-                                    ? reference[i++] : reference[j--];
-                                }
-                              });
+            for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+              temporary[k] =
+                (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) <= 0)
+                ? reference[i++] : reference[j--];
+            }
+          });
 
         // And simultaneously compare the results in the reference array in descending order with the
         // current thread and merge them into the upper half of the temporary array in ascending order.
@@ -484,8 +484,8 @@ private:
    *
    * Calling parameters:
    *
-   * reference - a KdNode** array to sort via its (x, y, z, w...) tuples array
-   * temporary - a KdNode** temporary array from which to copy sorted results;
+   * reference - a shared_ptr<KdNode>* array to sort via its (x, y, z, w...) tuples array
+   * temporary - a shared_ptr<KdNode>* temporary array from which to copy sorted results;
    *             this array must be as large as the reference array
    * low - the start index of the region of the reference array to sort
    * high - the end index of the region of the reference array to sort
@@ -495,8 +495,8 @@ private:
    * depth - the tree depth
    */
 private:
-  static void mergeSortTemporaryDescending(KdNode<K,V>** const reference,
-                                           KdNode<K,V>** const temporary,
+  static void mergeSortTemporaryDescending(shared_ptr<KdNode<K,V>>* const reference,
+                                           shared_ptr<KdNode<K,V>>* const temporary,
                                            signed_size_t const low,
                                            signed_size_t const high,
                                            signed_size_t const p,
@@ -554,12 +554,12 @@ private:
         // and merge them into the lower half of the temporary array in descending order.
         auto mergeFuture =
           async(launch::async, [&] {
-                                for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
-                                  temporary[k] =
-                                    (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) >= 0)
-                                    ? reference[i++] : reference[j--];
-                                }
-                              });
+            for (signed_size_t i = low, j = high, k = low; k <= mid; ++k) {
+              temporary[k] =
+                (superKeyCompare(reference[i]->tuple, reference[j]->tuple, p, dim) >= 0)
+                ? reference[i++] : reference[j--];
+            }
+          });
 
         // And simultaneously compare the results in the reference array in descending order with the
         // current thread and merge them into the upper half of the temporary array in descending order.

@@ -74,7 +74,7 @@ public:
   vector<K> query; // query point for which nearest neighbors will be found
   vector<bool> enable;
   signed_size_t reqDepth; // requested number of nearest neighbors
-  vector<KdNode<K,V>* > nodes; // vector of pointers to KdNodes that are the nearest neighbors
+  vector<KdNode<K,V>*> nodes; // vector of pointers to KdNodes that are the nearest neighbors
   vector<double> dists; // vector of squared distances
   signed_size_t curDepth; // number of nearest nodes/distances on the heap
 

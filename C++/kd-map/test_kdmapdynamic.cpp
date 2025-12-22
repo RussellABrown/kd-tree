@@ -59,9 +59,6 @@
  * 
  * -D MERGE_CUTOFF=n - A cutoff for using multiple threads in MergeSort::mergeSort* (default 4096)
  * 
- * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
- *                                list in response to the -r command-line option.
- * 
  * The following compilation defines apply only to the O(n log n) algorithm.
  *
  * -D MEDIAN_OF_MEDIANS_CUTOFF=n - A cutoff for switching from median of medians to insertion sort
@@ -294,7 +291,9 @@ int main(int argc, char** argv) {
        << "  max submit depth = " << maximumSubmitDepth << endl << endl;
 
   // Create an instance of KdTreeDynamic.
-  auto tree = new KdTreeDynamic<kdKey_t, kdValue_t>(numDimensions, maximumSubmitDepth);
+  auto tree =
+    unique_ptr<KdTreeDynamic<kdKey_t, kdValue_t>>(new KdTreeDynamic<kdKey_t, kdValue_t>(numDimensions,
+                                                                                        maximumSubmitDepth));
 
   // Declare and initialize the coordinates and oneCoordinte vectors. Each element
   // of the coordinates vector is a pair wherein first is a vector of (x, y, z, w...)
@@ -388,32 +387,23 @@ int main(int argc, char** argv) {
     if (balanced) {
 
       // Create an instance of a static k-d tree and wrap it in an instance
-      // of a dynamic k-d tree, because deletion of a static k-d tree does
-      // not delete the k-d node instances when KD_MAP_DYNAMIC_H is defined,
-      // whereas deletion of a dynamic k-d tree deletes the k-d node instances.
-      //
-      // The KdTreeDynamic constructor specifies an R-VALUE BY-REFERENCE
-      // calling parameter for its third argument in order to accept the
-      // KdTree pointer return value of the KdTree::createKdTree member
-      // function. And that constructor deletes the KdTree instance and
-      // sets the KdTree pointer to nullptr, to prevent a dangling pointer.
-      // 
-      // An alternative to these gyrations might be for the createKdTree function
-      // to return a std::shared_ptr
+      // of a dynamic k-d tree.
       auto copyCoordinates = coordinates;
       signed_size_t numNodes;
       double allocateTime, sortTime, removeTime, kdTime, verifyTime, unsortTime;
-      auto const tree =
-        new KdTreeDynamic<kdKey_t, kdValue_t>(numDimensions,
-                                              maximumSubmitDepth,
-                                              KdTree<kdKey_t, kdValue_t>::createKdTree(copyCoordinates,
-                                                                                       maximumSubmitDepth,
-                                                                                       numNodes,
-                                                                                       allocateTime,
-                                                                                       sortTime,
-                                                                                       removeTime,
-                                                                                       kdTime,
-                                                                                       verifyTime));
+      auto const arbre =
+        unique_ptr<KdTree<kdKey_t, kdValue_t>>(KdTree<kdKey_t, kdValue_t>::createKdTree(copyCoordinates,
+                                                                                        maximumSubmitDepth,
+                                                                                        numNodes,
+                                                                                        allocateTime,
+                                                                                        sortTime,
+                                                                                        removeTime,
+                                                                                        kdTime,
+                                                                                        verifyTime));
+      auto const arbol =
+        unique_ptr<KdTreeDynamic<kdKey_t, kdValue_t>>(new KdTreeDynamic<kdKey_t, kdValue_t>(numDimensions,
+                                                                                            maximumSubmitDepth,
+                                                                                            arbre));
 
       // Record the time for k-d tree creation, ignoring verifyTime and unsortTime.
       createTime[k] = allocateTime + sortTime + removeTime + kdTime;
@@ -423,48 +413,52 @@ int main(int argc, char** argv) {
       staticTreeHeight = tree->getHeight();
 
       // Find numNeighbors nearest neighbors to each coordinate.
+      //
+      // NOTE: neighborList and bruteList are lists of KdNode*
+      // not of shared_ptr<KdNode> so their KdNode* will remain valid
+      // until the 'arbol' unique_ptr goes out of scope.
       if (neighbors) {
-        forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > neighborList;
+        forward_list<pair<double, KdNode<kdKey_t, kdValue_t>*>> neighborList;
         auto beginTime = steady_clock::now();
-        tree->findNearestNeighbors(neighborList, query, numNeighbors);
+        arbol->findNearestNeighbors(neighborList, query, numNeighbors);
         auto endTime = steady_clock::now();
         auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
         neighborsTimeStatic[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-        forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > bruteList;
+        forward_list<pair<double, KdNode<kdKey_t, kdValue_t>*>> bruteList;
         beginTime = steady_clock::now();
-        tree->bruteNearestNeighbors(bruteList, query, numNeighbors);
+        arbol->bruteNearestNeighbors(bruteList, query, numNeighbors);
         endTime = steady_clock::now();
         duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
         bruteNeighborsTimeStatic[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
         // Compare the results of nearest-neighbor search and brute-force search.
-        tree->verifyNearestNeighbors(neighborList, bruteList);
+        arbol->verifyNearestNeighbors(neighborList, bruteList);
       }
 
       // Perform a region search within a hypercube centered near the origin.
+      //
+      // NOTE: fastRegionList and slowRegionList are lists of KdNode*
+      // not of shared_ptr<KdNode> so their KdNode* will remain valid
+      // until the 'arbol' unique_ptr goes out of scope.
       if (region) {
         list<KdNode<kdKey_t, kdValue_t>*> fastRegionList;
         auto beginTime = steady_clock::now();
-        tree->searchRegion(fastRegionList, queryLower, queryUpper, maximumSubmitDepth, true);
+        arbol->searchRegion(fastRegionList, queryLower, queryUpper, maximumSubmitDepth, true);
         auto endTime = steady_clock::now();
         auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
         regionTimeStatic[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
         list<KdNode<kdKey_t, kdValue_t>*> slowRegionList;
         beginTime = steady_clock::now();
-        tree->searchRegion(slowRegionList, queryLower, queryUpper, maximumSubmitDepth, false);
+        arbol->searchRegion(slowRegionList, queryLower, queryUpper, maximumSubmitDepth, false);
         endTime = steady_clock::now();
         duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
         bruteRegionTimeStatic[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
         // Compare the results of region search and brute-force search.
-        tree->verifyRegionSearch(fastRegionList, slowRegionList);
+        arbol->verifyRegionSearch(fastRegionList, slowRegionList);
       }
-
-      // Delete the dynamic k-d tree, which also deletes the static k-d tree
-      // and the k-d node instances.
-      delete tree;
     }
 
     // Insert each coordinate into the dynamic k-d tree.
@@ -531,6 +525,10 @@ int main(int argc, char** argv) {
     containsTime[k] += static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     // Find numNeighbors nearest neighbors a query coordinate near the origin.
+    //
+    // NOTE: neighborList and bruteList are lists of KdNode*
+    // not of shared_ptr<KdNode> so their KdNode* will remain valid
+    // until the 'tree' unique_ptr goes out of scope.
     if (neighbors) {
       forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > neighborList;
       auto beginTime = steady_clock::now();
@@ -552,6 +550,10 @@ int main(int argc, char** argv) {
     }
 
     // Perform a region search within a hypercube centered near the origin.
+    //
+    // NOTE: fastRegionList and slowRegionList are lists of KdNode*
+    // not of shared_ptr<KdNode> so their KdNode* will remain valid
+    // until the 'tree' unique_ptr goes out of scope.
     if (region) {
       list<KdNode<kdKey_t, kdValue_t>*> fastRegionList;
       auto beginTime = steady_clock::now();
@@ -691,8 +693,6 @@ int main(int argc, char** argv) {
 
     cout << endl;
   }
-  // Delete the k-d tree instance.
-  delete tree;
 
   return 0;
 }

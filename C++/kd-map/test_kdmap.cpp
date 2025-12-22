@@ -46,7 +46,7 @@
  * 
  * -D MERGE_CUTOFF=n - A cutoff for using multiple threads in MergeSort::mergeSort* (default 4096)
  * 
-  * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
+ * -D REVERSE_NEAREST_NEIGHBORS - Enable the construction of a reverse nearest neighbors
  *                                list in response to the -r command-line option.
  * 
  * The following compilation defines apply only to the O(n log n) algorithm.
@@ -305,7 +305,7 @@ int main(int argc, char** argv) {
   vector<double> removeTime(iterations);
   vector<double> kdTime(iterations);
   vector<double> verifyTime(iterations);
- vector<double> kdTotalTime(iterations);
+  vector<double> kdTotalTime(iterations);
   vector<double> containsTime(iterations);
   vector<double> neighborsTime(iterations);
   vector<double> bruteNeighborsTime(iterations);
@@ -328,7 +328,7 @@ int main(int argc, char** argv) {
   // Iterate the creation of the k-d tree to improve statistics.
   signed_size_t numberOfNodes = 0;
   size_t numRegionNodes = 0, numNeighborsNodes = 0;
-  KdTree<kdKey_t, kdValue_t>* tree =nullptr;
+  unique_ptr<KdTree<kdKey_t, kdValue_t>> tree;
   for (size_t k = 0; k < iterations; ++k) {
 
     // Shuffle the coordinates vector independently for each dimension.
@@ -346,12 +346,13 @@ int main(int argc, char** argv) {
       }
     }
 
-    // Create the static k-d tree.
+    // Create a static k-d tree and manage it via the 'tree' unique_ptr.
+    // NOTE: reset() deletes any static k-d tree previously managed by 'tree'.
     vector<pair<vector<kdKey_t>, kdValue_t>> copyCoordinates = coordinates;
     signed_size_t numNodes;
     double aT, sT, rT, kT, vT;
-    tree = KdTree<kdKey_t, kdValue_t>::createKdTree(copyCoordinates, maximumSubmitDepth,
-                                                    numNodes, aT, sT, rT, kT, vT);
+    tree.reset(KdTree<kdKey_t, kdValue_t>::createKdTree(copyCoordinates, maximumSubmitDepth,
+                                                        numNodes, aT, sT, rT, kT, vT));
 
     // Record the time for k-d tree creation, ignoring verifyTime and unsortTime.
     kdTotalTime[k] += aT + sT + rT + kT;
@@ -365,8 +366,12 @@ int main(int argc, char** argv) {
     numberOfNodes = numNodes;
 
     // Find numNeighbors nearest neighbors to each coordinate.
+    //
+    // NOTE: neighborList and bruteList are lists of KdNode*
+    // not of shared_ptr<KdNode> so their KdNode* will remain valid
+    // until the 'tree' unique_ptr goes out of scope.
     if (neighbors) {
-      forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > neighborList;
+      forward_list<pair<double, KdNode<kdKey_t, kdValue_t>*>> neighborList;
       auto beginTime = steady_clock::now();
       tree->findNearestNeighbors(neighborList, query, numNeighbors);
       auto endTime = steady_clock::now();
@@ -374,7 +379,7 @@ int main(int argc, char** argv) {
       neighborsTime[k] = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
       numNeighborsNodes = distance(neighborList.begin(), neighborList.end());
 
-      forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > bruteList;
+      forward_list<pair<double, KdNode<kdKey_t, kdValue_t>*>> bruteList;
       beginTime = steady_clock::now();
       tree->bruteNearestNeighbors(bruteList, query, numNeighbors);
       endTime = steady_clock::now();
@@ -386,6 +391,10 @@ int main(int argc, char** argv) {
     }
 
     // Perform a region search within a hypercube centered near the origin.
+    //
+    // NOTE: fastRegionList and slowRegionList are lists of KdNode*
+    // not of shared_ptr<KdNode> so their KdNode* will remain valid
+    // until the 'tree' unique_ptr goes out of scope.
     if (region) {
       list<KdNode<kdKey_t, kdValue_t>*> fastRegionList;
       auto beginTime = steady_clock::now();
@@ -406,14 +415,6 @@ int main(int argc, char** argv) {
       tree->verifyRegionSearch(fastRegionList, slowRegionList);
     }
 
-    // Delete the k-d tree except for the last iteration if REVERSE_NEAREST_NEIGHBORS is defined.
-#ifdef REVERSE_NEAREST_NEIGHBORS
-    if (k < iterations - 1) {
-      delete tree;
-    }
-  #else
-    delete tree;
-#endif
     cout << "finished iteration " << (k + 1) << endl;
   }
 
@@ -454,9 +455,6 @@ int main(int argc, char** argv) {
   }
 
   if (region) {
-      // Create a k-d tree for the sole purpose of calling the printTuple function.
-      KdTree<kdKey_t, kdValue_t>* tree = new KdTree<kdKey_t, kdValue_t>(numDimensions,
-                                                                        maximumSubmitDepth);
       cout << "\nFound " << numRegionNodes << " tuples by region search within "
           << (queryUpper[0] - queryLower[0]) << " units of ";
       tree->printTuple(query);
@@ -467,19 +465,21 @@ int main(int argc, char** argv) {
       timePair = calcMeanStd(bruteRegionTime);
       cout << "brute time  = " << fixed << setprecision(6) << timePair.first
           << setprecision(6) << "  std dev = " << timePair.second << " seconds" << endl;
-      // Delete the k-d tree.
-      delete tree;
-  }
+ }
 
   cout << endl;
 
 #ifdef REVERSE_NEAREST_NEIGHBORS
   // Optionally construct a nearest neighbor vector and a reverse nearest neighbors vector.
   // Each vector element contains a list that is initialized to an empty list.
+  //
+  // NOTE: the nearest neighbor vector and reverse nearest neighbor vector contain
+  // lists of KdNode* not of shared_ptr<KdNode> so their KdNode* will remain value
+  // until the 'tree' unique_ptr goes out of scope.
   if (reverseNearestNeighbors) {
     auto beginTime = steady_clock::now();
-    vector< forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > > nn(coordinates.size());
-    vector< forward_list< pair<double, KdNode<kdKey_t, kdValue_t>*> > > rnn(coordinates.size());
+    vector<forward_list<pair<double, KdNode<kdKey_t, kdValue_t>*>>> nn(coordinates.size());
+    vector<forward_list<pair<double, KdNode<kdKey_t, kdValue_t>*>>> rnn(coordinates.size());
     vector<mutex> mutexes(coordinates.size());
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
@@ -520,9 +520,6 @@ int main(int argc, char** argv) {
     double const verifyReverseTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
     cout << "verify reverse nearest neighbor time = " << fixed << setprecision(2) << verifyReverseTime << " seconds" << endl << endl;
-
-    // Delete the tree because it was not deleted during the final iteration above.
-    delete tree;
   }
 #endif
 

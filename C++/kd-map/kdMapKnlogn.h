@@ -91,7 +91,7 @@ class KdTreeKnlogn
    * returns: a KdNode pointer to the root of the k-d tree
    */
 public:
-  static KdTree<K,V>* createKdTree(const vector<KdNode<K,V>*>& kdNodes,
+  static KdTree<K,V>* createKdTree(const shared_ptr<vector<KdNode<K,V>>>& kdNodes,
                                    size_t const dim,
                                    signed_size_t const maximumSubmitDepth,
                                    signed_size_t const p) {
@@ -101,7 +101,7 @@ public:
     auto tree = new KdTree<K,V>(numDimensions, maximumSubmitDepth);
 
     // Allocate the references vectors including one additional vector.
-    vector<vector<KdNode<K,V>*>> references(numDimensions+1, vector<KdNode<K,V>*>(kdNodes.size()));
+    vector<vector<shared_ptr<KdNode<K,V>>>> references(numDimensions+1, vector<shared_ptr<KdNode<K,V>>>(kdNodes.size()));
 
     // Don't allocate KdNodes instances for the pth references vector
     // (where p is the leading dimension) instead of the first
@@ -112,9 +112,7 @@ public:
     // Copy pointers from the KdNode instances of the kdNodes vector.
     // These pointers will be re-ordered by the MergeSort member
     // functions and then copied back to the kdNode instances by the
-    // KdNode::getKdNode function. For this case where KD_MAP_DYNAMIC_H
-    // is defined, the tuples will be deallocated by the ~KdNode destructor
-    // when a KdNode instance is deleted from the dynamic k-d tree.
+    // KdNode::getKdNode function.
     for (size_t i = 0; i < kdNodes.size(); ++i) {
       references[p][i] = kdNodes[i];
     }
@@ -214,21 +212,20 @@ public:
 
     // Allocate the references vectors including one additional vector.
     auto beginTime = steady_clock::now();
-    vector<vector<KdNode<K,V>*>> references(numDimensions+1, vector<KdNode<K,V>*>(coordinates.size()));
+    vector<vector<shared_ptr<KdNode<K,V>>>> references(numDimensions+1, vector<shared_ptr<KdNode<K,V>>>(coordinates.size()));
 
-    // Allocate KdNode instances for the first references vector. These
-    // KdNode instances will be deallocated by the ~KdTree destructor.
+    // Allocate KdNode instances for the first references vector.
     for (size_t i = 0; i < coordinates.size(); ++i) {
-      references[0][i] = new KdNode<K,V>(coordinates, i);
+      references[0][i].reset(new KdNode<K,V>(coordinates, i));
     }
     auto endTime = steady_clock::now();
     auto duration = duration_cast<std::chrono::microseconds>(endTime - beginTime);
     allocateTime = static_cast<double>(duration.count()) / MICROSECONDS_TO_SECONDS;
 
-    // Sort the first references array using multiple threads. Importantly,
+    // Sort the first references vector using multiple threads. Importantly,
     // for compatibility with the 'permutation' vector initialized below,
     // use the first dimension (0) as the leading key of the super key.
-    // Also, only the first references array is populated with T arrays.
+    // Also, only the first references vector is populated with T arrays.
     beginTime = steady_clock::now();
     MergeSort<K,V>::mergeSortReferenceAscending(references[0].data(), references[numDimensions].data(),
                                                 0, coordinates.size() - 1,
@@ -272,7 +269,7 @@ public:
 
     // Create a 2D 'permutation' vector from the 'indices' vector to specify permutation
     // of the reference arrays and of the partition coordinate.
-    vector< vector<signed_size_t> > permutation(maxDepth, vector<signed_size_t>(numDimensions + 2));
+    vector<vector<signed_size_t>> permutation(maxDepth, vector<signed_size_t>(numDimensions + 2));
     vector<signed_size_t> permutationVerify(maxDepth);
 
     // Fill the permutation vector by calculating the permutation of the indices vector
@@ -319,17 +316,17 @@ public:
    * maximumSubmitDepth - the maximum tree depth at which a child task may be launched
    * depth - the depth in the tree
    *
-   * returns: a KdNode pointer to the root of the k-d tree
+   * returns: a shared_ptr<KdNode> to the root of the k-d tree
    */
 private:
-  static KdNode<K,V>* buildKdTree(vector<vector<KdNode<K,V>*>>& references,
-                                  const vector<vector<signed_size_t>>& permutation,
-                                  signed_size_t const start,
-                                  signed_size_t const end,
-                                  signed_size_t const maximumSubmitDepth,
-                                  signed_size_t const depth) {
-
-    KdNode<K,V>* node = nullptr;
+  static shared_ptr<KdNode<K,V>> buildKdTree(vector<vector<shared_ptr<KdNode<K,V>>>>& references,
+                                             const vector<vector<signed_size_t>>& permutation,
+                                             signed_size_t const start,
+                                             signed_size_t const end,
+                                             signed_size_t const maximumSubmitDepth,
+                                             signed_size_t const depth)
+  {
+    shared_ptr<KdNode<K,V>> node;
 
     // The partition permutes as x, y, z, w... and specifies the most significant key.
     signed_size_t p = permutation.at(depth).at(permutation.at(0).size() - 1);
@@ -338,7 +335,7 @@ private:
     signed_size_t dim = permutation.at(0).size() - 2;
 
     // Obtain the reference array that corresponds to the most significant key.
-    KdNode<K,V>** reference = references[permutation.at(depth).at(dim)].data();
+    auto reference = references[permutation.at(depth).at(dim)].data();
 
     if (end == start) {
 
@@ -481,12 +478,12 @@ private:
           signed_size_t p1 = (p + 1 < dim) ? p + 1 : 0;
           auto copyFuture =
             async(launch::async, [&] {
-                                   for (int i = start; i <= median - 1; ++i) {
-                                     dst[i] = reference[i];
-                                   }
-                                   MergeSort<K,V>::mergeSortReferenceAscending(dst, tmp, start, median - 1, p1,
-                                                                               dim, maximumSubmitDepth, depth);
-                                 });
+              for (int i = start; i <= median - 1; ++i) {
+                dst[i] = reference[i];
+              }
+              MergeSort<K,V>::mergeSortReferenceAscending(dst, tmp, start, median - 1, p1,
+                                                          dim, maximumSubmitDepth, depth);
+            });
 
           // Copy and sort the upper half of references[permut[0]] with the current thread.
           for (int i = median + 1; i <= end; ++i) {
@@ -526,17 +523,17 @@ private:
           // Fill one reference array in ascending order with a child thread.
           auto partitionFuture =
             async(launch::async, [&] {
-                                  for (signed_size_t lower = start - 1, upper = median, j = start; j <= median; ++j) {
-                                    auto const src_j = src[j];
-                                    auto const compare = MergeSort<K,V>::superKeyCompare(src_j->tuple, point.data(), p, dim);
-                                    if (compare < 0) {
-                                      dst[++lower] = src_j;
-                                    }
-                                    else if (compare > 0) {
-                                      dst[++upper] = src_j;
-                                    }
-                                  }
-                                });
+              for (signed_size_t lower = start - 1, upper = median, j = start; j <= median; ++j) {
+                auto const src_j = src[j];
+                auto const compare = MergeSort<K,V>::superKeyCompare(src_j->tuple, point.data(), p, dim);
+                if (compare < 0) {
+                  dst[++lower] = src_j;
+                }
+                else if (compare > 0) {
+                  dst[++upper] = src_j;
+                }
+              }
+            });
 
           // Simultaneously fill the same reference array in descending order with the current thread.
           for (signed_size_t lower = median, upper = end + 1, k = end; k > median; --k) {
