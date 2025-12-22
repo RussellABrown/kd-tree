@@ -233,7 +233,7 @@ public class MergeSort
 
         } else {
             
-            // Here is Jon Benley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
+            // Here is Jon Bentley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
             // Addison-Wesley, 1999, that sorts in ascending order and leaves the result in the reference array.
             for (int i = low + 1; i <= high; i++) {
                 KdNode tmp = reference[i];
@@ -340,7 +340,7 @@ public class MergeSort
 
         } else {
             
-            // Here is Jon Benley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
+            // Here is Jon Bentley's implementation of insertion sort from "Programming Pearls", pp. 115-116,
             // Addison-Wesley, 1999, that sorts in descending order and leaves the result in the reference array.
             for (int i = low + 1; i <= high; i++) {
                 KdNode tmp = reference[i];

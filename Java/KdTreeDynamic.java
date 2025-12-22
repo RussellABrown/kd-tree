@@ -321,9 +321,7 @@ public class KdTreeDynamic extends KdTree {
                             //
                             // Note that rebuildSubTree1to3 computes the height
                             // of the rebuilt < child subtree.
-                            final KdNode tempPtr = nodePtr;
                             nodePtr = rebuildSubTree1to3(nodePtr.ltChild, nodeCount, p);
-                            tempPtr.ltChild = null; // Prevent recursive deletion.
                         }
                         else
                         {
@@ -389,9 +387,7 @@ public class KdTreeDynamic extends KdTree {
                             //
                             // Note that rebuildSubTree1to3 computes the height
                             // of the rebuilt > child subtree.
-                            final KdNode tempPtr = nodePtr;
                             nodePtr = rebuildSubTree1to3(nodePtr.gtChild, nodeCount, p);
-                            tempPtr.gtChild = null; // Prevent recursive deletion.
                         }
                         else
                         {
@@ -439,10 +435,10 @@ public class KdTreeDynamic extends KdTree {
                             }
                         }
                     }
-                    // If the node has no children, delete the node.
+                    // If the node has no children, set the nodePtr return value
+                    // to null so that the node's parent's child reference will
+                    // set to null and hence the node will be garbage collected.
                     else if (nodePtr.ltChild == null && nodePtr.gtChild == null) {
-                        // This null will be returned and assigned to the parent node's
-                        // child reference, thus marking this node for garbage collection.
                         nodePtr = null;
                     }
                     // The node has two children.
@@ -461,9 +457,7 @@ public class KdTreeDynamic extends KdTree {
                             // the subtree excluding this two-child node, thus deleting
                             // this two-child node. This approach avoids the need to
                             // find a predecessor or successor node.
-                            KdNode tempPtr = nodePtr;
                             nodePtr = rebuildSubTreeSkipRoot1to3(nodePtr, nodeCount, p);
-                            tempPtr.ltChild = tempPtr.gtChild = null; // Prevent recursive deletion.
                         }
                         else
                         {
