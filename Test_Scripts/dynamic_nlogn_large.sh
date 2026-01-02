@@ -1,0 +1,13 @@
+#! /bin/bash
+# Create a.out by compiling with -D NLOGN
+# But the first execution, for -n 8677240, crashes, perhaps due to too much memory turnover.
+read -s -p "Enter Password for sudo: " sudoPW
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/8677k/i7.14.8677k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 8677240 -b -i 100 > ./test/dynamic/8677k/i7.14.8677k.3d.1t.100i.txt
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/12712k/i7.14.12712k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 12712031 -b -i 100 > ./test/dynamic/12712k/i7.14.12712k.3d.1t.100i.txt
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/16673k/i7.14.16673k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 16672917 -b -i 100 > ./test/dynamic/16673k/i7.14.16673k.3d.1t.100i.txt
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/20581k/i7.14.20581k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 20580554 -b -i 100 > ./test/dynamic/20581k/i7.14.20581k.3d.1t.100i.txt
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/24447k/i7.14.24447k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 24446750 -b -i 100 > ./test/dynamic/24447k/i7.14.24447k.3d.1t.100i.txt
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/28279k/i7.14.28279k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 28279133 -b -i 100 > ./test/dynamic/28279k/i7.14.28279k.3d.1t.100i.txt
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/32083k/i7.14.32083k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 32083022 -b -i 100 > ./test/dynamic/32083k/i7.14.32083k.3d.1t.100i.txt
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/35862k/i7.14.35862k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 35862337 -b -i 100 > ./test/dynamic/35862k/i7.14.35862k.3d.1t.100i.txt
+echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dynamic/39620k/i7.14.39620k.3d.1t.100i.cache.txt taskset -c 0 ./a.out -d 3 -n 39620078 -b -i 100 > ./test/dynamic/39620k/i7.14.39620k.3d.1t.100i.txt
