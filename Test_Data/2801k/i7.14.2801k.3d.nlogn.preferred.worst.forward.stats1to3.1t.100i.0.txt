@@ -1,0 +1,196 @@
+
+max number of threads = 1  max submit depth = -1
+
+deltaCoordinate = 3292394079303
+padCoordinate = 4611686018428349980
+beginCoordinate = -4611686018426425828
+endCoordinate = 4611682726032346523
+
+finished iteration 1
+finished iteration 2
+finished iteration 3
+finished iteration 4
+finished iteration 5
+finished iteration 6
+finished iteration 7
+finished iteration 8
+finished iteration 9
+finished iteration 10
+finished iteration 11
+finished iteration 12
+finished iteration 13
+finished iteration 14
+finished iteration 15
+finished iteration 16
+finished iteration 17
+finished iteration 18
+finished iteration 19
+finished iteration 20
+finished iteration 21
+finished iteration 22
+finished iteration 23
+finished iteration 24
+finished iteration 25
+finished iteration 26
+finished iteration 27
+finished iteration 28
+finished iteration 29
+finished iteration 30
+finished iteration 31
+finished iteration 32
+finished iteration 33
+finished iteration 34
+finished iteration 35
+finished iteration 36
+finished iteration 37
+finished iteration 38
+finished iteration 39
+finished iteration 40
+finished iteration 41
+finished iteration 42
+finished iteration 43
+finished iteration 44
+finished iteration 45
+finished iteration 46
+finished iteration 47
+finished iteration 48
+finished iteration 49
+finished iteration 50
+finished iteration 51
+finished iteration 52
+finished iteration 53
+finished iteration 54
+finished iteration 55
+finished iteration 56
+finished iteration 57
+finished iteration 58
+finished iteration 59
+finished iteration 60
+finished iteration 61
+finished iteration 62
+finished iteration 63
+finished iteration 64
+finished iteration 65
+finished iteration 66
+finished iteration 67
+finished iteration 68
+finished iteration 69
+finished iteration 70
+finished iteration 71
+finished iteration 72
+finished iteration 73
+finished iteration 74
+finished iteration 75
+finished iteration 76
+finished iteration 77
+finished iteration 78
+finished iteration 79
+finished iteration 80
+finished iteration 81
+finished iteration 82
+finished iteration 83
+finished iteration 84
+finished iteration 85
+finished iteration 86
+finished iteration 87
+finished iteration 88
+finished iteration 89
+finished iteration 90
+finished iteration 91
+finished iteration 92
+finished iteration 93
+finished iteration 94
+finished iteration 95
+finished iteration 96
+finished iteration 97
+finished iteration 98
+finished iteration 99
+finished iteration 100
+
+number of nodes = 2801418  k-d tree height = 34
+
+dynamic tree:
+insert time = 2.3480  std dev = 0.0077 seconds
+verify time = 0.0459  std dev = 0.0012 seconds
+search time = 0.4107  std dev = 0.0037 seconds
+delete time = 4.2936  std dev = 0.0092 seconds
+
+static tree:
+create time = 1.6436  std dev = 0.0320 seconds
+
+insert balance time = 1.3948  std dev = 0.0052 seconds
+delete balance time = 3.4182  std dev = 0.0073 seconds
+delete find time = 0.0296  std dev = 0.0005 seconds
+delete copy time = 0.0246  std dev = 0.0002 seconds
+copy balance time = 0.0231  std dev = 0.0001 seconds
+
+insert balance count = 2203501  std dev = 0
+delete balance count = 1248930  std dev = 0
+delete find count = 967144  std dev = 0
+copy balance count = 440466  std dev = 0
+
+net insert time = 0.9532  std dev = 0.0030 seconds
+net delete time = 0.8211  std dev = 0.0018 seconds
+
+net delete copy time = 0.0016  std dev = 0.0001 seconds
+
+total delete balance count = 1689396  std dev = 0
+
+insert count = 280141800  erase count = 280141800
+
+   insert histogram	   delete histogram	    copy histogram	   size histogram
+
+	55487900			88089300			42818900			 79826400
+	82430800			17784100			613700			 4977800
+	200			408900			100			 117798900
+	0			2200			0			 12966700
+	0			0			0			 823800
+	0			0			0			 52587900
+	0			0			0			 6212600
+	0			0			0			 3491900
+	0			0			0			 2082100
+	0			0			0			 1568700
+	0			0			0			 1296600
+	0			0			0			 964400
+	0			0			0			 2044800
+	0			0			0			 3217900
+	0			0			0			 2557900
+	0			0			0			 1880900
+	0			0			0			 1567200
+	0			0			0			 1020300
+	0			0			0			 578800
+	0			0			0			 426400
+	0			0			0			 373500
+	0			0			0			 306600
+	0			0			0			 306000
+	0			0			0			 259400
+	0			0			0			 250300
+	0			0			0			 219400
+	0			0			0			 227400
+	0			0			0			 240400
+	0			0			0			 197900
+	0			0			0			 205100
+	0			0			0			 229000
+	0			0			0			 252200
+	0			0			0			 279600
+	0			0			0			 281900
+	0			0			0			 273500
+	0			0			0			 275500
+	0			0			0			 278800
+	0			0			0			 261900
+	0			0			0			 246900
+	0			0			0			 220500
+	0			0			0			 197700
+	0			0			0			 188100
+	0			0			0			 143000
+	0			0			0			 119100
+	0			0			0			 103400
+	0			0			0			 92500
+	0			0			0			 70700
+	0			0			0			 57100
+	0			0			0			 45600
+	0			0			0			 2768500
+
+
+balance size max = 1617983
+
