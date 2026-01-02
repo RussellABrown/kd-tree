@@ -1,0 +1,18 @@
+# started on Sat Oct  4 20:43:28 2025
+
+
+ Performance counter stats for 'taskset -c 0-15 ./a.out -d 3 -n 3668582 -t 16 -b -w -i 10':
+
+     <not counted>      cpu_atom/LLC-load-misses/                                               (0.00%)
+     2,835,102,380      cpu_core/LLC-load-misses/                                             
+     <not counted>      cpu_atom/cache-misses/                                                  (0.00%)
+     7,657,492,173      cpu_core/cache-misses/           #   50.41% of all cache refs         
+     <not counted>      cpu_atom/cache-references/                                              (0.00%)
+    15,189,628,145      cpu_core/cache-references/                                            
+
+     101.023081085 seconds time elapsed
+
+     270.497755000 seconds user
+       1.835894000 seconds sys
+
+
