@@ -1,0 +1,224 @@
+
+max number of threads = 1  max submit depth = -1
+
+deltaCoordinate = 4812323829697
+padCoordinate = 4611686018427417980
+beginCoordinate = -4611686018427357828
+endCoordinate = 4611681206103528130
+
+finished iteration 1
+finished iteration 2
+finished iteration 3
+finished iteration 4
+finished iteration 5
+finished iteration 6
+finished iteration 7
+finished iteration 8
+finished iteration 9
+finished iteration 10
+finished iteration 11
+finished iteration 12
+finished iteration 13
+finished iteration 14
+finished iteration 15
+finished iteration 16
+finished iteration 17
+finished iteration 18
+finished iteration 19
+finished iteration 20
+finished iteration 21
+finished iteration 22
+finished iteration 23
+finished iteration 24
+finished iteration 25
+finished iteration 26
+finished iteration 27
+finished iteration 28
+finished iteration 29
+finished iteration 30
+finished iteration 31
+finished iteration 32
+finished iteration 33
+finished iteration 34
+finished iteration 35
+finished iteration 36
+finished iteration 37
+finished iteration 38
+finished iteration 39
+finished iteration 40
+finished iteration 41
+finished iteration 42
+finished iteration 43
+finished iteration 44
+finished iteration 45
+finished iteration 46
+finished iteration 47
+finished iteration 48
+finished iteration 49
+finished iteration 50
+finished iteration 51
+finished iteration 52
+finished iteration 53
+finished iteration 54
+finished iteration 55
+finished iteration 56
+finished iteration 57
+finished iteration 58
+finished iteration 59
+finished iteration 60
+finished iteration 61
+finished iteration 62
+finished iteration 63
+finished iteration 64
+finished iteration 65
+finished iteration 66
+finished iteration 67
+finished iteration 68
+finished iteration 69
+finished iteration 70
+finished iteration 71
+finished iteration 72
+finished iteration 73
+finished iteration 74
+finished iteration 75
+finished iteration 76
+finished iteration 77
+finished iteration 78
+finished iteration 79
+finished iteration 80
+finished iteration 81
+finished iteration 82
+finished iteration 83
+finished iteration 84
+finished iteration 85
+finished iteration 86
+finished iteration 87
+finished iteration 88
+finished iteration 89
+finished iteration 90
+finished iteration 91
+finished iteration 92
+finished iteration 93
+finished iteration 94
+finished iteration 95
+finished iteration 96
+finished iteration 97
+finished iteration 98
+finished iteration 99
+finished iteration 100
+
+DYNAMIC TREE:
+
+number of nodes = 1916615  k-d tree height = 23
+
+insert time = 4.3308  std dev = 1.1125 seconds
+verify time = 0.0839  std dev = 0.0030 seconds
+search time = 2.0456  std dev = 0.1086 seconds
+delete time = 3.4638  std dev = 0.8397 seconds
+
+STATISTICS:
+
+insert balance time = 99.3725  std dev = 59.6596 seconds
+delete balance time = 25.9589  std dev = 11.7625 seconds
+delete find time = 4.0114  std dev = 2.2953 seconds
+delete recursion time = 0.4657  std dev = 0.2510 seconds
+
+insert balance count = 15432217  std dev = 8767209
+delete balance count = 45251719  std dev = 25937662
+delete find count = 29176605  std dev = 16671294
+
+net insert time = -95.0417  std dev = 59.5370 seconds
+net delete time = -26.9722  std dev = 14.3533 seconds
+
+insert count (for 100 iterations) = 191661500  erase count (for 100 iterations) = 191661500
+
+balance count histograms (average for 100 iterations):
+   insert histogram	   delete histogram	    sum of histograms
+
+	302701			869171			1171873
+	996			13051			14048
+	40			124			164
+	4			2			6
+	0			0			1
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+	0			0			0
+
+
+balance size histograms (average for 100 iterations):
+   insert histogram	   delete histogram	    sum of histograms
+
+	0			445654			445654
+	0			250637			250637
+	0			143645			143645
+	168843			12636			181479
+	49805			14097			63903
+	0			4391			4391
+	26323			3965			30288
+	21438			4586			26024
+	5975			3615			9591
+	673			2081			2754
+	2272			962			3234
+	5025			893			5919
+	5303			1099			6403
+	3657			1169			4826
+	1852			1046			2899
+	737			805			1542
+	367			553			920
+	489			348			838
+	775			224			1000
+	1030			181			1212
+	1152			192			1344
+	1120			234			1355
+	975			257			1232
+	767			267			1034
+	6270			2110			8381
+
+
+balance maximum and (count) vectors (cumulative for 100 iterations):
+   insert max vector	   delete max vector
+
+	1912695  (1)		1916366  (1)
+	1897649  (1)		1913869  (1)
+	1897501  (1)		1861284  (1)
+	1893706  (1)		1855244  (1)
+	1886518  (1)		1852506  (1)
+	1883910  (1)		1830579  (1)
+	1868041  (1)		1768391  (1)
+	1854045  (1)		1733250  (1)
+	1840120  (1)		957412  (1)
+	1830711  (1)		957274  (1)
+	1817648  (1)		927924  (1)
+	1803590  (1)		927862  (1)
+	1785662  (1)		926399  (1)
+	1753277  (1)		914055  (1)
+	1751605  (1)		883058  (1)
+	1745874  (1)		866233  (1)
+	1742106  (1)		478802  (1)
+	1709642  (1)		478621  (1)
+	1696229  (1)		464572  (1)
+	1692774  (1)		463338  (1)
+	1684901  (1)		462890  (1)
+	1675645  (1)		457224  (1)
+	1652347  (1)		440239  (1)
+	1614471  (1)		431474  (1)
+	1559519  (1)		239767  (1)
+
+
