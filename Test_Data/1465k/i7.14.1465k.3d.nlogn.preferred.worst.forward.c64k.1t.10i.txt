@@ -1,0 +1,34 @@
+
+max number of threads = 1  max submit depth = -1
+
+deltaCoordinate = 6297153891955
+padCoordinate = 4611686018427937310
+beginCoordinate = -4611686018426838498
+endCoordinate = 4611679721272946542
+
+finished iteration 1
+finished iteration 2
+finished iteration 3
+finished iteration 4
+finished iteration 5
+finished iteration 6
+finished iteration 7
+finished iteration 8
+finished iteration 9
+finished iteration 10
+
+DYNAMIC TREE:
+
+number of nodes = 1464689  k-d tree height = 33
+
+insert time = 1.3540  std dev = 0.2643 seconds
+verify time = 0.0227  std dev = 0.0019 seconds
+search time = 0.2329  std dev = 0.0216 seconds
+delete time = 2.7279  std dev = 0.4915 seconds
+
+STATIC TREE:
+
+number of nodes = 1464689  k-d tree height = 21
+
+create time = 1.1703  std dev = 0.0051 seconds
+
