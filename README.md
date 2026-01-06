@@ -14,7 +14,7 @@ The test_kdtreedynamic.cpp file and associated .h files (kdTreeDynamic.h, kdTree
 
 The test_kdtreedynamic.stats.cpp file and associated .h files kdTreeDynamic.stats.h, kdTree.h, kdTreeNode.h, KdTreeNlogn.h, kdTreeKnlogn.h, kdTreeHeapSort.h and KdTreeMergeSort.h) build and test a dynamic k-d tree and optionally collect various performance statistics, including histograms.
 
-The test_kdmapdynamic.cpp file and associated .h files (kdMapDynamic.h, kdMap.h, kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a dynamic k-d tree-based key-to-multiple-value map.
+The test_kdmapdynamic.cpp file and associated .h files (kdMapDynamic.h, kdMap.h, kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a dynamic k-d tree-based key-to-multiple-value map. There are two versions of these files: one version uses raw pointers and another version uses smart pointers.
 
 See the test_kdtreedynamic.cpp, test_kdtreedynamic.stats.cpp, and test_kdmapdynamic.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
 
