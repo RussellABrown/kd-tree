@@ -31,8 +31,6 @@ http://www.jcgt.org/published/0004/01/03/
 
 https://arxiv.org/abs/1410.5420
 
-https://arxiv.org/abs/2506.20687
-
 The Journal of Computer Graphics Techniques (JCGT) article contains a detailed description of an O[knlog(n)] k-d tree building algorithm and compares the performance of that algorithm to the performance of an O[nlog(n)] algorithm.
 
 In addition to the description of the O[knlog(n)] algorithm provided by the JCGT article, the first of the two arXiv articles includes an appendix that describes improvements to the O[knlog(n)] and O[nlog(n)] algorithms that were implemented following publication of those algorithms in the JCGT article.
