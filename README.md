@@ -37,7 +37,7 @@ In addition to the description of the O[knlog(n)] algorithm provided by the JCGT
 
 The second of the two arXiv articles is a review that contrasts the O[knlog(n)] and O[nlog(n)] algorithms to an algorithm proposed by Yu Cao et al. in the journal article, "A New Method to Construct the KD Tree Based on Presorted Results", Complexity Volume 2020, Article ID 8883945, https://doi.org/10.1155/2020/8883945
 
-All three of the above-listed arXiv articles include C++ implementations of the improvements that followed the publication of those algorithms in the JCGT article and are described as follows. Those same improvements are available at this Github web page.
+Both of the above-listed arXiv articles include C++ implementations of the improvements that followed the publication of those algorithms in the JCGT article and are described as follows. Those same improvements are available at this Github web page.
 
 The test_kdtree.cpp file and associated .h files (kdTree.h, kdTreeNode.h, kdTreeNlogn.h, kdTreeKnlogn.h, kdTreeYuCao.h, kdTreeHeapSort.h and kdTreeMergeSort.h) build and test a static k-d tree, which implements a set, via the O[knlog(n)], O[nlog(n)], or O[knlog(n)] + O[nlog(n)] algorithm.
 
