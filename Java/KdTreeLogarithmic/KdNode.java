@@ -95,7 +95,7 @@ public class KdNode {
         values.add(value);
         height = 1;
         avlTreeNode = null;  // Assign after insertion into the AVL tree
-        ltChild = gtChild = null;
+        ltChild = gtChild = prev = next = null;
 
         if (Constants.ENABLE_TUPLE_COPY) {
             final int numDimensions = key.length;
