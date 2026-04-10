@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2019, 2020, 2023, 2025 Russell A. Brown
+ * Copyright (c) 2015, 2019, 2020, 2023, 2025, 2026 Russell A. Brown
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -68,6 +68,9 @@
  * ENABLE_LINKED_LIST - If true, use the LinkedList version of region search
  *                      instead of the ArrayList version.
  * 
+ * ENABLE_TUPLE_COPY - If true, specifies that the tuple array is copied in
+ *                     the KdNode constructor.
+ *
  * 
  * Usage:
  *
@@ -232,21 +235,21 @@ public class TestKdTree {
             continue;
             }
             if (args[i].equals("-h") || args[i].equals("--help")) {
-                System.out.println("\nUsage:\n\n");
-                System.out.println("java TestKdTree [-n N] [-x X] [-d D] [-t T] [-c C] " +
+                System.out.println("\nUsage:\n");
+                System.out.println("java TestKdTree [-n N] [-x X] [-d D] [-t T] " +
                                    "[-g] [-m M] [-j] [-s S] [-p P] [-i] [-h]\n\n" +
-                                   "where the command-line options are interpreted as follows.\n\n");
-                System.out.println("-n The number N of randomly generated points used to build the k-d tree\n\n");
-                System.out.println("-x The number X of duplicate points added to to randomly generated points\n\n");
-                System.out.println("-d The number of dimensions D (aka k) of the k-d tree\n\n");
-                System.out.println("-t The number of threads T used to build and search the static k-d tree\n\n");
-                System.out.println("-g Find nearest neighbors to a query point\n\n");
-                System.out.println("-m The maximum number M of nearest neighbors to be found\n\n");
-                System.out.println("-j Perform a region search in a hypercube centered at a query point\n\n");
-                System.out.println("-s The search divisor S that modifies the size of the hypercube for region search\n\n");
-                System.out.println("-p The maximum number P of nodes to report when reporting region search results\n\n");
-                System.out.println("-i The number I of iterations of k-d tree creation\n\n");
-                System.out.println("-h List the command-line options\n\n");;
+                                   "where the command-line options are interpreted as follows.\n");
+                System.out.println("-n The number N of randomly generated points used to build the k-d tree\n");
+                System.out.println("-x The number X of duplicate points added to to randomly generated points\n");
+                System.out.println("-d The number of dimensions D (aka k) of the k-d tree\n");
+                System.out.println("-t The number of threads T used to build and search the static k-d tree\n");
+                System.out.println("-g Find nearest neighbors to a query point\n");
+                System.out.println("-m The maximum number M of nearest neighbors to be found\n");
+                System.out.println("-j Perform a region search in a hypercube centered at a query point\n");
+                System.out.println("-s The search divisor S that modifies the size of the hypercube for region search\n");
+                System.out.println("-p The maximum number P of nodes to report when reporting region search results\n");
+                System.out.println("-i The number I of iterations of k-d tree creation\n");
+                System.out.println("-h List the command-line options\n");
                 System.exit(0);
             }
             throw new RuntimeException("illegal command-line argument: " + args[i]);

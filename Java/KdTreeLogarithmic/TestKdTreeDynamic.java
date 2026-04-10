@@ -33,11 +33,15 @@
  * KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java and Constants.java
  *
  * Configuration is controlled via the following constants in Constants.java
+ * 
+ * ENABLE_LOGARITHMIC_TREES - If true, creates a dynamic k-d tree as a set of multiple,
+ *                            statically-built k-d trees of sizes that differ by powers
+ *                            of 2. If false, creates a single, dynamic k-d tree.
  *
  * NLOGN - If true, specifies the O[n log(n)] algorithm instead of the O[kn log(n)] algorithm.
  * 
  * ENABLE_PREFERRED_NODE - If true, compare the heights of a deleted 2-child node's
- *                          child subtrees to select a preferred replacement node.
+ *                         child subtrees to select a preferred replacement node.
  * 
  * ENABLE_1TO3 - If true, curtails recursive deletion when a subtree contains <= 3 nodes.
  * 
@@ -82,6 +86,9 @@
  * ENABLE_LINKED_LIST - If true, use the LinkedList version of region search
  *                      instead of the ArrayList version.
  * 
+ * ENABLE_TUPLE_COPY - If true, specifies that the tuple array is copied in
+ *                     the KdNode constructor and KdTreeDynamic.erase
+ *
  * 
  * Usage:
  *
@@ -274,25 +281,25 @@ public class TestKdTreeDynamic {
             continue;
             }
             if (args[i].equals("-h") || args[i].equals("--help")) {
-                System.out.println("\nUsage:\n\n");
-                System.out.println("java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-c C] " +
+                System.out.println("\nUsage:\n");
+                System.out.println("java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] " +
                                    "[-b] [-g] [-m M] [-j] [-s S] [-p P] [-v] [-f] [-r] [-i] [-h]\n\n" +
-                                   "where the command-line options are interpreted as follows.\n\n");
-                System.out.println("-n The number N of randomly generated points used to build the k-d tree\n\n");
-                System.out.println("-x The number X of duplicate points added to to randomly generated points\n\n");
-                System.out.println("-d The number of dimensions D (aka k) of the k-d tree\n\n");
-                System.out.println("-t The number of threads T used to build and search the static k-d tree\n\n");
-                System.out.println("-b Build a balanced, static k-d tree for comparison to the dynamic k-d tree\n\n");
-                System.out.println("-g Find nearest neighbors to a query point\n\n");
-                System.out.println("-m The maximum number M of nearest neighbors to be found\n\n");
-                System.out.println("-j Perform a region search in a hypercube centered at a query point\n\n");
-                System.out.println("-s The search divisor S that modifies the size of the hypercube for region search\n\n");
-                System.out.println("-p The maximum number P of nodes to report when reporting region search results\n\n");
-                System.out.println("-v Verify the k-d tree ordering and balance after insertion or erasure of each point\n\n");
-                System.out.println("-f Check for the next point after deleting each point (a cheap alternative to -v)\n\n");
-                System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n\n");
-                System.out.println("-i The number I of iterations of k-d tree creation\n\n");
-                System.out.println("-h List the command-line options\n\n");;
+                                   "where the command-line options are interpreted as follows.\n");
+                System.out.println("-n The number N of randomly generated points used to build the k-d tree\n");
+                System.out.println("-x The number X of duplicate points added to to randomly generated points\n");
+                System.out.println("-d The number of dimensions D (aka k) of the k-d tree\n");
+                System.out.println("-t The number of threads T used to build and search the static k-d tree\n");
+                System.out.println("-b Build a balanced, static k-d tree for comparison to the dynamic k-d tree\n");
+                System.out.println("-g Find nearest neighbors to a query point\n");
+                System.out.println("-m The maximum number M of nearest neighbors to be found\n");
+                System.out.println("-j Perform a region search in a hypercube centered at a query point\n");
+                System.out.println("-s The search divisor S that modifies the size of the hypercube for region search\n");
+                System.out.println("-p The maximum number P of nodes to report when reporting region search results\n");
+                System.out.println("-v Verify the k-d tree ordering and balance after insertion or erasure of each point\n");
+                System.out.println("-f Check for the next point after deleting each point (a cheap alternative to -v)\n");
+                System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n");
+                System.out.println("-i The number I of iterations of k-d tree creation\n");
+                System.out.println("-h List the command-line options\n");
                 System.exit(0);
             }
             throw new RuntimeException("illegal command-line argument: " + args[i]);
@@ -535,7 +542,8 @@ public class TestKdTreeDynamic {
 
             // Erase each coordinate from the dynamic k-d tree, and reverse
             // the order of the coordinates if reverse is true.
-            // this test_kdmapdynamic.cpp program, so don't reshuffle.
+            // Don't reshuffle the coordinates so that the effect
+            // of in-order and reverse-order erasure can be observed.
             long eTime = System.currentTimeMillis();
             if (reverse) {
                 for (int i = coordinates.length - 1; i >= 0; --i) {

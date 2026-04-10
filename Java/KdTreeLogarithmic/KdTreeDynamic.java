@@ -371,11 +371,15 @@ public class KdTreeDynamic extends KdTree {
                             // one-child node, swap the values set of that predecessor
                             // node with the values set of the one-child node (whose
                             // values set is currently empty), delete the predecessor
-                            // node recursively, and recompute the height along the path
-                            // back to the < child, including the < child.
+                            // node recursively, and recompute the heights along the
+                            // path back to and including the < child.
                             KdNode predecessor = nodePtr.ltChild;
                             predecessor = findPredecessor(nodePtr.ltChild, predecessor, p, p+1);
-                            System.arraycopy(predecessor.tuple, 0, nodePtr.tuple, 0, dim);
+                            if (Constants.ENABLE_TUPLE_COPY) {
+                                System.arraycopy(predecessor.tuple, 0, nodePtr.tuple, 0, dim);
+                            } else {
+                                nodePtr.tuple = predecessor.tuple;
+                            }
                             nodePtr.avlTreeNode = predecessor.avlTreeNode;
                             final TreeSet<String> tmp = predecessor.values;
                             predecessor.values = nodePtr.values;
@@ -439,11 +443,15 @@ public class KdTreeDynamic extends KdTree {
                             // one-child node, swap the values set of that successor
                             // node with the values set of the one-child node (whose
                             // values set is currently empty), delete the successor
-                            // node recursively, and recompute the height along the path
-                            // back to the > child, including the > child.
+                            // node recursively, and recompute the heights along the
+                            // path back to and including the > child.
                             KdNode successor = nodePtr.gtChild;
                             successor = findSuccessor(nodePtr.gtChild, successor, p, p+1);
-                            System.arraycopy(successor.tuple, 0, nodePtr.tuple, 0, dim);
+                            if (Constants.ENABLE_TUPLE_COPY) {
+                                System.arraycopy(successor.tuple, 0, nodePtr.tuple, 0, dim);
+                            } else {
+                                nodePtr.tuple = successor.tuple;
+                            }
                             nodePtr.avlTreeNode = successor.avlTreeNode;
                             final TreeSet<String> tmp = successor.values;
                             successor.values = nodePtr.values;
@@ -523,12 +531,15 @@ public class KdTreeDynamic extends KdTree {
                                 // node with the values set of the two-child node (whose
                                 // values set is currently empty), delete the predecessor
                                 // node recursively, and recompute the heights along the
-                                // path from the predecessor node to (but excluding) the
-                                // two-child node.
+                                // path back to and including the < child.
                                 KdNode predecessor = nodePtr.ltChild;
                                 predecessor = findPredecessor(nodePtr.ltChild, predecessor, p, p+1);
-                                System.arraycopy(predecessor.tuple, 0, nodePtr.tuple, 0, dim);
-                                nodePtr.avlTreeNode = predecessor.avlTreeNode;
+                                if (Constants.ENABLE_TUPLE_COPY) {
+                                    System.arraycopy(predecessor.tuple, 0, nodePtr.tuple, 0, dim);
+                                } else {
+                                    nodePtr.tuple = predecessor.tuple;
+                                }
+                                    nodePtr.avlTreeNode = predecessor.avlTreeNode;
                                 final TreeSet<String> tmp = predecessor.values;
                                 predecessor.values = nodePtr.values;
                                 nodePtr.values = tmp;
@@ -560,11 +571,14 @@ public class KdTreeDynamic extends KdTree {
                                 // node with the values set of the two-child node (whose
                                 // values set is currently empty), delete the successor
                                 // node recursively, and recompute the heights along the
-                                // path from the successor node to (but excluding) the
-                                // two-child node.
+                                // path back to and including the > child.
                                 KdNode successor = nodePtr.gtChild;
                                 successor = findSuccessor(nodePtr.gtChild, successor, p, p+1);
-                                System.arraycopy(successor.tuple, 0, nodePtr.tuple, 0, dim);
+                                if (Constants.ENABLE_TUPLE_COPY) {
+                                    System.arraycopy(successor.tuple, 0, nodePtr.tuple, 0, dim);
+                                } else {
+                                    nodePtr.tuple = successor.tuple;
+                                }
                                 nodePtr.avlTreeNode = successor.avlTreeNode;
                                 final TreeSet<String> tmp = successor.values;
                                 successor.values = nodePtr.values;

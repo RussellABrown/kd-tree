@@ -45,8 +45,7 @@ import java.util.TreeSet;
  * <p>
  * The {@code KdNode} class stores a k-dimensional tuple, a reference
  * to a TreeSet, the height from the node to the bottom of the k-d tree,
- * an index into the KdTreeLogarithmic.kdTrees array, and references to
- * its "less than" and "greater than" sub-trees.
+ * and references to an AvlNode and its "less than" and "greater than" sub-trees.
  * </p>
  */
 public class KdNode {
@@ -54,7 +53,6 @@ public class KdNode {
     protected long[] tuple;
     protected TreeSet<String> values;
     protected int height;
-    protected short treeIndex;
     protected AvlNode avlTreeNode;
     protected KdNode ltChild, gtChild;
 
@@ -67,14 +65,19 @@ public class KdNode {
      */
     public KdNode(final Pair coordinate)
     {
-        final int numDimensions = coordinate.getKey().length;
-        tuple = new long[numDimensions];
-        System.arraycopy(coordinate.getKey(), 0, tuple, 0, numDimensions);
         values = new TreeSet<String>();
         values.add(coordinate.getValue());
         height = 1;
         avlTreeNode = null;  // Assign after insertion into the AVL tree
         ltChild = gtChild = null;
+
+        if (Constants.ENABLE_TUPLE_COPY) {
+            final int numDimensions = coordinate.getKey().length;
+            tuple = new long[numDimensions];
+            System.arraycopy(coordinate.getKey(), 0, tuple, 0, numDimensions);
+        } else {
+            tuple = coordinate.getKey();
+        }
     }
 
     /**
@@ -88,14 +91,19 @@ public class KdNode {
     public KdNode(final long[] key,
                   final String value)
     {
-        final int numDimensions = key.length;
-        tuple = new long[numDimensions];
-        System.arraycopy(key, 0, tuple, 0, numDimensions);
         values = new TreeSet<String>();
         values.add(value);
         height = 1;
         avlTreeNode = null;  // Assign after insertion into the AVL tree
         ltChild = gtChild = null;
+
+        if (Constants.ENABLE_TUPLE_COPY) {
+            final int numDimensions = key.length;
+            tuple = new long[numDimensions];
+            System.arraycopy(key, 0, tuple, 0, numDimensions);
+        } else {
+            tuple = key;
+        }
     }
 
 /**

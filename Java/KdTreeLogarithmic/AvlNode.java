@@ -54,7 +54,7 @@ public class AvlNode {
     protected long[] tuple;
     private short bal;
     protected short kdTreeIndex;
-    private int height; // a pathological tree may be 2^31-1 deep
+    protected int height; // a pathological tree may be 2^31-1 deep
     protected KdNode kdTreeNode;
     protected AvlNode left, right;
 
@@ -151,7 +151,7 @@ public class AvlNode {
                 p.left = p.left.insert( key, value, tree );
             } else {
                 p.left = tree.insertedNode = new AvlNode( key );
-                tree.changed = true;
+                tree.inserted = tree.changed = true;
             }
             if ( tree.changed == true ) {
                 switch ( p.bal ) {                  // Left branch has grown higher
@@ -194,7 +194,7 @@ public class AvlNode {
                         break;
                     default:
                         {
-                            throw new RuntimeException("\n" + "bal = " + p.bal + " is out of range in AvlNode.insert right\n");
+                            throw new RuntimeException("\n\n" + "bal = " + p.bal + " is out of range in AvlNode.insert right\n");
                         }
                 }
             }
@@ -203,7 +203,7 @@ public class AvlNode {
                 p.right = p.right.insert( key, value, tree );
             } else {
                 p.right = tree.insertedNode = new AvlNode( key );
-                tree.changed = true;
+                tree.inserted = tree.changed = true;
             }
             if ( tree.changed == true ) {           // Right branch has grown higher
                 switch ( p.bal ) {
@@ -246,7 +246,7 @@ public class AvlNode {
                         break;
                     default:
                         {
-                            throw new RuntimeException("\n" + "bal = " + p.bal + " is out of range in AvlNode.insert left\n");
+                            throw new RuntimeException("\n\n" + "bal = " + p.bal + " is out of range in AvlNode.insert left\n");
                         }
                 }
             }
@@ -254,11 +254,13 @@ public class AvlNode {
             if (p.kdTreeNode != null) {
                 p.kdTreeNode.values.add(value);
                 tree.insertedNode = null;
+                tree.inserted = true; // A value has been inserted into the TreeSet
+                tree.changed = false; // A new AvlNode was not inserted, so the height hasn't changed
             } else {
-                throw new RuntimeException("\nkdTreeNode reference is null in AvlNode.insert\n");
+                throw new RuntimeException("\n\nkdTreeNode reference is null in AvlNode.insert\n");
             }
-            tree.changed = false; // A new AvlNode was not inserted, so the height hasn't changed
         }
+
         return p; // The root of the rebalanced sub-tree
     }
 
@@ -323,7 +325,7 @@ public class AvlNode {
                 break;
             default:
                 {
-                    throw new RuntimeException("\n" + "bal = " + p.bal + " is out of range in AvlNode.balanceLeft\n");
+                    throw new RuntimeException("\n\n" + "bal = " + p.bal + " is out of range in AvlNode.balanceLeft\n");
                 }
         }
         return p; // The root of the rebalanced sub-tree
@@ -390,7 +392,7 @@ public class AvlNode {
                 break;
             default:
                 {
-                    throw new RuntimeException("\n" + "bal = " + p.bal + " is out of range in AvlNode.balanceRight\n");
+                    throw new RuntimeException("\n\n" + "bal = " + p.bal + " is out of range in AvlNode.balanceRight\n");
                 }
         }
         return p; // The root of the rebalanced sub-tree
@@ -574,7 +576,7 @@ public class AvlNode {
                             break;
                         default:
                             {
-                                throw new RuntimeException("\n" + "bal = " + p.bal +
+                                throw new RuntimeException("\n\n" + "bal = " + p.bal +
                                                            " is out of range in AvlNode.erase\n");
                             }
                     }
@@ -594,63 +596,35 @@ public class AvlNode {
      */
     protected int verifyAvlTree()
     {
-        // Compute the maximum height at each AvlNode.
-        computeHeights();
-
-        // Verify correct height and sorted order at each AvlNode.
-        return verifyAvlNodes();
-    }
-
-    /**
-     * <p>
-     * The {@code verifyAvlNodes} method counts each {@code AvlNode},
-     * and checks the balance and sorted order at that {@code AvlNode}.
-     * 
-     * NOTE: the super-key does not permute cyclically because an AVL tree is unidimensional.
-     * 
-     * @return the number of nodes in the AvlTree
-     * </p>
-     */
-    private int verifyAvlNodes()
-    {
-        // Count this node and check its balance.
+        // Count this node.
         int count = 1;
-        if (bal != right.height - left.height) {
-            throw new RuntimeException("\nbal = " + bal + "  right.height = " + right.height +
-                                       "  left.height = " + left.height + "\n");
-        }
 
+        // Test this node's order against its left child and descend the left branch.
         if (left != null) {
             if ( MergeSort.superKeyCompare(left.tuple, tuple, 0) >= 0) {
                 throw new RuntimeException("\nleft >= this\n");
             }
-            count += left.verifyAvlNodes();
+            count += left.verifyAvlTree();
         }
 
+        // Test this node's order against its right child, and descend the right branch.
         if (right != null) {
             if ( MergeSort.superKeyCompare(right.tuple, tuple, 0) <= 0) {
-                throw new RuntimeException("\nright <= this\n");
+                throw new RuntimeException("\n\nright <= this\n");
             }
-            count += right.verifyAvlNodes();
+            count += right.verifyAvlTree();
         }
+
+        // Check this node's balance.
+        if ( bal != getHeight(right) - getHeight(left) ) {
+            throw new RuntimeException("\n\nbal = " + bal + "  right.height = " + right.height +
+                                       "  left.height = " + left.height + "\n");
+        }
+
+        // Compute this node's height.
+        height = computeHeight();
 
         return count;
-    }
-
-     /**
-     * <p>
-     * The {@code computeHeights} method computes the maximum height at each (@code AvlNode}.
-     * </p>
-     */
-   private void computeHeights()
-    {
-        if (left != null) {
-            left.computeHeights();
-        }
-        if (right != null) {
-            right.computeHeights();
-        }
-        height = computeHeight();
     }
     
     /**

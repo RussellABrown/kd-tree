@@ -51,7 +51,7 @@ import java.util.TreeSet;
  */
 public class AvlTree {
     
-    protected boolean erased, changed; // erased and height changed
+    protected boolean inserted, erased, changed; // "changed" means height changed
     protected long nodeCount;
     protected long lle, lre, rle, rre, lli, lri, rli, rri; // rotation counters
     protected AvlNode root, insertedNode, removedNode;
@@ -63,7 +63,7 @@ public class AvlTree {
      */
     public AvlTree()
     {
-        erased = changed = false;
+        inserted = erased = changed = false;
         lle = lre = rle = rre = lli = lri = rli = rri = nodeCount = 0L;
         root = insertedNode = removedNode = null;
     }
@@ -81,6 +81,24 @@ public class AvlTree {
     {
         if (root != null) {
             return root.contains(key);
+        } else {
+            return false;
+        }
+    }
+
+   /**
+     * <p>
+     * The {@code contains} method searches the AVL tree for the existence
+     * of a super-key and returns true if the AVL tree contains it.
+     * 
+     * @param coordinate - a {@code Pair}<{@code long}[],{@code String}>
+     * @return {@code true} if the tree contains the key; otherwise, {@code false}
+     * </p>
+     */
+    protected boolean contains(final Pair coordinate)
+    {
+        if (root != null) {
+            return root.contains( coordinate.getKey() );
         } else {
             return false;
         }
@@ -135,7 +153,7 @@ public class AvlTree {
     protected boolean insert(final long[] key,
                              final String value)
     {
-        changed = false;
+        inserted = changed = false;
         insertedNode = null;
         if (root != null) {
             root = root.insert(key, value, this);
@@ -144,9 +162,10 @@ public class AvlTree {
             }
         } else {
             root = insertedNode = new AvlNode(key);
+            inserted = true;
             ++nodeCount;
         }
-        return (insertedNode != null);
+        return inserted;
     }
 
     /**
@@ -210,6 +229,46 @@ public class AvlTree {
     {
         if (root != null) {
             return root.verifyAvlTree();
+        } else {
+            return 0;
+        }
+    }
+
+    /**
+     * <p>
+     * The {@code size} method returns the size of the {@code AvlTree}.
+     * 
+     * @return the tree size
+     * </p>
+     */
+    protected long size()
+    {
+        return nodeCount;
+    }
+
+    /**
+     * <p>
+     * The {@code size} method returns the size of the {@code AvlTree}.
+     * 
+     * @return the tree size
+     * </p>
+     */
+    protected boolean isEmpty()
+    {
+        return (size() == 0);
+    }
+
+    /**
+     * <p>
+     * The {@code getHeight} method returns the maximum height of the {@code AvlTree}.
+     * 
+     * @return the height at the root {@code AvlNode}
+     * </p>
+     */
+    protected int getHeight()
+    {
+        if (root != null) {
+            return root.height;
         } else {
             return 0;
         }
