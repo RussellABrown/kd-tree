@@ -80,29 +80,33 @@ public class AvlNode {
     /**
      * <p>
      * The {@code contains} method searches the AVL tree for the existence
-     * of a super-key and returns true if the AVL tree contains it.
+     * of a (key, value) pair and returns true if the AVL tree contains it.
      * 
      * @param key - a {@code long}[]
+     * @param value - a {@code String}
      * @return {@code true} if the tree contains the key; otherwise, {@code false}
      * </p>
      */
-    protected boolean contains(final long[] key)
+    protected boolean contains(final long[] key,
+                               final String value)
     {
-        return ( find(key) != null );
+        return ( find(key, value) != null );
     }
 
     /**
      * <p>
      * The {@code find} method searches the AVL tree iteratively for the existence of
-     * a super-key, and returns a reference to the AvlNode instance that contains it.
+     * a (key, value) pair, and returns a reference to the AvlNode instance that contains it.
      * 
-     * NOTE: the super-key does not permute cyclically because an AVL tree is unidimensional.
+     * NOTE: the super-key does not permute cyclically because an AVL tree is one-dimensional.
      * 
      * @param key - a {@code long}[]
+     * @param value a {@code String}
      * @return a {@code AvlNode} reference if the tree contains the key; otherwise, {@code null}
      * </p>
      */
-    protected AvlNode find(final long[] key)
+    protected AvlNode find(final long[] key,
+                           final String value)
     {
         AvlNode p = this;
         
@@ -112,7 +116,12 @@ public class AvlNode {
             } else if ( MergeSort.superKeyCompare(key, p.tuple, 0) > 0 ) {
                 p = p.right; // Follow the right branch
             } else {
-                return p; // Found the key, so return the AvlNode reference
+                // Found the key, so check for the value.
+                if (p.kdTreeNode != null && p.kdTreeNode.values.contains(value)) {
+                    return p;
+                } else {
+                    return null;
+                }
             }
         }
         return null; // Didn't find the key, so return null
@@ -132,7 +141,7 @@ public class AvlNode {
      * of Nicklaus Wirth's textbook, "Algorithms + Data Structures = Programs"
      * (Prentice-Hall, 1976).
      * 
-     * NOTE: the super-key does not permute cyclically because an AVL tree is unidimensional.
+     * NOTE: the super-key does not permute cyclically because an AVL tree is one-dimensional.
      * 
      * @param key - a {@code long}[]
      * @param value - a {@code String}
@@ -510,7 +519,7 @@ public class AvlNode {
      * Nicklaus Wirth's textbook, "Algorithms + Data Structures = Programs"
      * (Prentice-Hall, 1976).
      * 
-     * NOTE: the super-key does not permute cyclically because an AVL tree is unidimensional.
+     * NOTE: the super-key does not permute cyclically because an AVL tree is one-dimensional.
      * 
      * @param key - a {@code long}[]
      * @param value - a {@code String}
@@ -602,7 +611,7 @@ public class AvlNode {
         // Test this node's order against its left child and descend the left branch.
         if (left != null) {
             if ( MergeSort.superKeyCompare(left.tuple, tuple, 0) >= 0) {
-                throw new RuntimeException("\nleft >= this\n");
+                throw new RuntimeException("\n\nleft >= this\n");
             }
             count += left.verifyAvlTree();
         }

@@ -51,8 +51,8 @@ import java.util.TreeSet;
  */
 public class AvlTree {
     
+    private long nodeCount;
     protected boolean inserted, erased, changed; // "changed" means height changed
-    protected long nodeCount;
     protected long lle, lre, rle, rre, lli, lri, rli, rri; // rotation counters
     protected AvlNode root, insertedNode, removedNode;
 
@@ -68,28 +68,10 @@ public class AvlTree {
         root = insertedNode = removedNode = null;
     }
 
-    /**
-     * <p>
-     * The {@code contains} method searches the AVL tree for the existence
-     * of a super-key and returns true if the AVL tree contains it.
-     * 
-     * @param key - a {@code long}[]
-     * @return {@code true} if the tree contains the key; otherwise, {@code false}
-     * </p>
-     */
-    protected boolean contains(final long[] key)
-    {
-        if (root != null) {
-            return root.contains(key);
-        } else {
-            return false;
-        }
-    }
-
    /**
      * <p>
      * The {@code contains} method searches the AVL tree for the existence
-     * of a super-key and returns true if the AVL tree contains it.
+     * of a (key, value) pair, and returns true if the AVL tree contains it.
      * 
      * @param coordinate - a {@code Pair}<{@code long}[],{@code String}>
      * @return {@code true} if the tree contains the key; otherwise, {@code false}
@@ -98,7 +80,7 @@ public class AvlTree {
     protected boolean contains(final Pair coordinate)
     {
         if (root != null) {
-            return root.contains( coordinate.getKey() );
+            return root.contains( coordinate.getKey(), coordinate.getValue() );
         } else {
             return false;
         }
@@ -107,16 +89,16 @@ public class AvlTree {
     /**
      * <p>
      * The {@code find} method searches the AVL tree for the existence
-     * of a super-key and returns the AvlNode instance that contains it.
+     * of a (key, value) pair, and returns the AvlNode instance that contains it.
      * 
-     * @param key - a {@code long}[]
+     * @param coordinate - a {@code Pair}<{@code long}[],{@code String}>
      * @return {@code AvlNode} reference if the tree contains the key; otherwise, {@code null}
      * </p>
      */
-    protected AvlNode find(final long[] key)
+    protected AvlNode find(final Pair coordinate)
     {
         if (root != null) {
-            return root.find(key);
+            return root.find( coordinate.getKey(), coordinate.getValue() );
         } else {
             return null;
         }

@@ -324,9 +324,7 @@ public class KdTreeKnlogn
             // Only one reference was passed to this method,
             // so store that reference at this level of the tree.
             node = reference[end];
-            if (Constants.KD_MAP_DYNAMIC) {
-                node.height = 1;
-            }
+            node.height = 1;
 
         }
         else if (end == start + 1)
@@ -335,10 +333,8 @@ public class KdTreeKnlogn
             // element at this level of the tree and store the end element as the > child. 
             node = reference[start];
             node.gtChild = reference[end];
-            if (Constants.KD_MAP_DYNAMIC){
-                node.gtChild.height = 1;
-                node.height = 2;
-            }            
+            node.gtChild.height = 1;
+            node.height = 2;
         }
         else if (end == start + 2)
         {
@@ -348,10 +344,8 @@ public class KdTreeKnlogn
             node = reference[start + 1];
             node.ltChild = reference[start];
             node.gtChild = reference[end];
-            if (Constants.KD_MAP_DYNAMIC){
-                node.ltChild.height = node.gtChild.height = 1;
-                node.height = 2;
-            }
+            node.ltChild.height = node.gtChild.height = 1;
+            node.height = 2;
             
         }
         else if (end > start + 2)
@@ -525,10 +519,8 @@ public class KdTreeKnlogn
                 }
             }
 
-            if (Constants.KD_MAP_DYNAMIC) {
-                // Compute the height at this node as the recursion unwinds.
-                node.height = KdTreeDynamic.computeHeight(node);
-            }
+            // Compute the height at this node as the recursion unwinds.
+            node.height = KdTreeDynamic.computeHeight(node);
 
         } else 	if (end < start) {
             

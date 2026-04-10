@@ -54,7 +54,7 @@ public class KdNode {
     protected TreeSet<String> values;
     protected int height;
     protected AvlNode avlTreeNode;
-    protected KdNode ltChild, gtChild;
+    protected KdNode ltChild, gtChild, prev, next;
 
     /**
      * <p>
@@ -69,7 +69,7 @@ public class KdNode {
         values.add(coordinate.getValue());
         height = 1;
         avlTreeNode = null;  // Assign after insertion into the AVL tree
-        ltChild = gtChild = null;
+        ltChild = gtChild = prev = next = null;
 
         if (Constants.ENABLE_TUPLE_COPY) {
             final int numDimensions = coordinate.getKey().length;

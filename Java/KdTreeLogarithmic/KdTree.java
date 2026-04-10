@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2019, 2020, 2023, 2025 Russell A. Brown
+ * Copyright (c) 2015, 2019, 2020, 2023, 2025, 2026 Russell A. Brown
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -47,7 +47,8 @@ import java.util.TreeSet;
  */
 public class KdTree {
     
-    protected KdNode root = null;
+    private long listNodeCount = 0L;
+    protected KdNode root = null, head = null, tail = null;
     protected int numDimensions = 3;
     protected ExecutorService executor = null;
     protected int maxSubmitDepth = -1;
@@ -59,11 +60,6 @@ public class KdTree {
                   this.numDimensions = numDimensions;
                   this.executor = executor;
                   this.maxSubmitDepth = maxSubmitDepth;
-    }
-
-    protected int getTreeHeight()
-    {
-        return KdTreeDynamic.getHeight(root);
     }
 
     /**
@@ -129,6 +125,128 @@ public class KdTree {
         return tree;
     }
     
+    /**
+     * <p>
+     * The {@code add} method prepends a {@code KdNode} to the doubly linked list.
+     * 
+     * @param node - the {@code KdNode} to prepend
+     * @return the length of the updated list
+     * </p>
+     */
+    protected long add(KdNode node)
+    {
+        if (head == null) {
+            // Add a node to an empty list.
+            head = tail = node;
+            node.prev = node.next = null;
+        } else {
+            // Prepend a subsequent node to the list.
+            node.prev = null;
+            node.next = head.next;
+            if (node.next == null) {
+                tail = node;
+            } else {
+                node.next.prev = node;
+            }
+            head = node;
+        }
+        return ++listNodeCount;
+    }
+
+    /**
+     * <p>
+     * The {@code addList} method appends a doubly linked list from one {@code KdTree}
+     * to the doubly linked list of this {@code KdTree}.
+     * 
+     * @param tree - the {@code KdTree} whose list is appended
+     * @return the length of the updated list
+     * </p>
+     */
+    protected long addList(final KdTree tree)
+    {
+        if (head == null && tree.head == null) {
+            // Both lists are empty.
+            return 0L;
+        } else if (head == null) {
+            // This tree's list is empty.
+            head = tree.head;
+            tail = tree.tail;
+            listNodeCount = tree.getListSize();
+            return listNodeCount;
+        } else if (tree.head == null) {
+            // The other tree's list is empty.
+            return listNodeCount;
+        } else {
+            // Neither list is empty. Consider setting the other tree's head and tail
+            // to null and setting the other tree's listNodeCount to zero; however,
+            // the other tree will typically be destroyed anyway after this addList
+            // method has finished appending its list.
+            tail.next = tree.head;
+            tail.next.prev = tail;
+            tail = tree.tail;
+            return ( listNodeCount + tree.getListSize() );
+        }
+    }
+
+    /**
+     * <p>
+     * The {@code remove} method removes a {@code KdNode} from the doubly linked list.
+     * 
+     * @param node - the {@code KdNode} to prepend
+     * @return the length of the updated list
+     * </p>
+     */
+    protected long remove(KdNode node)
+    {
+        if (node.prev == null) {
+            // Remove the first node from the list.
+            head = node.next;
+        } else {
+            // Remove any other node from the list.
+            node.prev.next = node.next;
+        }
+        if (node.next == null) {
+            // Remove the last node from the list.
+            tail = node.prev;
+        } else {
+            // Remove any other node from the list.
+            node.next.prev = node.prev;
+        }
+        return --listNodeCount;
+    }
+
+    /**
+     * <p>
+     * The {@code getListSize} method returns the length of the doubly linked list.
+     * 
+     * @return the length of the list
+     * </p>
+     */
+    protected long getListSize()
+    {
+        if (head == null) {
+            return 0L;
+        } else {
+            return listNodeCount;
+        }
+    }
+
+    /**
+     * <p>
+     * The {@code getTreeHeight} method returns the height at the root of the {@code KdTree}.
+     * 
+     * @return the height of the tree
+     * </p>
+     */
+    protected int getTreeHeight()
+    {
+        if (root == null) {
+            return 0;
+        } else {
+            return root.height;
+        }
+    }
+
     /**
      * <p>
      * The {@code verifyKdTree} method checks that the children of each node of the k-d tree

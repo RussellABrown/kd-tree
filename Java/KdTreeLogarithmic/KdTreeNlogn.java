@@ -233,136 +233,126 @@ public class KdTreeNlogn
 
             // Only one reference was passed to this method, so store it at this level of the tree.
             node = reference[start];
-            if (Constants.KD_MAP_DYNAMIC) {
-                node.height = 1;
-            }
+            node.height = 1;
 
         } else if (end == start + 1) {
                 
-        // Two references were passed to this method in unsorted order, so store the
-        // start reference at this level of the tree and determine whether to store the
-        // end reference as the < child or the > child.
-        node = reference[start];
-        if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-            node.gtChild = reference[end];
-            if (Constants.KD_MAP_DYNAMIC) {
+            // Two references were passed to this method in unsorted order, so store the
+            // start reference at this level of the tree and determine whether to store the
+            // end reference as the < child or the > child.
+            node = reference[start];
+            if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
+                node.gtChild = reference[end];
                 node.height = 2;
                 node.gtChild.height = 1;
-            }
-        } else {
-            node.ltChild = reference[end];
-            if (Constants.KD_MAP_DYNAMIC) {
+            } else {
+                node.ltChild = reference[end];
                 node.height = 2;
                 node.ltChild.height = 1;
             }
-        }
-                
+
         } else if (end == start + 2) {
                 
-        // Three references were passed to this method in unsorted order, so compare
-        // the three references to determine which reference is the median reference.
-        // Store the median reference at this level of the tree, store the smallest
-        // reference as the < child and store the largest reference as the > child.
-        int mid = start + 1;
-        if (MergeSort.superKeyCompare(reference[start].tuple, reference[mid].tuple, p) < 0L) {
-            // reference[start] < reference[mid]
-            if (MergeSort.superKeyCompare(reference[mid].tuple, reference[end].tuple, p) < 0L) {
-            // reference[start] < reference[mid] < reference[end]
-            node = reference[mid];
-            node.ltChild = reference[start];
-            node.gtChild = reference[end];
-            } else {
-                // reference[start] < reference[mid]; reference[end] < reference[mid]
-                if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-                    // reference[start] < reference[end] < reference[mid]
-                    node = reference[end];
-                    node.ltChild = reference[start];
-                    node.gtChild = reference[mid];
-                } else {
-                    // reference[end] < reference[start] < reference[mid]
-                    node = reference[start];
-                    node.ltChild = reference[end];
-                    node.gtChild = reference[mid];
-                }
-            }
-        } else {
-            // reference[mid] < reference[start]
-            if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-            // reference[mid] < reference[start] < reference[end]
-            node = reference[start];
-            node.ltChild = reference[mid];
-            node.gtChild = reference[end];
-            } else {
-                // reference[mid] < reference[start]; reference[end] < reference[start]
+            // Three references were passed to this method in unsorted order, so compare
+            // the three references to determine which reference is the median reference.
+            // Store the median reference at this level of the tree, store the smallest
+            // reference as the < child and store the largest reference as the > child.
+            int mid = start + 1;
+            if (MergeSort.superKeyCompare(reference[start].tuple, reference[mid].tuple, p) < 0L) {
+                // reference[start] < reference[mid]
                 if (MergeSort.superKeyCompare(reference[mid].tuple, reference[end].tuple, p) < 0L) {
-                    // reference[mid] < reference[end] < reference[start]
-                    node = reference[end];
-                    node.ltChild = reference[mid];
-                    node.gtChild = reference[start];
-                } else { 
-                    // reference[end] < reference[mid] < reference[start]
-                    node = reference[mid];
-                    node.ltChild = reference[end];
-                    node.gtChild = reference[start];
+                // reference[start] < reference[mid] < reference[end]
+                node = reference[mid];
+                node.ltChild = reference[start];
+                node.gtChild = reference[end];
+                } else {
+                    // reference[start] < reference[mid]; reference[end] < reference[mid]
+                    if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
+                        // reference[start] < reference[end] < reference[mid]
+                        node = reference[end];
+                        node.ltChild = reference[start];
+                        node.gtChild = reference[mid];
+                    } else {
+                        // reference[end] < reference[start] < reference[mid]
+                        node = reference[start];
+                        node.ltChild = reference[end];
+                        node.gtChild = reference[mid];
+                    }
+                }
+            } else {
+                // reference[mid] < reference[start]
+                if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
+                // reference[mid] < reference[start] < reference[end]
+                node = reference[start];
+                node.ltChild = reference[mid];
+                node.gtChild = reference[end];
+                } else {
+                    // reference[mid] < reference[start]; reference[end] < reference[start]
+                    if (MergeSort.superKeyCompare(reference[mid].tuple, reference[end].tuple, p) < 0L) {
+                        // reference[mid] < reference[end] < reference[start]
+                        node = reference[end];
+                        node.ltChild = reference[mid];
+                        node.gtChild = reference[start];
+                    } else { 
+                        // reference[end] < reference[mid] < reference[start]
+                        node = reference[mid];
+                        node.ltChild = reference[end];
+                        node.gtChild = reference[start];
+                    }
                 }
             }
-        }
-        if (Constants.KD_MAP_DYNAMIC) {
             node.height = 2;
             node.ltChild.height = 1;
             node.gtChild.height = 1;
-        }
                 
         } else if (end > start + 2) {
                 
-        // Four or more references were passed to this method, so partition the reference
-        // array about its median element, which is the kth element as calculated below.
-        // Store the median element from the reference array in a new k-d node.
-        final int n = end - start + 1;
-        final int k = (n + 1) >> 1;
-        final int median = partition(reference, start, n, k, temporary, start, p);
-        node = reference[median];
+            // Four or more references were passed to this method, so partition the reference
+            // array about its median element, which is the kth element as calculated below.
+            // Store the median element from the reference array in a new k-d node.
+            final int n = end - start + 1;
+            final int k = (n + 1) >> 1;
+            final int median = partition(reference, start, n, k, temporary, start, p);
+            node = reference[median];
 
-        // Build the < branch with a child thread at as many levels of the tree as possible.
-        // Create the child threads as high in the tree as possible for greater utilization.
-        //
-        // Is a child thread available to build the < branch, and are there 
-        // sufficient KdNode instances to justify spawning a child thread?
-        if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
-            || end - start < Constants.NLOGN_CUTOFF)
-        {
-            // No, so recursively build the < branch of the tree with the current thread.
-            node.ltChild = buildKdTreeNlogn(reference, temporary, permutation, start, median - 1,
-                                            executor, maximumSubmitDepth, depth + 1);
+            // Build the < branch with a child thread at as many levels of the tree as possible.
+            // Create the child threads as high in the tree as possible for greater utilization.
+            //
+            // Is a child thread available to build the < branch, and are there 
+            // sufficient KdNode instances to justify spawning a child thread?
+            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth
+                || end - start < Constants.NLOGN_CUTOFF)
+            {
+                // No, so recursively build the < branch of the tree with the current thread.
+                node.ltChild = buildKdTreeNlogn(reference, temporary, permutation, start, median - 1,
+                                                executor, maximumSubmitDepth, depth + 1);
 
-            // Then recursively build the > branch of the tree with the current thread.
-            node.gtChild = buildKdTreeNlogn(reference, temporary, permutation, median + 1, end,
-                                            executor, maximumSubmitDepth, depth + 1);
-                    
-        }
-        else
-        {
-            // Yes, a child thread is available, so recursively build the < branch with a child thread.
-            Future<KdNode> future =
-                        executor.submit( buildKdTreeNlognWithThread(reference, temporary, permutation,
-                                                                    start, median - 1, executor,
-                                                                    maximumSubmitDepth, depth + 1) );
-                    
-            // And simultaneously, recursively build the > branch of the tree with the current thread.
-            node.gtChild = buildKdTreeNlogn(reference, temporary, permutation, median + 1, end,
-                                            executor, maximumSubmitDepth, depth + 1);
-                    
-            // Then get the result of building the < branch with the child thread.
-            try {
-                node.ltChild = future.get();
-            } catch (Exception e) {
-                throw new RuntimeException( "future exception: " + e.getMessage() );
+                // Then recursively build the > branch of the tree with the current thread.
+                node.gtChild = buildKdTreeNlogn(reference, temporary, permutation, median + 1, end,
+                                                executor, maximumSubmitDepth, depth + 1);
+                        
             }
-        }
-        if (Constants.KD_MAP_DYNAMIC) {
+            else
+            {
+                // Yes, a child thread is available, so recursively build the < branch with a child thread.
+                Future<KdNode> future =
+                            executor.submit( buildKdTreeNlognWithThread(reference, temporary, permutation,
+                                                                        start, median - 1, executor,
+                                                                        maximumSubmitDepth, depth + 1) );
+                        
+                // And simultaneously, recursively build the > branch of the tree with the current thread.
+                node.gtChild = buildKdTreeNlogn(reference, temporary, permutation, median + 1, end,
+                                                executor, maximumSubmitDepth, depth + 1);
+                        
+                // Then get the result of building the < branch with the child thread.
+                try {
+                    node.ltChild = future.get();
+                } catch (Exception e) {
+                    throw new RuntimeException( "future exception: " + e.getMessage() );
+                }
+            }
             // Compute the height at this node as the recursion unwinds.
             node.height = KdTreeDynamic.computeHeight(node);
-        }
                 
         } else 	if (end < start) {
                 
@@ -445,92 +435,84 @@ public class KdTreeNlogn
             
         if (end == start) {
 
-        // Only one reference was passed to this method, so store it at this level of the tree.
-        node = reference[start];
-        if (Constants.KD_MAP_DYNAMIC) {
+            // Only one reference was passed to this method, so store it at this level of the tree.
+            node = reference[start];
             node.height = 1;
-        }
 
         } else if (end == start + 1) {
                 
-        // Two references were passed to this method in sorted order, so store the start
-        // element at this level of the tree and store the end element as the > child. 
-        node = reference[start];
-        node.gtChild = reference[end];
-        if (Constants.KD_MAP_DYNAMIC) {
+            // Two references were passed to this method in sorted order, so store the start
+            // element at this level of the tree and store the end element as the > child. 
+            node = reference[start];
+            node.gtChild = reference[end];
             node.height = 2;
             node.gtChild.height = 1;
-        }
                 
         } else if (end == start + 2) {
                 
-        // Three references were passed to this method in sorted order, so
-        // store the median element at this level of the tree, store the start
-        // element as the < child and store the end element as the > child.
-        node = reference[start + 1];
-        node.ltChild = reference[start];
-        node.gtChild = reference[end];
-        if (Constants.KD_MAP_DYNAMIC) {
+            // Three references were passed to this method in sorted order, so
+            // store the median element at this level of the tree, store the start
+            // element as the < child and store the end element as the > child.
+            node = reference[start + 1];
+            node.ltChild = reference[start];
+            node.gtChild = reference[end];
             node.height = 2;
             node.ltChild.height = 1;
             node.gtChild.height = 1;
-        }
-                
+            
         } else if (end > start + 2) {
                 
-        // Four or more references were passed to this method, so use the median element of
-        // the pre-sorted reference array to partition the reference array.
-        final int n = end - start + 1;
-        final int median = (n + 1) >> 1;
-        node = reference[median];
+            // Four or more references were passed to this method, so use the median element of
+            // the pre-sorted reference array to partition the reference array.
+            final int n = end - start + 1;
+            final int median = (n + 1) >> 1;
+            node = reference[median];
 
-        // Build the < branch with a child thread at as many levels of the tree as possible.
-        // Create the child threads as high in the tree as possible for greater utilization.
+            // Build the < branch with a child thread at as many levels of the tree as possible.
+            // Create the child threads as high in the tree as possible for greater utilization.
 
-        // Is a child thread available to build the < branch?
-        if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
+            // Is a child thread available to build the < branch?
+            if (maximumSubmitDepth < 0 || depth > maximumSubmitDepth) {
 
-            // No, so recursively build the < branch of the tree with the current thread.
-            node.ltChild = buildKdTreeNlogn(reference, temporary, permutation, start, median - 1,
-                                            executor, maximumSubmitDepth, depth + 1);
+                // No, so recursively build the < branch of the tree with the current thread.
+                node.ltChild = buildKdTreeNlogn(reference, temporary, permutation, start, median - 1,
+                                                executor, maximumSubmitDepth, depth + 1);
 
-            // Then recursively build the > branch of the tree with the current thread.
-            node.gtChild = buildKdTreeNlogn(reference, temporary, permutation, median + 1, end,
-                                            executor, maximumSubmitDepth, depth + 1);
-                    
-        } else {
-                    
-            // Yes, a child thread is available, so recursively build the < branch with a child thread.
-            final Future<KdNode> future =
-                        executor.submit( buildKdTreeNlognWithThread(reference, temporary, permutation,
-                                                                    start, median - 1, executor,
-                                                                    maximumSubmitDepth, depth + 1) );
-                    
-            // And simultaneously, recursively build the > branch of the tree with the current thread.
-            node.gtChild = buildKdTreeNlogn(reference, temporary, permutation, median + 1, end,
-                                            executor, maximumSubmitDepth, depth + 1);
-                    
-            // Then get the result of building the < branch with the child thread.
-            try {
-                node.ltChild = future.get();
-            } catch (Exception e) {
-                throw new RuntimeException( "future exception: " + e.getMessage() );
+                // Then recursively build the > branch of the tree with the current thread.
+                node.gtChild = buildKdTreeNlogn(reference, temporary, permutation, median + 1, end,
+                                                executor, maximumSubmitDepth, depth + 1);
+                        
+            } else {
+                        
+                // Yes, a child thread is available, so recursively build the < branch with a child thread.
+                final Future<KdNode> future =
+                            executor.submit( buildKdTreeNlognWithThread(reference, temporary, permutation,
+                                                                        start, median - 1, executor,
+                                                                        maximumSubmitDepth, depth + 1) );
+                        
+                // And simultaneously, recursively build the > branch of the tree with the current thread.
+                node.gtChild = buildKdTreeNlogn(reference, temporary, permutation, median + 1, end,
+                                                executor, maximumSubmitDepth, depth + 1);
+                        
+                // Then get the result of building the < branch with the child thread.
+                try {
+                    node.ltChild = future.get();
+                } catch (Exception e) {
+                    throw new RuntimeException( "future exception: " + e.getMessage() );
+                }
             }
-        }
-        if (Constants.KD_MAP_DYNAMIC) {
             // Compute the height at this node as the recursion unwinds.
             node.height = KdTreeDynamic.computeHeight(node);
-        }
                  
         } else 	if (end < start) {
                 
-        // This is an illegal condition that should never occur, so test for it last.
-        throw new RuntimeException("end < start");
+            // This is an illegal condition that should never occur, so test for it last.
+            throw new RuntimeException("end < start");
                 
         } else {
                 
-        // This final else block is added to keep the Java compiler from complaining.
-        throw new RuntimeException("unknown configuration of  start and end");
+            // This final else block is added to keep the Java compiler from complaining.
+            throw new RuntimeException("unknown configuration of  start and end");
         }
             
         return node;

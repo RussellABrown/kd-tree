@@ -59,8 +59,6 @@ public class Constants {
 
     public static final boolean NLOGN = true;
 
-    public static final boolean KD_MAP_DYNAMIC = true;
-
     public static final boolean ENABLE_1TO3 = true;
 
     public static final boolean ENABLE_PREFERRED_NODE = true;

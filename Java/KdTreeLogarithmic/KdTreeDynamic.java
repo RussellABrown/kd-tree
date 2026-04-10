@@ -45,6 +45,7 @@ import java.util.TreeSet;
  */
 public class KdTreeDynamic extends KdTree {
 
+    private long nodeCount;
     private boolean inserted, erased, changed;
     protected long[] powersOf2, insertionHistogram, deletionHistogram;
     protected KdNode insertedNode, deletedNode;
@@ -56,6 +57,7 @@ public class KdTreeDynamic extends KdTree {
     {
         super(numDimensions, executor, maxSubmitDepth);
 
+        nodeCount = 0L;
         inserted = erased = changed = false;
         insertedNode = deletedNode = null;
 
@@ -79,6 +81,7 @@ public class KdTreeDynamic extends KdTree {
         super(numDimensions, executor, maxSubmitDepth);
         root = tree.root;
 
+        nodeCount = 0L;
         inserted = erased = changed = false;
         insertedNode = deletedNode = null;
 
@@ -97,9 +100,28 @@ public class KdTreeDynamic extends KdTree {
         }
     }
 
+    /**
+     * <p>
+     * The {@code size} method returns the size of the {@code KdTreeDynamic}.
+     * 
+     * @return the tree size
+     * </p>
+     */
+    protected long size()
+    {
+        return nodeCount;
+    }
+
+    /**
+     * <p>
+     * The {@code isEmpty} checks for an empty {@code KdTreeDynamic}.
+     * 
+     * @return {@code true} if the tree is empty; otherwise {@code false}.
+     * </p>
+     */
     protected boolean isEmpty()
     {
-        return (root == null);
+        return (size() == 0);
     }
 
     /**
@@ -116,6 +138,9 @@ public class KdTreeDynamic extends KdTree {
         insertedNode = null;
         if (root != null) {
             root = insert(root, coordinate.getKey(), coordinate.getValue(), insertionHistogram, 0);
+            if (insertedNode != null) {
+                ++nodeCount;
+            }
 
             // Has the height changed due to an insertion?
             if (changed) {
@@ -132,7 +157,9 @@ public class KdTreeDynamic extends KdTree {
         } else {
             root = insertedNode = new KdNode(coordinate);
             inserted = changed = true;
+            ++nodeCount;
         }
+
         return inserted;
     }
 
@@ -224,6 +251,9 @@ public class KdTreeDynamic extends KdTree {
         deletedNode = null;
         if (root != null) {
             root = erase(root, coordinate.getKey(), coordinate.getValue(), deletionHistogram, 0);
+            if (deletedNode != null) {
+                --nodeCount;
+            }
 
             // Has the height changed due to an erasure?
             if (root != null && changed) {

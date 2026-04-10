@@ -39,7 +39,7 @@
  * 
  * Usage:
  *
- * "java TestAvlTree [-n N] [-x X] [-d D] [-v] [-f] [-r] [-i] [-h]
+ * "java TestAvlTree [-n N] [-x X] [-d D] [-v] [-f] [-c] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -51,7 +51,9 @@
  *
  * -v Verify a correct k-d tree after each insertion or erasure (default off)
  * 
- * -f Search for the tuple and the next tuple after erasure of each tuple (default off)
+ * -f Search for the next tuple after erasure of each tuple (default off)
+ * 
+ * -c Search for all remaining tuples after erasure of each tuple (default off)
  * 
  * -r Reverse the order of coordinates for erasure relative to insertion (default off)
  *
@@ -143,6 +145,7 @@ public class TestAvlTree {
         int numDimensions = 3;
         boolean verify = false;
         boolean find = false;
+        boolean check = false;
         boolean reverse = false;
 		
         for (int i = 0; i < args.length; i++) {
@@ -163,16 +166,20 @@ public class TestAvlTree {
                 continue;
             }
             if (args[i].equals("-v") || args[i].equals("--verify")) {
-            verify = !verify;
-            continue;
+                verify = !verify;
+                continue;
             }
             if (args[i].equals("-f") || args[i].equals("--find")) {
-            find = !find;
-            continue;
+                find = !find;
+                continue;
+            }
+            if (args[i].equals("-c") || args[i].equals("--check")) {
+                check = !check;
+                continue;
             }
             if (args[i].equals("-r") || args[i].equals("--reverse")) {
-            find = !find;
-            continue;
+                find = !find;
+                continue;
             }
             if (args[i].equals("-h") || args[i].equals("--help")) {
                 System.out.println("\nUsage:\n");
@@ -183,6 +190,7 @@ public class TestAvlTree {
                 System.out.println("-d The number of dimensions D (aka k) of the k-d tree\n");
                 System.out.println("-v Verify the k-d tree ordering and balance after insertion or erasure of each point\n");
                 System.out.println("-f Check for the next point after deleting each point (a cheap alternative to -v)\n");
+                System.out.println("-c Check for all remaining points after deleting each point (an expensive alternative to -v)\n");
                 System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n");
                 System.out.println("-i The number I of iterations of k-d tree creation\n");
                 System.out.println("-h List the command-line options\n");
@@ -277,7 +285,7 @@ public class TestAvlTree {
             long iTime = System.currentTimeMillis();
             for (int i = 0; i < coordinates.length; ++i) {
                 if (tree.insert(coordinates[i])) {
-                    // Create a KdNode that contains a TreeSet.
+                    // Create a KdNode that contains a TreeSet for each AvlNode inserted.
                     if (tree.insertedNode != null) {
                         final KdNode kdTreeNode = new KdNode(coordinates[i]);
                         tree.insertedNode.kdTreeNode = kdTreeNode;
@@ -294,24 +302,40 @@ public class TestAvlTree {
             iTime = System.currentTimeMillis() - iTime;
             insertTime[k] += (double) iTime / Constants.MILLISECONDS_TO_SECONDS;
 
+            // Verify that the correct number of AvlNodes were inserted.
+            if (tree.size() + extraPoints != coordinates.length) {
+                throw new RuntimeException("\n\nnumber of coordinates = " + coordinates.length + "  !=  " +
+                                           "number of inserted nodes + extra points = " + (tree.size() + extraPoints) + "\n");
+            }
+
             // Verify correct order of each node in the k-d tree and count the nodes.
             long vTime = System.currentTimeMillis();
             numberOfNodes = tree.verifyAvlTree();
             vTime = System.currentTimeMillis() - vTime;
             verifyTime[k] += (double) vTime / Constants.MILLISECONDS_TO_SECONDS;
 
+            // Verify that the correct number of tuples were inserted.
             if (numberOfNodes + extraPoints != coordinates.length) {
                 throw new RuntimeException("\n\nnumber of coordinates = " + coordinates.length + "  !=  " +
-                                           "number of nodes + extra points = " + (numberOfNodes + extraPoints) + "\n");
-            } else {
-                treeHeight = tree.getHeight();
+                                           "number of counted nodes + extra points = " + (numberOfNodes + extraPoints) + "\n");
             }
+
+            // Record the maximum tree height
+            treeHeight = tree.getHeight();
 
             // Search for each coordinate in the AVL tree. 
             long sTime = System.currentTimeMillis();
-            for (int i = 0; i < coordinates.length; ++i) {
-                if (!tree.contains(coordinates[i])) {
-                    throw new RuntimeException("\n\nfailed to find tuple " + i + "\n");
+            if (reverse) {
+                for (int i = coordinates.length - 1; i >= 0; --i) {
+                    if (!tree.contains(coordinates[i])) {
+                        throw new RuntimeException("\n\nfailed to find tuple " + i + "\n");
+                    }
+                }
+            } else {
+                for (int i = 0; i < coordinates.length; ++i) {
+                    if (!tree.contains(coordinates[i])) {
+                        throw new RuntimeException("\n\nfailed to find tuple " + i + "\n");
+                    }
                 }
             }
             sTime = System.currentTimeMillis() - sTime;
@@ -319,57 +343,59 @@ public class TestAvlTree {
 
             // Erase each coordinate from the AVL tree, and reverse
             // the order of the coordinates if reverse is true.
-            // Don't reshuffle the coordinates so that the effect
-            // of in-order and reverse-order erasure can be observed.
             long eTime = System.currentTimeMillis();
             if (reverse) {
-                for (int i = coordinates.length - 1; i >= 0; --i) {
+                for (int i = coordinates.length-1; i >= 0; --i) {
                     if (tree.erase(coordinates[i])) {
                         // Verify the AVL tree after each erasure if requested.
-                        if (verify)
-                        {
+                        if (verify) {
                             tree.verifyAvlTree();
                         }
-                        // A search for a tuple after erasing it should fail. But note that erasure could
-                        // remove a value from the TreeSet instead of removing the tuple from the AVL tree.
-                        if (find && tree.contains(coordinates[i]) &&
-                              tree.find(coordinates[i].getKey()).kdTreeNode.values.contains(coordinates[i].getValue())
-                           )
-                        {
-                            throw new RuntimeException("\n\nfound tuple after erasing tuple " + i + "\n");
+                         // A search for a (key, value) pair after erasing it should fail.
+                        if (find && tree.contains(coordinates[i])) {
+                            throw new RuntimeException("\n\nfound pair " + i + " after erasing it\n");
                         }
-                        // A search for the prior tuple after erasing a tuple should succeed.
-                        if (find && i > 0 && !tree.contains(coordinates[i-1]))
-                        {
-                            throw new RuntimeException("\n\nfailed to find prior tuple after erasing tuple " + i + "\n");
+                        // A search for the prior (key, value) pair after erasing a (key, value) pair should succeed.
+                        if (find && i > 0 && !tree.contains(coordinates[i-1])) {
+                            throw new RuntimeException("\n\nfailed to find prior pair " + (i-1) + " after erasing pair " + i + "\n");
+                        }
+                        // A search for all prior (key value) pairs after erasing a (key, value) pair should succeed.
+                        if (check && i > 0) {
+                            for (int j = i-1; j >= 0; --j) {
+                                if (!tree.contains(coordinates[j])) {
+                                    throw new RuntimeException("\n\nfailed to find prior pair " + j + " after erasing pair " + i + "\n");
+                                }
+                            }
                         }
                     } else {
-                        throw new RuntimeException("\n\nfailed to erase tuple " + i + "\n");
+                        throw new RuntimeException("\n\nfailed to erase tuple " + i + " from AVL tree\n");
                     }
                 }
             } else {
                 for (int i = 0; i < coordinates.length; ++i) {
                     if (tree.erase(coordinates[i])) {
                         // Verify the AVL tree after each erasure if requested.
-                        if (verify)
-                        {
+                        if (verify) {
                             tree.verifyAvlTree();
                         }
-                        // A search for a tuple after erasing it should fail. But note that erasure could
-                        // remove a value from the TreeSet instead of removing the tuple from the AVL tree.
-                        if (find && tree.contains(coordinates[i]) &&
-                              tree.find(coordinates[i].getKey()).kdTreeNode.values.contains(coordinates[i].getValue())
-                           )
-                        {
-                            throw new RuntimeException("\n\nfound tuple after erasing tuple " + i + "\n");
+                        // A search for a (key, value) pair after erasing it should fail.
+                        if (find && tree.contains(coordinates[i])) {
+                            throw new RuntimeException("\n\nfound pair " + i + " after erasing it\n");
                         }
-                        // A search for the next tuple after erasing a tuple should succeed.
-                        if (find && i < coordinates.length-1 && !tree.contains(coordinates[i+1]))
-                        {
-                            throw new RuntimeException("\n\nfailed to find next tuple after erasing tuple " + i + "\n");
+                        // A search for the next (key, value) pair after erasing a (key, value) pair should succeed.
+                        if (find && i < coordinates.length-1 && !tree.contains(coordinates[i+1])) {
+                            throw new RuntimeException("\n\nfailed to find next pair " + (i+1) + " after erasing pair " + i + "\n");
+                        }
+                        // A search for all following (key, value) pairs after erasing a (key, value) pair should succeed.
+                        if (check && i < coordinates.length-1) {
+                            for (int j = i+1; j < coordinates.length; ++j) {
+                                if (!tree.contains(coordinates[j])) {
+                                    throw new RuntimeException("\n\nfailed to find following pair " + j + " after erasing pair " + i + "\n");
+                                }
+                            }
                         }
                     } else {
-                        throw new RuntimeException("\n\nfailed to erase tuple " + i + " in dynamic tree\n");
+                        throw new RuntimeException("\n\nfailed to erase tuple " + i + " from AVL tree\n");
                     }
                 }
             }
@@ -383,7 +409,7 @@ public class TestAvlTree {
             System.out.println("finished iteration " + (k + 1));
         }
 
-        // Report AVLtree statistics.
+        // Report AVL tree statistics.
         System.out.println("\nnumber of nodes = " + numberOfNodes + "  k-d tree height = " +
                            treeHeight + "\n");
 
@@ -403,10 +429,12 @@ public class TestAvlTree {
 
         // Report the rotation counters.
         System.out.println("\ninsert\tLL = " + (tree.lli/iterations) + "\tLR = " + (tree.lri/iterations) +
-                           "\tRL = " + (tree.rli/iterations) + "\tRR = " + (tree.rri/iterations));
+                           "\tRL = " + (tree.rli/iterations) + "\tRR = " + (tree.rri/iterations) +
+                           "\ttotal single = " + ((tree.lli + tree.lri + tree.rli + tree.rri)/iterations));
         System.out.println("delete\tLL = " + (tree.lle/iterations) + "\tLR = " + (tree.lre/iterations) +
-                           "\tRL = " + (tree.rle/iterations) + "\tRR = " + (tree.rre/iterations));
+                           "\tRL = " + (tree.rle/iterations) + "\tRR = " + (tree.rre/iterations) +
+                           "\ttotal single = " + ((tree.lle + tree.lre + tree.rle + tree.rre)/iterations));
     
         System.out.println();
     }
-} // class TestKdTreeDynamic
+} // class TestAvlTree
