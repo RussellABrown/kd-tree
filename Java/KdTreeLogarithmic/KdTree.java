@@ -82,13 +82,20 @@ public class KdTree {
                                          final int maximumSubmitDepth,
                                          final int p)
     {
+        // Do not use mutiple threads to build the subtree, even
+        // though multiple threads are available, unless the size of the
+        // subtree is sufficiently large to justify spawning child threads.
+        int maxSubmitDepth = maximumSubmitDepth;
+        if (kdNodes.length < Constants.MULTI_THREAD_CUTOFF) {
+            maxSubmitDepth = -1;
+        }
+
+        // Use the k-d tree-building algorithm specified by Constants.NLOGN
         KdTree tree;
         if (Constants.NLOGN) {
-            tree = KdTreeNlogn.createKdTreeNlogn(kdNodes, executor,
-                                                 maximumSubmitDepth, p);
+            tree = KdTreeNlogn.createKdTreeNlogn(kdNodes, executor, maxSubmitDepth, p);
         } else {
-            tree = KdTreeKnlogn.createKdTreeKnlogn(kdNodes, executor,
-                                                   maximumSubmitDepth, p);
+            tree = KdTreeKnlogn.createKdTreeKnlogn(kdNodes, executor, maxSubmitDepth, p);
         }
         return tree;
     }

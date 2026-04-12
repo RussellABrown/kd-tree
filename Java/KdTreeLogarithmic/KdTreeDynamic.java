@@ -835,16 +835,7 @@ public class KdTreeDynamic extends KdTree {
             // call KdTree.createKdTree to rebuild the subtree,
             // which recycles the nodes and hence invalidates
             // the node argument to this rebuildSubTree function.
-            //
-            // Do not use mutiple threads to build the subtree, even
-            // though multiple threads are available, unless the size of the
-            // subtree is sufficiently large to justify spawning child threads.
-            KdTree tree;
-            if (count < Constants.MULTI_THREAD_CUTOFF) {
-                tree = KdTree.createKdTree(kdNodes, executor, -1, p);
-            } else {
-                tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
-            }
+            KdTree tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
 
             // Increment the histogram element.
             if (Constants.ENABLE_HISTOGRAMS) {
