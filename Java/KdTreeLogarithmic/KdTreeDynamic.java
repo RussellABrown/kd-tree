@@ -139,6 +139,8 @@ public class KdTreeDynamic extends KdTree {
         if (root != null) {
             root = insert(root, coordinate.getKey(), coordinate.getValue(), insertionHistogram, 0);
             if (insertedNode != null) {
+                // A node was inserted into the tree, so count it and add it to the doubly linked list.
+                add(insertedNode);
                 ++nodeCount;
             }
 
@@ -155,7 +157,9 @@ public class KdTreeDynamic extends KdTree {
                 }
             }
         } else {
+            // Insert the root, count it as an inserted node, and add it to the doubly linked list.
             root = insertedNode = new KdNode(coordinate);
+            add(insertedNode);
             inserted = changed = true;
             ++nodeCount;
         }
@@ -195,7 +199,7 @@ public class KdTreeDynamic extends KdTree {
                 nodePtr.ltChild = insert(nodePtr.ltChild, key, value, histogram, p+1);
             } else {
                 // The tree does not contain the key, so create a KdNode instance
-                // to insert the key, and record the reference to that instance.
+                // to insert the pair, and record the reference to that instance.
                 nodePtr.ltChild = insertedNode = new KdNode(key, value);
                 // The value was inserted and the tree height changed.
                 inserted = changed = true;
@@ -205,7 +209,7 @@ public class KdTreeDynamic extends KdTree {
                 nodePtr.gtChild = insert(nodePtr.gtChild, key, value, histogram, p+1);
             } else {
                 // The tree does not contain the key, so create a KdNode instance
-                // to insert the key, and record the reference to that instance.
+                // to insert the pair, and record the reference to that instance.
                 nodePtr.gtChild = insertedNode = new KdNode(key, value);
                 // The value was inserted and the tree height changed.
                 inserted = changed = true;
@@ -252,6 +256,8 @@ public class KdTreeDynamic extends KdTree {
         if (root != null) {
             root = erase(root, coordinate.getKey(), coordinate.getValue(), deletionHistogram, 0);
             if (deletedNode != null) {
+                // A node was deleted, so count it and remove it from the doubly linked list.
+                remove(deletedNode);
                 --nodeCount;
             }
 

@@ -75,6 +75,10 @@ public class Constants {
 
     public static final boolean ENABLE_TUPLE_COPY = false;
 
+    public static final boolean ENABLE_LIST_PREPEND = true;
+
+    public static final boolean ENABLE_LIST_PREPEND_ALL = true;
+
     public static final int MAX_POWER_OF_2 = 31; // Max array size = 2^31-1
 
 } // class Constants

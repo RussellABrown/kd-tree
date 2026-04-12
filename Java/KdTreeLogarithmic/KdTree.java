@@ -47,11 +47,11 @@ import java.util.TreeSet;
  */
 public class KdTree {
     
-    private long listNodeCount = 0L;
-    protected KdNode root = null, head = null, tail = null;
-    protected int numDimensions = 3;
-    protected ExecutorService executor = null;
-    protected int maxSubmitDepth = -1;
+    private long listNodeCount;
+    protected KdNode root, head, tail;
+    protected int numDimensions;
+    protected ExecutorService executor;
+    protected int maxSubmitDepth;
 
     public KdTree(final int numDimensions,
                   final ExecutorService executor,
@@ -60,6 +60,9 @@ public class KdTree {
                   this.numDimensions = numDimensions;
                   this.executor = executor;
                   this.maxSubmitDepth = maxSubmitDepth;
+
+                  listNodeCount = 0L;
+                  root = head = tail = null;
     }
 
     /**
@@ -127,69 +130,6 @@ public class KdTree {
     
     /**
      * <p>
-     * The {@code add} method prepends a {@code KdNode} to the doubly linked list.
-     * 
-     * @param node - the {@code KdNode} to prepend
-     * @return the length of the updated list
-     * </p>
-     */
-    protected long add(KdNode node)
-    {
-        if (head == null) {
-            // Add a node to an empty list.
-            head = tail = node;
-            node.prev = node.next = null;
-        } else {
-            // Prepend a subsequent node to the list.
-            node.prev = null;
-            node.next = head.next;
-            if (node.next == null) {
-                tail = node;
-            } else {
-                node.next.prev = node;
-            }
-            head = node;
-        }
-        return ++listNodeCount;
-    }
-
-    /**
-     * <p>
-     * The {@code addList} method appends a doubly linked list from one {@code KdTree}
-     * to the doubly linked list of this {@code KdTree}.
-     * 
-     * @param tree - the {@code KdTree} whose list is appended
-     * @return the length of the updated list
-     * </p>
-     */
-    protected long addList(final KdTree tree)
-    {
-        if (head == null && tree.head == null) {
-            // Both lists are empty.
-            return 0L;
-        } else if (head == null) {
-            // This tree's list is empty.
-            head = tree.head;
-            tail = tree.tail;
-            listNodeCount = tree.getListSize();
-            return listNodeCount;
-        } else if (tree.head == null) {
-            // The other tree's list is empty.
-            return listNodeCount;
-        } else {
-            // Neither list is empty. Consider setting the other tree's head and tail
-            // to null and setting the other tree's listNodeCount to zero; however,
-            // the other tree will typically be destroyed anyway after this addList
-            // method has finished appending its list.
-            tail.next = tree.head;
-            tail.next.prev = tail;
-            tail = tree.tail;
-            return ( listNodeCount + tree.getListSize() );
-        }
-    }
-
-    /**
-     * <p>
      * The {@code remove} method removes a {@code KdNode} from the doubly linked list.
      * 
      * @param node - the {@code KdNode} to prepend
@@ -198,6 +138,9 @@ public class KdTree {
      */
     protected long remove(KdNode node)
     {
+        if (node == null) {
+            System.out.println("\n\nnull node in KdTree.remove\n");
+        }
         if (node.prev == null) {
             // Remove the first node from the list.
             head = node.next;
@@ -217,18 +160,156 @@ public class KdTree {
 
     /**
      * <p>
-     * The {@code getListSize} method returns the length of the doubly linked list.
+     * The {@code add} method prepends appends a {@code KdNode}
+     * to the doubly linked list.
+     * 
+     * @param node - the {@code KdNode} to add
+     * @return the length of the updated list
+     * </p>
+     */
+    protected long add(KdNode node)
+    {
+        if (node == null) {
+        System.out.println("\n\nnull node in KdTree.add\n");
+        }
+        if (head == null) {
+            // Add the node to an empty list.
+            head = tail = node;
+            node.prev = node.next = null;
+        } else {
+            if(Constants.ENABLE_LIST_PREPEND) {
+                // Prepend the node to a non-empty list.
+                node.prev = null;
+                node.next = head;
+                head.prev = node;
+                head = node;
+            } else {
+                // Append the node to a non-empty list.
+                node.next = null;
+                node.prev = tail;
+                tail.next = node;
+                tail = node;
+            }
+        }
+        return ++listNodeCount;
+     }
+
+    /**
+     * <p>
+     * The {@code addList} method appends or prepends a doubly linked list from
+     * a source {@code KdTree} to the doubly linked list of this {@code KdTree}.
+     * 
+     * @param tree - the source {@code KdTree}
+     * @return the length of the updated list
+     * </p>
+     */
+    protected long addList(final KdTree tree)
+    {
+        if (head == null && (tree == null || (tree != null && tree.head == null))) {
+            // Both lists are empty.
+            return 0L;
+        } else if (head == null) {
+            // This tree's list is empty.
+            head = tree.head;
+            tail = tree.tail;
+            listNodeCount = tree.listSize();
+            return listNodeCount;
+        } else if (tree == null || (tree != null && tree.head == null)) {
+            // The source tree's list is empty.
+            return listNodeCount;
+        } else {
+            // Neither list is empty.
+            if (Constants.ENABLE_LIST_PREPEND_ALL) {
+                // Prepend the source linked list.
+                tree.tail.next = head;
+                head.prev = tree.tail;
+                tree.tail = tail;
+            } else {
+                // Append the source linked list.
+                tail.next = tree.head;
+                tree.head.prev = tail;
+                tail = tree.tail;
+            }
+            return ( listNodeCount + tree.listSize() );
+        }
+    }
+
+    /**
+     * <p>
+     * The {@code listSize} method returns the length of the {@code KdNode} list.
      * 
      * @return the length of the list
      * </p>
      */
-    protected long getListSize()
+    protected long listSize()
     {
         if (head == null) {
             return 0L;
+        }
+        return listNodeCount;
+    }
+
+    /**
+     * <p>
+     * The {@code setList} method sets this {@code KdTree}'s {@code KdNode} list
+     * by copying the relevant fields from a source {@code KdTree}.
+     * 
+     * @param tree - the source {@code KdTree}
+     * @return the length of the {@code KdNode} list
+     * </p>
+     */
+    protected long setList(final KdTree tree)
+    {
+        if (tree == null) {
+            return 0L;
         } else {
+            head = tree.head;
+            tail = tree.tail;
+            listNodeCount = tree.listNodeCount;
             return listNodeCount;
         }
+    }
+    /**
+     * <p>
+     * The {@code verifyList} method checks the integrity of the {@code KdNode} list.
+     * 
+     * @return the length of the list
+     * </p>
+     */
+    protected long verifyList()
+    {
+        if (head == null) {
+            return 0L;
+        }
+
+        // Count the number of KdNodes in the forward direction.
+        long headCount = 0L;
+        KdNode node = head;
+        while (node != null) {
+            ++headCount;
+            node = node.next;
+        }
+
+        // Count the number of KdNodes in the reverse direction.
+       long tailCount = 0L;
+        node = tail;
+        while (node != null) {
+            ++tailCount;
+            node = node.prev;
+        }
+
+        // Compare the counts.
+        if (headCount != listNodeCount) {
+            throw new RuntimeException("\n\nhead count = " + headCount +
+                                       "  != node count = " + listNodeCount + "\n");
+        }
+
+        if (tailCount != listNodeCount) {
+            throw new RuntimeException("\n\ntail count = " + tailCount +
+                                       "  != node count = " + listNodeCount + "\n");
+        }
+
+        return listNodeCount;
     }
 
     /**
@@ -242,9 +323,8 @@ public class KdTree {
     {
         if (root == null) {
             return 0;
-        } else {
-            return root.height;
         }
+        return root.height;
     }
 
     /**
@@ -261,9 +341,8 @@ public class KdTree {
     {
         if (root == null) {
             return 0;
-        } else {
-            return root.verifyKdTree(permutation, executor, maxSubmitDepth, 0);
         }
+        return root.verifyKdTree(permutation, executor, maxSubmitDepth, 0);
     }
 
     /**
@@ -278,9 +357,8 @@ public class KdTree {
     {
         if (root == null) {
             return 0;
-        } else {
-            return root.verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, 0);
         }
+        return root.verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, 0);
     }
 
     /**

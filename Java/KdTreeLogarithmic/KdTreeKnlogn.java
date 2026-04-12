@@ -172,17 +172,21 @@ public class KdTreeKnlogn
                                                double[] kT,
                                                double[] vT)
     {
-        // Allocate the references arrays including one additional array.
         long initTime = System.currentTimeMillis();
         final int numPoints = coordinates.length;
         final int numDimensions = coordinates[0].getKey().length;
+
+        // Create the references arrays including one additional array.
         final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
 
-        // Allocate KdNodes instances for the first references array.
-        // Copy references from the KdNode instances of the kdNodes array.
-        // These pointers will be re-ordered by the MergeSort methods.
+        // Create a KdTree instance that will be passed to the KdNode constructor.
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+
+        // Create KdNodes instances for the first references array,
+        // and add each KdNode instance to the doubly linked list.
         for (int i = 0; i < numPoints; ++i) {
-            references[0][i] = new KdNode(coordinates[i]);
+            KdNode node = references[0][i] = new KdNode(coordinates[i]);
+            tree.add(node);
         }
         initTime = System.currentTimeMillis() - initTime;
 
@@ -244,7 +248,6 @@ public class KdTreeKnlogn
 
         // Build the k-d tree via heirarchical multi-threading if possible.
         long kdTime = System.currentTimeMillis();
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreeKnlogn(references, permutation, 0, end,
                                       executor, maximumSubmitDepth, 0);
         kdTime = System.currentTimeMillis() - kdTime;

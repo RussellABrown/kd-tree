@@ -128,13 +128,21 @@ public class KdTreeNlogn
                                               double[] kT,
                                               double[] vT)
     {        
-        // Declare and initialize the reference array.
         long initTime = System.currentTimeMillis();
         final int numPoints = coordinates.length;
         final int numDimensions = coordinates[0].getKey().length;
+
+        // Create the reference array.
         final KdNode[] reference = new KdNode[numPoints];
+
+        // Create a KdTree instance that will be passed to the KdNode constructor.
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+
+        // Create KdNodes instances for the reference array,
+        // and add each KdNode instance to the doubly linked list.
         for (int i = 0; i < numPoints; ++i) {
-            reference[i] = new KdNode(coordinates[i]);
+            KdNode node = reference[i] = new KdNode(coordinates[i]);
+            tree.add(node);
         }
         initTime = System.currentTimeMillis() - initTime;
             
@@ -175,7 +183,6 @@ public class KdTreeNlogn
         // keys so that each key is used as the most significant key of the
         // super key, beginning with key=0 at the first level of tree building.
         long kdTime = System.currentTimeMillis();
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreePresorted(reference, temporary, permutation, 0,
                                          end, executor, maximumSubmitDepth);
         kdTime = System.currentTimeMillis() - kdTime;
