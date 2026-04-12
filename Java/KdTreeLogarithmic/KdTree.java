@@ -48,7 +48,8 @@ import java.util.TreeSet;
 public class KdTree {
     
     private int listNodeCount;
-    protected KdNode root, head, tail;
+    private KdNode head, tail;
+    protected KdNode root;
     protected int numDimensions;
     protected ExecutorService executor;
     protected int maxSubmitDepth;
@@ -90,7 +91,7 @@ public class KdTree {
 
         // Create the k-d tree and attach the node list to it.
         KdTree newTree = createKdTree(kdNodes, executor, maximumSubmitDepth, 0);
-        newTree.listNodeCount = tree.listSize();
+        newTree.listNodeCount = tree.listNodeCount;
         newTree.head = tree.head;
         newTree.tail = tree.tail;
 
@@ -200,7 +201,7 @@ public class KdTree {
      * @return the length of the updated list
      * </p>
      */
-    protected long remove(KdNode node)
+    protected int remove(KdNode node)
     {
         if (node == null) {
             System.out.println("\n\nnull node in KdTree.remove\n");
@@ -243,7 +244,7 @@ public class KdTree {
      * @return the length of the updated list
      * </p>
      */
-    protected long add(KdNode node)
+    protected int add(KdNode node)
     {
         if (node == null) {
         System.out.println("\n\nnull node in KdTree.add\n");
@@ -291,16 +292,16 @@ public class KdTree {
      * @return the length of the updated list
      * </p>
      */
-    protected long addList(final KdTree tree)
+    protected int addList(final KdTree tree)
     {
         if (head == null && (tree == null || (tree != null && tree.head == null))) {
             // Both lists are empty.
-            return 0L;
+            return 0;
         } else if (head == null) {
             // This tree's list is empty.
             head = tree.head;
             tail = tree.tail;
-            listNodeCount = tree.listSize();
+            listNodeCount = tree.listNodeCount;
             return listNodeCount;
         } else if (tree == null || (tree != null && tree.head == null)) {
             // The source tree's list is empty.
@@ -318,23 +319,8 @@ public class KdTree {
                 tree.head.prev = tail;
                 tail = tree.tail;
             }
-            return ( listNodeCount + tree.listSize() );
+            return ( listNodeCount + tree.listNodeCount );
         }
-    }
-
-    /**
-     * <p>
-     * The {@code listSize} method returns the length of the {@code KdNode} list.
-     * 
-     * @return the length of the list
-     * </p>
-     */
-    protected int listSize()
-    {
-        if (head == null) {
-            return 0;
-        }
-        return listNodeCount;
     }
 
     /**
@@ -364,14 +350,14 @@ public class KdTree {
      * @return the length of the list
      * </p>
      */
-    protected long verifyList()
+    protected int verifyList()
     {
         if (head == null) {
-            return 0L;
+            return 0;
         }
 
         // Count the number of KdNodes in the forward direction.
-        long headCount = 0L;
+        long headCount = 0;
         KdNode node = head;
         while (node != null) {
             ++headCount;
@@ -379,7 +365,7 @@ public class KdTree {
         }
 
         // Count the number of KdNodes in the reverse direction.
-       long tailCount = 0L;
+       long tailCount = 0;
         node = tail;
         while (node != null) {
             ++tailCount;
