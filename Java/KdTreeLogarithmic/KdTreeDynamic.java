@@ -1302,4 +1302,24 @@ public class KdTreeDynamic extends KdTree {
         }
     }
     
+    /**
+     * <p>
+     * The {@code verifyTree} method checks that the children of each node of the k-d tree
+     * are correctly sorted relative to that node.
+     * </p>
+     * 
+    * @return the number of nodes in the k-d tree
+     */
+    protected int verifyTree()
+    {
+        if (root == null) {
+            return 0;
+        }
+        int verifyCount = root.verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, 0);
+        if (verifyCount != nodeCount) {
+            System.out.println("\n\nnode count = " + nodeCount + "  !=  verify count = " + verifyCount + "\n");
+        }
+        return verifyCount;
+    }
+
 } // class KdTreeDynamic

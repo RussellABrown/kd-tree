@@ -467,7 +467,7 @@ public class TestKdTreeDynamic {
             for (int i = 0; i < coordinates.length; ++i) {
                 if (tree.insert(coordinates[i])) {
                     if (verify) {
-                        tree.verifyKdTree();
+                        tree.verifyTree();
                     }
                 } else {
                     throw new RuntimeException("\n\nfailed to insert pair " + i + "\n");
@@ -478,7 +478,7 @@ public class TestKdTreeDynamic {
 
             // Verify correct order of each node in the k-d tree and count the nodes.
             long vTime = System.currentTimeMillis();
-            numberOfNodes = tree.verifyKdTree();
+            numberOfNodes = tree.verifyTree();
             vTime = System.currentTimeMillis() - vTime;
             verifyTime[k] += (double) vTime / Constants.MILLISECONDS_TO_SECONDS;
 
@@ -570,7 +570,7 @@ public class TestKdTreeDynamic {
                     if (tree.erase(coordinates[i])) {
                         // Verify correctness of the k-d tree after each erasure.
                         if (verify) {
-                            tree.verifyKdTree();
+                            tree.verifyTree();
                         }
                         // A search for a (key, value) pair after erasing it should fail.
                         if (find && tree.contains(coordinates[i])) {
@@ -601,7 +601,7 @@ public class TestKdTreeDynamic {
                     if (tree.erase(coordinates[i])) {
                         // Verify correctness of the k-d tree after each erasure.
                         if (verify) {
-                            tree.verifyKdTree();
+                            tree.verifyTree();
                         }
                         // A search for a (key, value) pair after erasing it should fail.
                         if (find && tree.contains(coordinates[i])) {
