@@ -47,7 +47,7 @@ import java.util.TreeSet;
  */
 public class KdTree {
     
-    private long listNodeCount;
+    private int listNodeCount;
     protected KdNode root, head, tail;
     protected int numDimensions;
     protected ExecutorService executor;
@@ -61,13 +61,70 @@ public class KdTree {
                   this.executor = executor;
                   this.maxSubmitDepth = maxSubmitDepth;
 
-                  listNodeCount = 0L;
+                  listNodeCount = 0;
                   root = head = tail = null;
     }
 
     /**
      * <p>
-     * The {@code createKdTree} method builds a k-d tree from a KdNode[]
+     * The {@code createKdTree} method builds a k-d tree from a list
+     * of {@code KdNode}s where the list is provided by a {@code KdTree}
+     * and where the coordinates of each point are stored in KdNode.tuple
+     * </p>
+     *  
+     * @param kdTree - a KdTree that holds a list of KdNodes
+     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
+     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @returns the root of the k-d tree
+     */
+    protected static KdTree createKdTree(final KdTree tree,
+                                         final ExecutorService executor,
+                                         final int maximumSubmitDepth)
+    {
+        if (tree == null) {
+            throw new RuntimeException("\n\nk-d tree is null in createKdTree\n");
+        }
+        
+        // Copy the k-d node references into an array.
+        KdNode[] kdNodes = nodeListToArray(tree);
+
+        // Create the k-d tree and attach the node list to it.
+        KdTree newTree = createKdTree(kdNodes, executor, maximumSubmitDepth, 0);
+        newTree.listNodeCount = tree.listSize();
+        newTree.head = tree.head;
+        newTree.tail = tree.tail;
+
+        return newTree;
+    }
+
+    /**
+     * <p>
+     * The {@code nodeListToArray} method copies a list of {@code KdNode}
+     * references into an array.
+     * </p>
+     * 
+     * @param tree - a {@code KdTree} that contains the list 
+     */
+    private static KdNode[] nodeListToArray(final KdTree tree)
+    {
+        if (tree.head == null) {
+            throw new RuntimeException("\n\nlist is null in nodeListToArray\n\n");
+        }
+
+        KdNode[] kdNodes = new KdNode[tree.listNodeCount];
+        KdNode node = tree.head;
+        int i = 0;
+        while (node != null) {
+            kdNodes[i++] = node;
+            node = node.next;
+        }
+
+        return kdNodes;
+    }
+
+    /**
+     * <p>
+     * The {@code createKdTree} method builds a k-d tree from a {@code KdNode}[]
      * where the coordinates of each point are stored in KdNode.tuple
      * </p>
      *  
@@ -170,6 +227,18 @@ public class KdTree {
      * The {@code add} method prepends appends a {@code KdNode}
      * to the doubly linked list.
      * 
+     * CAUTION: if a node is added to the list more than once,
+     * a cyclic list will result and cause infinite looping
+     * in the listNodeCount, verifyList, and nodeListToArray
+     * methods. The AvlNode.insert and KdTreeDynamic.insert
+     * methods guard against duplicate insertion because
+     * the KdTreeDynamic.values field stores multiple values.
+     * Replacing the doubly linkedlist by java.util.LinkedList
+     * is not a viable solution because java.util.LinkedList
+     * exhibits O(n) complexity for deletion of a random node,
+     * whereas the doubly linked list provided by this {@code KdTree}
+     * class exhibits O(1) complexity for deletion.
+     * 
      * @param node - the {@code KdNode} to add
      * @return the length of the updated list
      * </p>
@@ -205,6 +274,18 @@ public class KdTree {
      * <p>
      * The {@code addList} method appends or prepends a doubly linked list from
      * a source {@code KdTree} to the doubly linked list of this {@code KdTree}.
+     * 
+     * CAUTION: if both lists contain the same {@code KdNode},
+     * a cyclic list will result and cause infinite execution
+     * in the listNodeCount, verifyList, and nodeListToArray
+     * methods. The AvlNode.insert and KdTreeDynamic.insert
+     * methods guard against such node duplication because
+     * the KdTreeDynamic.values field stores multiple values.
+     * Replacing the doubly linkedlist by java.util.LinkedList
+     * is not a viable solution because java.util.LinkedList
+     * exhibits O(n) complexity for deletion of a random node,
+     * whereas the doubly linked list provided by this {@code KdTree}
+     * class exhibits O(1) complexity for deletion.
      * 
      * @param tree - the source {@code KdTree}
      * @return the length of the updated list
@@ -248,10 +329,10 @@ public class KdTree {
      * @return the length of the list
      * </p>
      */
-    protected long listSize()
+    protected int listSize()
     {
         if (head == null) {
-            return 0L;
+            return 0;
         }
         return listNodeCount;
     }
@@ -265,10 +346,10 @@ public class KdTree {
      * @return the length of the {@code KdNode} list
      * </p>
      */
-    protected long setList(final KdTree tree)
+    protected int setList(final KdTree tree)
     {
         if (tree == null) {
-            return 0L;
+            return 0;
         } else {
             head = tree.head;
             tail = tree.tail;
