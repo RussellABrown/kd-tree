@@ -93,7 +93,7 @@
  * Usage:
  *
  * "java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
- *                         [-s S] [-p P] [-v] [-f] [-c] [-l] [-r] [-i] [-h]
+ *                         [-s S] [-p P] [-v] [-f] [-c] [-l] [-w] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -125,6 +125,8 @@
  * -c Search for all remaining pairs after erasure of each pair (default off)
  * 
  * -l Verify the integrity of the doubly linked list after erasure of each pair (default off)
+ * 
+ * -w Create a worst-case set of coordinates by walking a k-d tree in order (default off)
  * 
  * -r Reverse the order of coordinates for erasure relative to insertion (default off)
  *
@@ -227,6 +229,7 @@ public class TestKdTreeDynamic {
         boolean find = false;
         boolean check = false;
         boolean checkList = false;
+        boolean worst = false;
         boolean reverse = false;
 		
         for (int i = 0; i < args.length; i++) {
@@ -290,6 +293,10 @@ public class TestKdTreeDynamic {
                 checkList = !checkList;
                 continue;
                 }
+            if (args[i].equals("-w") || args[i].equals("--worst")) {
+                worst = !worst;
+                continue;
+            }
             if (args[i].equals("-r") || args[i].equals("--reverse")) {
                 reverse = !reverse;
                 continue;
@@ -313,6 +320,7 @@ public class TestKdTreeDynamic {
                 System.out.println("-f Check for the next point after deleting each point (a cheap alternative to -v)\n");
                 System.out.println("-l Verify the integrity of the doubly linked list after erasure of each pair\n");
                 System.out.println("-c Check for all remaining points after deleting each point (an expensive alternative to -v)\n");
+                System.out.println("-w Create a worst-case set of coordinates by walking a k-d tree in order\n");
                 System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n");
                 System.out.println("-i The number I of iterations of k-d tree creation\n");
                 System.out.println("-h List the command-line options\n");
@@ -408,9 +416,22 @@ public class TestKdTreeDynamic {
         rand.setSeed(3141592653589793239L);
 		
         // Declare and initialize the coordinates array. Each element of the
-        // coordinates array is a pair wherein the key is an array of (x, y, z, w...)
+        // coordinates array is a pair wherein the key is an array of (x, y, z, etc.)
         // coordinates and the value is the string representation of an integer.
+        //
+        // Do not append extra pairs if worst-case (sorted) order is specified,
+        // because worst-case order is achieved by building a k-d tree from
+        // randomly ordered pairs and then walking the tree in sorted order
+        // in order to cull sorted-order pairs. Because extra pairs have
+        // duplicate tuples their values are stored in a key-to-multiple-values
+        // map. However, culling sorted-order pairs takes only the first
+        // of multiple values to form the pair. Hence, not all values will
+        // be represented in the sorted-order pairs. This problem is avoided
+        // by appending no extra pairs when worst-case order is specified.
         extraPoints = (extraPoints < numPoints) ? extraPoints : numPoints - 1;
+        if (worst) {
+            extraPoints = 0;
+        }
         final Pair[] coordinates = new Pair[numPoints + extraPoints];
         for (int i = 0; i < coordinates.length; ++i) {
             final long[] key = new long[numDimensions];
@@ -455,30 +476,87 @@ public class TestKdTreeDynamic {
                 }
             }
 
-            // Reflect pairs across coordinates[numPoints - 1] to initialize the extra points.
+            // Reflect pairs across coordinates[numPoints - 1] to initialize the extra pairs.
             for (int i = 1; i <= extraPoints; ++i) {
                 for (int j = 0; j < numDimensions; ++j) {
                     coordinates[numPoints - 1 + i].getKey()[j] = coordinates[numPoints - 1 - i].getKey()[j];
                 }
             }
 
-            // Insert each coordinate into the dynamic k-d tree.
+            // Wrap a static k-d tree in a dynamic k-d tree. Walk the tree
+            // in sorted order and over-write the first numPoints pairs
+            // in the coordinates array to create worst-case coordinates.
+            // Return the number ofnodes and execution times by reference
+            // via single-element arrays.
+            if (worst) {
+                final long[] nN = new long[1];
+                final double[] iT = new double[1]; // initialization time
+                final double[] sT = new double[1]; // sort time
+                final double[] rT = new double[1]; // remove time
+                final double[] kT = new double[1]; // k-d tree-build time
+                final double[] vT = new double[1]; // verify time
+
+                final KdTree arbre = new KdTreeDynamic(numDimensions, executor,
+                                                       maximumSubmitDepth,
+                                                       KdTree.createKdTree(coordinates,
+                                                                           executor,
+                                                                           maximumSubmitDepth,
+                                                                           nN,
+                                                                           iT,
+                                                                           sT,
+                                                                           rT,
+                                                                           kT,
+                                                                           vT));
+
+                // Check that the static tree contains the correct number of nodes.
+                int worstNumberOfNodes = arbre.verifyKdTree();
+                if (nN[0] != worstNumberOfNodes) {
+                    throw new RuntimeException("\n\nfor worst tree, number of nodes from createKdTree = " + nN[0] +
+                                               "  != number of nodes counted by verifyKdTree = " +
+                                               worstNumberOfNodes + "\n");
+                }
+                if (numPoints != worstNumberOfNodes) {
+                    throw new RuntimeException("\n\nfor worst tree, number of non-extra pairs = " + nN[0] +
+                                               "  != number of nodes counted by verifyKdTree = " +
+                                               worstNumberOfNodes + "\n");
+                }
+
+
+                // Walk the tree in sorted order and over-write the first
+                // numPoints pairs in the coordinates array. Pass the 'index'
+                // counter by referenced via a single-element array.
+                int[] index = {0};
+                int worstPoints = tree.getSortedPairs(arbre.root, coordinates, index);
+
+                if (worstPoints != index[0]) {
+                    throw new RuntimeException("\n\nnumber of sorted points = " + worstPoints + "  !=  " +
+                                               "number of indexed points = " + index[0] + "\n");
+                }
+
+                if (worstPoints != numPoints) {
+                    throw new RuntimeException("\n\nnumber of non-extra coordinates = " + numPoints + "  !=  " +
+                                               "number of sorted points = " + worstPoints + "\n");    
+                }
+            }
+
+           // Insert each coordinate into the dynamic k-d tree.
             long iTime = System.currentTimeMillis();
             for (int i = 0; i < coordinates.length; ++i) {
                 if (tree.insert(coordinates[i])) {
                     if (verify) {
-                        tree.verifyTree();
+                        tree.verifyKdTree();
                     }
                 } else {
                     throw new RuntimeException("\n\nfailed to insert pair " + i + "\n");
                 }
             }
+
             iTime = System.currentTimeMillis() - iTime;
             insertTime[k] += (double) iTime / Constants.MILLISECONDS_TO_SECONDS;
 
             // Verify correct order of each node in the k-d tree and count the nodes.
             long vTime = System.currentTimeMillis();
-            numberOfNodes = tree.verifyTree();
+            numberOfNodes = tree.verifyKdTree();
             vTime = System.currentTimeMillis() - vTime;
             verifyTime[k] += (double) vTime / Constants.MILLISECONDS_TO_SECONDS;
 
@@ -570,7 +648,7 @@ public class TestKdTreeDynamic {
                     if (tree.erase(coordinates[i])) {
                         // Verify correctness of the k-d tree after each erasure.
                         if (verify) {
-                            tree.verifyTree();
+                            tree.verifyKdTree();
                         }
                         // A search for a (key, value) pair after erasing it should fail.
                         if (find && tree.contains(coordinates[i])) {
@@ -601,7 +679,7 @@ public class TestKdTreeDynamic {
                     if (tree.erase(coordinates[i])) {
                         // Verify correctness of the k-d tree after each erasure.
                         if (verify) {
-                            tree.verifyTree();
+                            tree.verifyKdTree();
                         }
                         // A search for a (key, value) pair after erasing it should fail.
                         if (find && tree.contains(coordinates[i])) {
@@ -661,12 +739,17 @@ public class TestKdTreeDynamic {
                 staticTreeHeight = arbre.getTreeHeight();
                 createTime[k] = iT[0] + sT[0] + rT[0] + kT[0];
 
-                // Check that the two versions of verifyKdTree report the same number of nodes.
+                // Check that the static tree contains the correct number of nodes.
                 staticNumberOfNodes = arbre.verifyKdTree();
-                if (nN[0] != numberOfNodes) {
-                    throw new RuntimeException("\n\nnumber of nodes from createKdTree = " + nN[0] +
-                                               "  != number of nodes from returned root = " +
-                                               numberOfNodes + "\n");
+                if (nN[0] != staticNumberOfNodes) {
+                    throw new RuntimeException("\n\nfor static tree, number of nodes from createKdTree = " + nN[0] +
+                                               "  != number of nodes counted by verifyKdTree = " +
+                                               staticNumberOfNodes + "\n");
+                }
+                if (numPoints != staticNumberOfNodes) {
+                    throw new RuntimeException("\n\nfor static tree, number of non-extra pairs = " + nN[0] +
+                                               "  != number of nodes counted by verifyKdTree = " +
+                                               staticNumberOfNodes + "\n");
                 }
 
                 // Search the dynamic k-d tree for each of the coordinates. Creation of

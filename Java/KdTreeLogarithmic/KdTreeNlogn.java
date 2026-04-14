@@ -236,81 +236,9 @@ public class KdTreeNlogn
         // The partition cycles as x, y, z, etc.
         final int p = permutation[depth];
 
-        if (end == start) {
+        if (end <= start + 2) {
 
-            // Only one reference was passed to this method, so store it at this level of the tree.
-            node = reference[start];
-            node.height = 1;
-
-        } else if (end == start + 1) {
-                
-            // Two references were passed to this method in unsorted order, so store the
-            // start reference at this level of the tree and determine whether to store the
-            // end reference as the < child or the > child.
-            node = reference[start];
-            if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-                node.gtChild = reference[end];
-                node.height = 2;
-                node.gtChild.height = 1;
-            } else {
-                node.ltChild = reference[end];
-                node.height = 2;
-                node.ltChild.height = 1;
-            }
-
-        } else if (end == start + 2) {
-                
-            // Three references were passed to this method in unsorted order, so compare
-            // the three references to determine which reference is the median reference.
-            // Store the median reference at this level of the tree, store the smallest
-            // reference as the < child and store the largest reference as the > child.
-            int mid = start + 1;
-            if (MergeSort.superKeyCompare(reference[start].tuple, reference[mid].tuple, p) < 0L) {
-                // reference[start] < reference[mid]
-                if (MergeSort.superKeyCompare(reference[mid].tuple, reference[end].tuple, p) < 0L) {
-                // reference[start] < reference[mid] < reference[end]
-                node = reference[mid];
-                node.ltChild = reference[start];
-                node.gtChild = reference[end];
-                } else {
-                    // reference[start] < reference[mid]; reference[end] < reference[mid]
-                    if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-                        // reference[start] < reference[end] < reference[mid]
-                        node = reference[end];
-                        node.ltChild = reference[start];
-                        node.gtChild = reference[mid];
-                    } else {
-                        // reference[end] < reference[start] < reference[mid]
-                        node = reference[start];
-                        node.ltChild = reference[end];
-                        node.gtChild = reference[mid];
-                    }
-                }
-            } else {
-                // reference[mid] < reference[start]
-                if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-                // reference[mid] < reference[start] < reference[end]
-                node = reference[start];
-                node.ltChild = reference[mid];
-                node.gtChild = reference[end];
-                } else {
-                    // reference[mid] < reference[start]; reference[end] < reference[start]
-                    if (MergeSort.superKeyCompare(reference[mid].tuple, reference[end].tuple, p) < 0L) {
-                        // reference[mid] < reference[end] < reference[start]
-                        node = reference[end];
-                        node.ltChild = reference[mid];
-                        node.gtChild = reference[start];
-                    } else { 
-                        // reference[end] < reference[mid] < reference[start]
-                        node = reference[mid];
-                        node.ltChild = reference[end];
-                        node.gtChild = reference[start];
-                    }
-                }
-            }
-            node.height = 2;
-            node.ltChild.height = 1;
-            node.gtChild.height = 1;
+            node = buildKdTree1to3(reference, start, end, p);
                 
         } else if (end > start + 2) {
                 
@@ -363,16 +291,114 @@ public class KdTreeNlogn
                 
         } else 	if (end < start) {
                 
-        // This is an illegal condition that should never occur, so test for it last.
-        throw new RuntimeException("end < start");
-                
+            // This is an illegal condition that should never occur, so test for it last.
+            throw new RuntimeException("end < start");
+                    
         } else {
                 
-        // This final else block is added to keep the Java compiler from complaining.
-        throw new RuntimeException("unknown configuration of  start and end");
+            // This final else block is added to keep the Java compiler from complaining.
+            throw new RuntimeException("unknown configuration of  start and end");
         }
             
         return node;
+    }
+
+    /**
+     * <p>
+     * The {@code buildKdTree1to3} method builds a k-d tree
+     * that contains 3 nodes or fewer.
+     * 
+     * @param kdNodes - an array of {@code KdNode} instances
+     * @param start - the index of the first element of the kdNodes array
+     * @param end - the index of the last element of the kdNodes array
+     * @param p - the partition that cycles as x, y, z, etc.
+     * @return the root {@code KdNode} of the rebalanced subtree
+     * </p>
+     */
+    protected static KdNode buildKdTree1to3(final KdNode[] kdNodes,
+                                            final int start,
+                                            final int end,
+                                            final int p)
+    {
+        KdNode root = kdNodes[start];
+
+        if (end == start) {
+
+            // Only one KdNode was passed to this method, so it is the root of the tree.
+            root = kdNodes[start];
+            root.height = 1;
+
+        } else if (end == start + 1) {
+                
+            // Two KdNodes were passed to this method in unsorted order, so choose the
+            // start KdNode to be the root the tree, and compare their super-keys
+            // to determine whether the end KdNode is the < child or the > child.
+            root = kdNodes[start];
+            if (MergeSort.superKeyCompare(kdNodes[start].tuple, kdNodes[end].tuple, p) < 0L) {
+                root.gtChild = kdNodes[end];
+                root.height = 2;
+                root.gtChild.height = 1;
+            } else {
+                root.ltChild = kdNodes[end];
+                root.height = 2;
+                root.ltChild.height = 1;
+            }
+
+        } else if (end == start + 2) {
+                
+            // Three KdNodes were passed to this method in unsorted order, so compare
+            // their super-keys to determine which KdNode is the root of the tree,
+            // which KdNode is the < child, and which KdNode is the > child.
+            int mid = start + 1;
+            if (MergeSort.superKeyCompare(kdNodes[start].tuple, kdNodes[mid].tuple, p) < 0L) {
+                // kdNodes[start] < kdNodes[mid]
+                if (MergeSort.superKeyCompare(kdNodes[mid].tuple, kdNodes[end].tuple, p) < 0L) {
+                // kdNodes[start] < kdNodes[mid] < kdNodes[end]
+                root = kdNodes[mid];
+                root.ltChild = kdNodes[start];
+                root.gtChild = kdNodes[end];
+                } else {
+                    // kdNodes[start] < kdNodes[mid]; kdNodes[end] < kdNodes[mid]
+                    if (MergeSort.superKeyCompare(kdNodes[start].tuple, kdNodes[end].tuple, p) < 0L) {
+                        // kdNodes[start] < kdNodes[end] < kdNodes[mid]
+                        root = kdNodes[end];
+                        root.ltChild = kdNodes[start];
+                        root.gtChild = kdNodes[mid];
+                    } else {
+                        // kdNodes[end] < kdNodes[start] < kdNodes[mid]
+                        root = kdNodes[start];
+                        root.ltChild = kdNodes[end];
+                        root.gtChild = kdNodes[mid];
+                    }
+                }
+            } else {
+                // kdNodes[mid] < kdNodes[start]
+                if (MergeSort.superKeyCompare(kdNodes[start].tuple, kdNodes[end].tuple, p) < 0L) {
+                // kdNodes[mid] < kdNodes[start] < kdNodes[end]
+                root = kdNodes[start];
+                root.ltChild = kdNodes[mid];
+                root.gtChild = kdNodes[end];
+                } else {
+                    // kdNodes[mid] < kdNodes[start]; kdNodes[end] < kdNodes[start]
+                    if (MergeSort.superKeyCompare(kdNodes[mid].tuple, kdNodes[end].tuple, p) < 0L) {
+                        // kdNodes[mid] < kdNodes[end] < kdNodes[start]
+                        root = kdNodes[end];
+                        root.ltChild = kdNodes[mid];
+                        root.gtChild = kdNodes[start];
+                    } else { 
+                        // kdNodes[end] < kdNodes[mid] < kdNodes[start]
+                        root = kdNodes[mid];
+                        root.ltChild = kdNodes[end];
+                        root.gtChild = kdNodes[start];
+                    }
+                }
+            }
+            root.height = 2;
+            root.ltChild.height = 1;
+            root.gtChild.height = 1;
+        }
+
+        return root;
     }
 
     /**

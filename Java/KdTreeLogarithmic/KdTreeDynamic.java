@@ -828,7 +828,7 @@ public class KdTreeDynamic extends KdTree {
             // The subtree contains 3 nodes or fewer,
             // so rebuild the subtree by explicitly
             // comparing the nodes' super-keys.
-            return rebuildSubTree1to3(node, kdNodes, histogram, p);
+            return rebuildSubTree1to3(kdNodes, histogram, p);
 
         } else {
             // The subtree contains more than 3 nodes, so
@@ -895,30 +895,24 @@ public class KdTreeDynamic extends KdTree {
         // to assign to each array element a reference to a KdNode instance.
         final KdNode[] kdNodes = new KdNode[nodeCount];
         getSubTree(node, kdNodes);
-        return rebuildSubTree1to3(node, kdNodes, histogram, p);
+        return rebuildSubTree1to3(kdNodes, histogram, p);
     }
 
     /**
      * <p>
-     * The {@code rebuildSubTree1to3} method rebuilds a subtree
-     * rooted at a {@code KdNode} that contains 3 nodes or fewer.
+     * The {@code rebuildSubTree1to3} method rebuilds a subtree from
+     * an array of {@code KdNode}s that contains 3 nodes or fewer.
      * 
-     * @param node - the {@code KdNode} instance
      * @param kdNodes - an array of {@code KdNode} instances
      * @param histogram - a {@code long}[] for counting rebalancing operations
      * @param p - the leading dimension
      * @return the root {@code KdNode} of the rebalanced subtree
      * </p>
      */
-    private KdNode rebuildSubTree1to3(final KdNode node,
-                                      final KdNode[] kdNodes,
+    private KdNode rebuildSubTree1to3(final KdNode[] kdNodes,
                                       final long[] histogram,
                                       final int p)
     {
-
-        // The return value because the node argument to this function is read only.
-        KdNode ptr = node;
-
         // Increment the histogram element. Note: if '&& !isBalanced(node)' is added
         // to the following 'if' statement, fewer calls to the incrementHistogram
         // method will occur. This observation may explain why no subtree-rebuild
@@ -930,86 +924,8 @@ public class KdTreeDynamic extends KdTree {
             incrementHistogram(histogram, kdNodes.length);
         }
 
-        if (kdNodes.length == 1) {
-
-            // The subtree contains 1 node, so it is the root of the rebuilt subtree.
-            ptr = kdNodes[0];
-            ptr.height = 1;
-
-        } else if (kdNodes.length == 2) {
-
-            // The subtree contains 2 nodes, so the first node is the root of the rebuilt
-            // subtree. Compare super-keys to determine whether second node is the < child
-            // or the > child of the first node.
-            ptr = kdNodes[0];
-            ptr.height = 2;
-            if (MergeSort.superKeyCompare(kdNodes[0].tuple, kdNodes[1].tuple, p) < 0L) {
-                ptr.gtChild = kdNodes[1];
-                ptr.gtChild.height = 1;
-            } else {
-                ptr.ltChild = kdNodes[1];
-                ptr.ltChild.height = 1;
-            }
-
-        } else if (kdNodes.length == 3) {
-
-            // The subtree contains 3 nodes, so compare their super-keys to determine which
-            // node is the median node. The node with the smallest super-key is the < child.
-            // The node with the larges super-key is the > child.
-            if (MergeSort.superKeyCompare(kdNodes[0].tuple, kdNodes[1].tuple, p) < 0L) {
-                // kdNodes[0].tuple < kdNodes[1].tuple
-                if (MergeSort.superKeyCompare(kdNodes[1].tuple, kdNodes[2].tuple, p) < 0L) {
-                    // kdNodes[0].tuple < kdNodes[1].tuple < kdNodes[2].tuple
-                    ptr = kdNodes[1];
-                    ptr.ltChild = kdNodes[0];
-                    ptr.gtChild = kdNodes[2];
-                } else {
-                    // kdNodes[0].tuple < kdNodes[1].tuple; kdNodes[2].tuple < kdNodes[1].tuple
-                    if (MergeSort.superKeyCompare(kdNodes[0].tuple, kdNodes[2].tuple, p) < 0L) {
-                        // kdNodes[0].tuple < kdNodes[2].tuple < kdNodes[1].tuple
-                        ptr = kdNodes[2];
-                        ptr.ltChild = kdNodes[0];
-                        ptr.gtChild = kdNodes[1];
-                    } else {
-                        // kdNodes[2].tuple < kdNodes[0].tuple < kdNodes[1].tuple
-                        ptr = kdNodes[0];
-                        ptr.ltChild = kdNodes[2];
-                        ptr.gtChild = kdNodes[1];
-                    }
-                }
-            } else {
-                // kdNodes[1].tuple < kdNodes[0].tuple
-                if (MergeSort.superKeyCompare(kdNodes[0].tuple, kdNodes[2].tuple, p) < 0L) {
-                    // kdNodes[1].tuple < kdNodes[0].tuple < kdNodes[2].tuple
-                    ptr = kdNodes[0];
-                    ptr.ltChild = kdNodes[1];
-                    ptr.gtChild = kdNodes[2];
-                } else {
-                    // kdNodes[1].tuple < kdNodes[0].tuple; kdNodes[2].tuple < kdNodes[0].tuple
-                    if (MergeSort.superKeyCompare(kdNodes[1].tuple, kdNodes[2].tuple, p) < 0L) {
-                        // kdNodes[1].tuple < kdNodes[2].tuple < kdNodes[0].tuple
-                        ptr = kdNodes[2];
-                        ptr.ltChild = kdNodes[1];
-                        ptr.gtChild = kdNodes[0];
-                    }
-                    else {
-                        // kdNodes[2].tuple < kdNodes[1].tuple < kdNodes[0].tuple
-                        ptr = kdNodes[1];
-                        ptr.ltChild = kdNodes[2];
-                        ptr.gtChild = kdNodes[0];
-                    }
-                }
-            }
-            ptr.ltChild.height = ptr.gtChild.height = 1;
-            ptr.height = 2;
-
-        } else {
-
-            // This is an illegal condition that should never occur.
-            throw new RuntimeException("\n\n" + kdNodes.length + " KdNode instances in rebuildSubTree1to3\n");
-        }
-
-        return ptr;
+        // Rebuild the subtree and return its root.
+        return KdTreeNlogn.buildKdTree1to3(kdNodes, 0, kdNodes.length-1, p);
     }
 
     /**
@@ -1034,7 +950,7 @@ public class KdTreeDynamic extends KdTree {
         // to assign to each array element a reference to a KdNode instance.
         final KdNode[] kdNodes = new KdNode[nodeCount];
         getSubTreeSkipRoot(node, kdNodes);
-        return rebuildSubTree1to3(node, kdNodes, histogram, p);
+        return rebuildSubTree1to3(kdNodes, histogram, p);
     }
 
     /**
@@ -1211,6 +1127,54 @@ public class KdTreeDynamic extends KdTree {
 
     /**
      * <p>
+     * The {@code getSortedTree} method counts and appends the pairs
+     * from a {@code KdTree} to a pre-sized vector. Because the tree
+     * is traversed in order, the pairs are sorted by their tuples.
+     *
+     * Calling parameters:
+     * 
+     * @param node - a KdNode
+     * @param coordinates - a Pair<key, value>[]
+     * @param index - an int[] that permits an index counter to
+     *                be passed by value
+     * @return the number of pairs appended
+     */
+    protected int getSortedPairs(final KdNode node,
+                                 final Pair[] coordinates,
+                                 int[] index)
+    {
+
+        // Initialize the count.
+        int count = 0;
+
+        // Obtain counts from < child nodes and append pairs recursively.
+        if (node.ltChild != null) {
+            count += getSortedPairs(node.ltChild, coordinates, index);
+        }
+
+        // Count this node and over-write an entry in the coordinates
+        // array by a pair composed of copies of the node's tuple and
+        //  the first of its values. Make copies to avoid unintended
+        // side effects that could be caused by over-writing randomized
+        // coordinate-array elements by sorted-order pairs.
+        ++count;
+        long[] tuple = new long[node.tuple.length];
+        System.arraycopy(node.tuple, 0, tuple, 0, tuple.length);
+        String value = new String(node.values.first());
+        coordinates[index[0]].putKey(tuple);
+        coordinates[index[0]].putValue(value);
+        ++index[0];
+
+        // Obtain counts from the > child nodes and append pairs recursively.
+        if (node.gtChild != null) {
+            count += getSortedPairs(node.gtChild, coordinates, index);
+        }
+
+        return count;
+    }
+
+    /**
+     * <p>
      * The {@code isBalanced} method checks whether the subtree
      * rooted at a (@code KdNode} instance is balanced.
      * 
@@ -1293,24 +1257,4 @@ public class KdTreeDynamic extends KdTree {
         }
     }
     
-    /**
-     * <p>
-     * The {@code verifyTree} method checks that the children of each node of the k-d tree
-     * are correctly sorted relative to that node.
-     * </p>
-     * 
-    * @return the number of nodes in the k-d tree
-     */
-    protected int verifyTree()
-    {
-        if (root == null) {
-            return 0;
-        }
-        int verifyCount = root.verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, 0);
-        if (verifyCount != nodeCount) {
-            System.out.println("\n\nnode count = " + nodeCount + "  !=  verify count = " + verifyCount + "\n");
-        }
-        return verifyCount;
-    }
-
 } // class KdTreeDynamic

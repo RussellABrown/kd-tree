@@ -42,17 +42,26 @@ public class Pair {
     private long[] key;
     private String value;
 
-    public Pair(long[] key, String value) {
+    public Pair(final long[] key,
+                final String value) {
         this.key = key;
         this.value = value;
     }
 
-    public long[] getKey() {
+    protected long[] getKey() {
         return key;
     }
 
-    public String getValue() {
+    protected void putKey(final long[] key) {
+        this.key = key;
+    }
+
+    protected String getValue() {
         return value;
+    }
+
+    protected void putValue(final String value) {
+        this.value = value;
     }
 } // class Pair
 
