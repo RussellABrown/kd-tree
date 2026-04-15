@@ -73,6 +73,8 @@ public class Constants {
 
     public static final boolean ENABLE_LOGARITHMIC_TREES = false;
 
+    public static final boolean ENABLE_NON_FULL_INSERTION = false;
+
     public static final boolean ENABLE_TUPLE_COPY = false;
 
     public static final boolean ENABLE_LIST_PREPEND = true;

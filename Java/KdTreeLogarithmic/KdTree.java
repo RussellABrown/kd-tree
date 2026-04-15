@@ -47,9 +47,9 @@ import java.util.TreeSet;
  */
 public class KdTree {
 
-    private int listNodeCount;
     private KdNode head, tail;
     protected KdNode root;
+    private int listNodeCount;
     protected int numDimensions;
     protected ExecutorService executor;
     protected int maxSubmitDepth;
@@ -152,10 +152,6 @@ public class KdTree {
                                          final int maximumSubmitDepth,
                                          final long[] histogram)
     {
-        if (coordinate == null) {
-            throw new RuntimeException("\n\ncoordinate is null in createKdTree1to3\n");
-        }
-
         final KdNode node = new KdNode(coordinate);
         final KdTree tree = new KdTree(coordinate.getKey().length, executor, maximumSubmitDepth);
         tree.root = node;
@@ -187,11 +183,8 @@ public class KdTree {
                                          final int maximumSubmitDepth,
                                          final long[] histogram)
     {
-        if (tree == null) {
-            throw new RuntimeException("\n\nk-d tree is null in createKdTree\n");
-        }
-        
-        // Copy the k-d node references into an array.
+        // Copy the k-d node references into an array and
+        // set the ltChild and gtChild references to null.
         KdNode[] kdNodes = nodeListToArray(tree);
 
         // Create the k-d tree and attach the node list to it.
@@ -211,7 +204,8 @@ public class KdTree {
     /**
      * <p>
      * The {@code nodeListToArray} method copies a list of {@code KdNode}
-     * references into an array.
+     * references into an array, and sets to null the child references
+     * of each {@code KdNode}.
      * </p>
      * 
      * @param tree - a {@code KdTree} that contains the list 
@@ -226,11 +220,44 @@ public class KdTree {
         KdNode node = tree.head;
         int i = 0;
         while (node != null) {
+            node.ltChild = node.gtChild = null;
             kdNodes[i++] = node;
             node = node.next;
         }
 
         return kdNodes;
+    }
+
+    /**
+     * <p>
+     * The {@code listSize} method returns the size of the doubly linked list.
+     * 
+     * @return the size of the doubly linked list
+     * </p>
+     */
+    protected int listSize()
+    {
+        return listNodeCount;
+    }
+
+    /**
+     * <p>
+     * The {@code getHead} method returns the head {@code KdNode} of the doubly linked list.
+     * 
+     * @return the head of the doubly linked list
+     */
+    protected KdNode getHead() {
+        return head;
+    }
+
+    /**
+     * <p>
+     * The {@code getTail} method returns the tail {@code KdNode} of the doubly linked list.
+     * 
+     * @return the tail of the doubly linked list
+     */
+    protected KdNode getTail() {
+        return tail;
     }
 
     /**
@@ -244,12 +271,14 @@ public class KdTree {
     protected static void incrementHistogram(final long[] histogram,
                                              final int subTreeSize)
     {
+        int powerOf2 = 1;
         for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-            // Calculate powers of 2 via shifts.
-            if ( subTreeSize >= (1 << i) && subTreeSize < (1 << (i+1)) ) {
+            final int nextPowerOf2 = powerOf2 << 1;
+            if ( (subTreeSize >= powerOf2) && (subTreeSize < nextPowerOf2) ) {
                 ++histogram[i];
                 return;
             }
+            powerOf2 = nextPowerOf2;
         }
         int size = subTreeSize;
         int i = 0;
