@@ -823,8 +823,8 @@ public class TestKdTreeDynamic {
         if (Constants.ENABLE_HISTOGRAMS) {
             System.out.println("\nHistograms of rebuilt-subtree sizes follow.");
             System.out.println("\npow\tinsert\tdelete\n");
-            for (int i = 0; i < tree.insertionHistogram.length; ++i) {
-                System.out.println(i + "\t" + tree.insertionHistogram[i] + "\t" + tree.deletionHistogram[i]);
+            for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
+                System.out.println(i + "\t" + tree.insertionHistogramDyn[i] + "\t" + tree.deletionHistogramDyn[i]);
             }
         }
     

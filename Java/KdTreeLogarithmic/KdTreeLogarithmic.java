@@ -42,6 +42,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
 
     private long[] kdTreeSizes;
     private KdTree[] kdTrees;
+    protected long[] insertionHistogramLog, deletionHistogramLog;
 
     KdTreeLogarithmic(final int numDimensions,
                       final ExecutorService executor,
@@ -49,8 +50,13 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
     {
         super(numDimensions, executor, maxSubmitDepth);
 
+        // Create arrays to manage the logarithmic k-d trees.
         kdTreeSizes = new long[Constants.MAX_POWER_OF_2];
         kdTrees = new KdTree[Constants.MAX_POWER_OF_2];
+
+        // Create histograms to count rebalancing operations.
+        insertionHistogramDyn = new long[Constants.MAX_POWER_OF_2];
+        deletionHistogramDyn = new long[Constants.MAX_POWER_OF_2];
    }
 
 } // class KdTreeLogarithmic

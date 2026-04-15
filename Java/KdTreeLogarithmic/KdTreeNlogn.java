@@ -396,6 +396,14 @@ public class KdTreeNlogn
             root.height = 2;
             root.ltChild.height = 1;
             root.gtChild.height = 1;
+        } else if (end < start) {
+
+            throw new RuntimeException("\n\nIn buildKdTree1to3, end = " + end +
+                                       "  <  start = " + start + "\n");
+        } else if (end > start + 2) {
+
+            throw new RuntimeException("\n\nToo many k-d nodes in buildKdTree1to3, end = " + end +
+                                        "  start = " + start + "\n");
         }
 
         return root;

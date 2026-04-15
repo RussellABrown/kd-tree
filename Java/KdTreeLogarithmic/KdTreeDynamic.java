@@ -47,7 +47,7 @@ public class KdTreeDynamic extends KdTree {
 
     private long nodeCount;
     private boolean inserted, erased, changed;
-    protected long[] powersOf2, insertionHistogram, deletionHistogram;
+    protected long[] insertionHistogramDyn, deletionHistogramDyn;
     protected KdNode insertedNode, deletedNode;
 
     // This constructor does not set KdTree.root
@@ -61,15 +61,9 @@ public class KdTreeDynamic extends KdTree {
         inserted = erased = changed = false;
         insertedNode = deletedNode = null;
 
-        // Create a powers of 2 array for histogram and logarithmic tree binning.
-        powersOf2 = new long[Constants.MAX_POWER_OF_2 + 1];
-        powersOf2[0] = 1L;
-        for (int i = 1; i < powersOf2.length; ++i) {
-            powersOf2[i] = powersOf2[i-1] << 1;
-        }
         // Create histograms to count rebalancing operations.
-        insertionHistogram = new long[Constants.MAX_POWER_OF_2];
-        deletionHistogram = new long[Constants.MAX_POWER_OF_2];
+        insertionHistogramDyn = new long[Constants.MAX_POWER_OF_2];
+        deletionHistogramDyn = new long[Constants.MAX_POWER_OF_2];
    }
 
     // This constructor sets KdTree.root
@@ -85,18 +79,10 @@ public class KdTreeDynamic extends KdTree {
         inserted = erased = changed = false;
         insertedNode = deletedNode = null;
 
-        // Create a powers of 2 array for histogram and logarithmic tree binning.
-        if ( Constants.ENABLE_HISTOGRAMS || Constants.ENABLE_LOGARITHMIC_TREES ) {
-            powersOf2 = new long[Constants.MAX_POWER_OF_2 + 1];
-            powersOf2[0] = 1L;
-            for (int i = 1; i < powersOf2.length; ++i) {
-                powersOf2[i] = powersOf2[i-1] << 1;
-            }
-        }
         // Create histograms to count rebalancing operations.
         if (Constants.ENABLE_HISTOGRAMS) {
-            insertionHistogram = new long[Constants.MAX_POWER_OF_2];
-            deletionHistogram = new long[Constants.MAX_POWER_OF_2];
+            insertionHistogramDyn = new long[Constants.MAX_POWER_OF_2];
+            deletionHistogramDyn = new long[Constants.MAX_POWER_OF_2];
         }
     }
 
@@ -137,7 +123,7 @@ public class KdTreeDynamic extends KdTree {
         inserted = changed = false;
         insertedNode = null;
         if (root != null) {
-            root = insert(root, coordinate.getKey(), coordinate.getValue(), insertionHistogram, 0);
+            root = insert(root, coordinate.getKey(), coordinate.getValue(), insertionHistogramDyn, 0);
             if (insertedNode != null) {
                 // A node was inserted into the tree, so count it and add it to the doubly linked list.
                 add(insertedNode);
@@ -153,7 +139,7 @@ public class KdTreeDynamic extends KdTree {
                 if ( !Constants.ENABLE_INSERTION_REBALANCE || isBalanced(root) ) {
                     root.height = computeHeight(root);
                 } else {
-                    root = rebuildSubTree(root, insertionHistogram, 0);
+                    root = rebuildSubTree(root, insertionHistogramDyn, 0);
                 }
             }
         } else {
@@ -254,7 +240,7 @@ public class KdTreeDynamic extends KdTree {
         erased = changed = false;
         deletedNode = null;
         if (root != null) {
-            root = erase(root, coordinate.getKey(), coordinate.getValue(), deletionHistogram, 0);
+            root = erase(root, coordinate.getKey(), coordinate.getValue(), deletionHistogramDyn, 0);
             if (deletedNode != null) {
                 // A node was deleted, so count it and remove it from the doubly linked list.
                 remove(deletedNode);
@@ -270,7 +256,7 @@ public class KdTreeDynamic extends KdTree {
                 if ( !Constants.ENABLE_DELETION_REBALANCE || isBalanced(root) ) {
                     root.height = computeHeight(root);
                 } else {
-                    root = rebuildSubTree(root, deletionHistogram, 0);
+                    root = rebuildSubTree(root, deletionHistogramDyn, 0);
                 }
             }
         }
@@ -845,33 +831,6 @@ public class KdTreeDynamic extends KdTree {
             // Return the root of the rebuilt subtree.
             return tree.root;
         }
-    }
-
-   /**
-     * <p>
-     * The {@code incrementHistogram} method increments an element of a histogram.
-     * 
-     * @param histogram - a {@code long}[] for counting rebalancing operations
-     * @param subTreeSize - the subtree size that selects the histogram element
-     * </p>
-     */
-    private void incrementHistogram(final long[] histogram,
-                                    final int subTreeSize)
-    {
-        for (int i = 1; i < powersOf2.length; ++i) {
-            if ( subTreeSize >= powersOf2[i-1] && subTreeSize < powersOf2[i] ) {
-                ++histogram[i-1];
-                return;
-            }
-        }
-        int size = subTreeSize;
-        int i = 0;
-        while (size > 0) {
-            size >>= 1;
-            ++i;
-        }
-        throw new RuntimeException("\nunsupported subtree size = " + subTreeSize +
-                                   " increase Constants.MAX_POWER_OF_2 to " + i);
     }
 
     /**
