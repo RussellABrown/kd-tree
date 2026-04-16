@@ -208,6 +208,10 @@ public class KdTreeDynamic extends KdTree {
      */
     protected boolean insert(final Pair coordinate)
     {
+        if (coordinate == null) {
+            throw new RuntimeException("\n\ncoordinate is null in KdTreeDynamic.insert\n");
+        }
+
         inserted = changed = false;
         insertedNode = null;
         if (root != null) {
@@ -325,6 +329,10 @@ public class KdTreeDynamic extends KdTree {
      */
     protected boolean erase(final Pair coordinate)
     {
+        if (coordinate == null) {
+            throw new RuntimeException("\n\ncoordinate is null in KdTreeDynamic.erase\n");
+        }
+
         erased = changed = false;
         deletedNode = null;
         if (root != null) {

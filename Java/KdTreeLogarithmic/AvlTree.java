@@ -117,6 +117,9 @@ public class AvlTree {
      */
     protected boolean insert(final Pair coordinate)
     {
+        if (coordinate == null) {
+            throw new RuntimeException("\n\ncoordinate is null in AvlTreegarithmic.insert\n");
+        }
         return insert( coordinate.getKey(), coordinate.getValue() );
     }
 
@@ -166,6 +169,9 @@ public class AvlTree {
      */
     protected boolean erase(final Pair coordinate)
     {
+        if (coordinate == null) {
+            throw new RuntimeException("\n\ncoordinate is null in AvlTreegarithmic.erase\n");
+        }
         return erase( coordinate.getKey(), coordinate.getValue() );
     }
 
