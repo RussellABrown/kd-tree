@@ -89,41 +89,6 @@ public class KdTreeDynamic extends KdTree {
 
     /**
      * <p>
-     * The {@code createKdTree} method builds a k-d tree from one coordinate pair.
-     * </p>
-     *  
-     * @param coordinate - a {@code Pair}<{@code long}[],{@code String}>
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param histogram - a {@code long}[] for counting rebalancing operations
-     * @return the root of the k-d tree
-     */
-    protected static KdTreeDynamic createKdTree(final Pair coordinate,
-                                                final ExecutorService executor,
-                                                final int maximumSubmitDepth,
-                                                final long[] histogram)
-    {
-        if (coordinate == null) {
-            throw new RuntimeException("\n\ncoordinate is null in createKdTree1to3\n");
-        }
-
-        // Create the k-d tree.
-        final KdTreeDynamic tree = new KdTreeDynamic(coordinate.getKey().length,
-                                                     executor,
-                                                     maximumSubmitDepth,
-                                                     KdTree.createKdTree(coordinate,
-                                                                         executor,
-                                                                         maximumSubmitDepth,
-                                                                         histogram));
-
-        // Record the single k-d node in the tree.
-        tree.nodeCount = 1;
-
-        return tree;
-    }
-
-    /**
-     * <p>
      * The {@code createKdTree} method builds a k-d tree from a list
      * of {@code KdNode}s where the list is provided by a {@code KdTree}
      * and where the coordinates of each point are stored in KdNode.tuple
@@ -152,6 +117,44 @@ public class KdTreeDynamic extends KdTree {
                                                                       executor,
                                                                       maximumSubmitDepth,
                                                                       histogram));
+
+        // Record the number of k-d nodes in the tree.
+        newTree.nodeCount = tree.listSize();
+
+        return newTree;
+    }
+
+    /**
+     * <p>
+     * The {@code createKdTree1to3} method builds a k-d tree from a list
+     * of no more than 3 {@code KdNode}s where the list is provided by a
+     * {@code KdTree} and where the coordinates of each point are stored
+     * in KdNode.tuple
+     * </p>
+     *  
+     * @param kdTree - a KdTree that holds a list of KdNodes
+     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
+     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param histogram - a {@code long}[] for counting rebalancing operations
+     * @return the root of the k-d tree
+     */
+    protected static KdTreeDynamic createKdTree1to3(final KdTree tree,
+                                                    final ExecutorService executor,
+                                                    final int maximumSubmitDepth,
+                                                    final long[] histogram)
+    {
+        if (tree == null) {
+            throw new RuntimeException("\n\nk-d tree is null in createKdTree1to3\n");
+        }
+        
+        // Create the k-d tree.
+        KdTreeDynamic newTree = new KdTreeDynamic(tree.root.tuple.length,
+                                                  executor,
+                                                  maximumSubmitDepth,
+                                                  KdTree.createKdTree1to3(tree,
+                                                                          executor,
+                                                                          maximumSubmitDepth,
+                                                                          histogram));
 
         // Record the number of k-d nodes in the tree.
         newTree.nodeCount = tree.listSize();
@@ -240,6 +243,7 @@ public class KdTreeDynamic extends KdTree {
             add(insertedNode);
             inserted = changed = true;
             ++nodeCount;
+            incrementHistogram(insertionHistogramDyn, 1); // Built a 1-node sub-tree.
         }
 
         return inserted;

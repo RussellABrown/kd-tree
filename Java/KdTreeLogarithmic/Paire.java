@@ -47,11 +47,11 @@ public class Paire {
         this.value = value;
     }
 
-    public double getKey() {
+    protected double getKey() {
         return key;
     }
 
-    public KdNode getValue() {
+    protected KdNode getValue() {
         return value;
     }
 } // class Paire
