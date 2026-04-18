@@ -59,6 +59,10 @@ public class Constants {
 
     public static final boolean NLOGN = true;
 
+    public static final boolean LOGARITHMIC_TREE = false;
+
+    public static final boolean ENABLE_DEBUG = true;
+
     public static final boolean ENABLE_1TO3 = true;
 
     public static final boolean ENABLE_PREFERRED_NODE = true;
@@ -70,8 +74,6 @@ public class Constants {
     public static final boolean ENABLE_DELETION_REBALANCE = true;
 
     public static final boolean ENABLE_HISTOGRAMS = true;
-
-    public static final boolean ENABLE_LOGARITHMIC_TREES = false;
 
     public static final boolean ENABLE_NON_FULL_INSERTION = false;
 

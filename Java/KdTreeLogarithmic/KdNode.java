@@ -118,10 +118,10 @@ public class KdNode {
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
-    protected int verifyKdTree(final int[] permutation,
-                               final ExecutorService executor,
-                               final int maximumSubmitDepth,
-                               final int depth) {
+    protected long verifyKdTree(final int[] permutation,
+                                final ExecutorService executor,
+                                final int maximumSubmitDepth,
+                                final int depth) {
 
         if (tuple == null) {
             throw new RuntimeException("point is null");
@@ -130,21 +130,27 @@ public class KdNode {
         // Look up the partition.
         final int p = permutation[depth];
 
+        // Check the order of this node relative to its children.
         if (ltChild != null) {
             if (ltChild.tuple[p] > tuple[p]) {
-                throw new RuntimeException("node is > partition!");
+                throw new RuntimeException("\n\nlt child is > parent in verifyKdTree\n");
             }
             if (MergeSort.superKeyCompare(ltChild.tuple, tuple, p) >= 0) {
-                throw new RuntimeException("node is >= partition!");
+                throw new RuntimeException("\n\nlt child is >= partition in verifyKdTree\n");
             }
         }
         if (gtChild != null) {
             if (gtChild.tuple[p] < tuple[p]) {
-                throw new RuntimeException("node is < partition!");
+                throw new RuntimeException("gt child is < parent in verifyKdTree\n");
             }
             if (MergeSort.superKeyCompare(gtChild.tuple, tuple, p) <= 0) {
-                throw new RuntimeException("node is <= partition!");
+                throw new RuntimeException("gt child is <= partition in verifyKdTree\n");
             }
+        }
+
+        // Check the balance at this node.
+        if (KdTreeDynamic.isBalanced(this) == false) {
+            throw new RuntimeException("\n\nnode is unbalanced in verifyKdTree\n");
         }
         
         // Count this node.
@@ -168,7 +174,7 @@ public class KdNode {
         } else {
 
             // Yes, so launch a child thread to search the < branch.
-            Future<Integer> future = null;
+            Future<Long> future = null;
             if (ltChild != null) {
                 future = executor.submit( ltChild.verifyKdTreeWithThread(permutation, executor,
                                                                          maximumSubmitDepth, depth + 1) );
@@ -205,11 +211,11 @@ public class KdNode {
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
-    protected int verifyKdTree(final int dim,
-                               final int q,
-                               final ExecutorService executor,
-                               final int maximumSubmitDepth,
-                               final int depth) {
+    protected long verifyKdTree(final int dim,
+                                final int q,
+                                final ExecutorService executor,
+                                final int maximumSubmitDepth,
+                                final int depth) {
 
         if (tuple == null) {
             throw new RuntimeException("point is null");
@@ -219,22 +225,34 @@ public class KdNode {
         // a fast alternative to the modulus opeator for p <= dim.
         final int p = (q < dim) ? q : 0;
 
+        // Check the order of this node relative to its children.
         if (ltChild != null) {
             if (ltChild.tuple[p] > tuple[p]) {
-                throw new RuntimeException("node is > partition!");
+                throw new RuntimeException("\n\nlt child is > parent in verifyKdTree\n");
             }
             if (MergeSort.superKeyCompare(ltChild.tuple, tuple, p) >= 0) {
-                throw new RuntimeException("node is >= partition!");
+                throw new RuntimeException("\n\nlt child is >= partition in verifyKdTree\n");
             }
         }
         if (gtChild != null) {
             if (gtChild.tuple[p] < tuple[p]) {
-                throw new RuntimeException("node is < partition!");
+                throw new RuntimeException("gt child is < parent in verifyKdTree\n");
             }
             if (MergeSort.superKeyCompare(gtChild.tuple, tuple, p) <= 0) {
-                throw new RuntimeException("node is <= partition!");
+                throw new RuntimeException("gt child is <= partition in verifyKdTree\n");
             }
         }
+
+        // Check the balance at this node.
+        if (KdTreeDynamic.isBalanced(this) == false) {
+            throw new RuntimeException("\n\nnode is unbalanced in verifyKdTree\n");
+        }
+
+        // Check the links to AVL nodes if a logarithmic k-d tree is specified.
+        if (Constants.LOGARITHMIC_TREE && this.avlTreeNode.kdTreeNode != this) {
+            throw new RuntimeException("\n\nAVL and k-d nodes are incorrectly" +
+                                        " linked in KdNode.verifyKdTree\n");
+       }
         
         // Count this node.
         int count = 1 ;
@@ -257,7 +275,7 @@ public class KdNode {
         } else {
 
             // Yes, so launch a child thread to search the < branch.
-            Future<Integer> future = null;
+            Future<Long> future = null;
             if (ltChild != null) {
                 future = executor.submit( ltChild.verifyKdTreeWithThread(dim, p + 1, executor,
                                                                          maximumSubmitDepth, depth + 1) );
@@ -295,15 +313,15 @@ public class KdNode {
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
-    private Callable<Integer> verifyKdTreeWithThread(final int dim,
-                                                     final int p,
-                                                     final ExecutorService executor,
-                                                     final int maximumSubmitDepth,
-                                                     final int depth) {
+    private Callable<Long> verifyKdTreeWithThread(final int dim,
+                                                  final int p,
+                                                  final ExecutorService executor,
+                                                  final int maximumSubmitDepth,
+                                                  final int depth) {
         
-        return new Callable<Integer>() {
+        return new Callable<Long>() {
             @Override
-                public Integer call() {
+                public Long call() {
                 return verifyKdTree(dim, p, executor, maximumSubmitDepth, depth);
             }
         };
@@ -322,14 +340,14 @@ public class KdNode {
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
-    private Callable<Integer> verifyKdTreeWithThread(final int[] permutation,
-                                                     final ExecutorService executor,
-                                                     final int maximumSubmitDepth,
-                                                     final int depth) {
+    private Callable<Long> verifyKdTreeWithThread(final int[] permutation,
+                                                  final ExecutorService executor,
+                                                  final int maximumSubmitDepth,
+                                                  final int depth) {
         
-        return new Callable<Integer>() {
+        return new Callable<Long>() {
             @Override
-                public Integer call() {
+                public Long call() {
                 return verifyKdTree(permutation, executor, maximumSubmitDepth, depth);
             }
         };

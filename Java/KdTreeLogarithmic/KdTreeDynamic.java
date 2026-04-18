@@ -1241,7 +1241,7 @@ public class KdTreeDynamic extends KdTree {
      * @return true if the subtree is balanced; otherwise, false
      * </p>
      */
-    protected boolean isBalanced(final KdNode node)
+    protected static boolean isBalanced(final KdNode node)
     {
         // Get and order the heights at the child nodes.
         final int ltHeight = getHeight(node.ltChild);
@@ -1316,4 +1316,49 @@ public class KdTreeDynamic extends KdTree {
         }
     }
     
+    /**
+     * <p>
+     * The {@code verifyKdTree} method checks that the children of each node of the k-d tree
+     * are correctly sorted relative to that node.
+     * </p>
+     * 
+     * @return the number of nodes in the k-d tree
+     */
+    protected long verifyKdTree()
+    {
+        // Verify that the doubly linked list has the same number of k-d nodes as the tree.
+        if (listSize() != nodeCount) {
+            throw new RuntimeException("\n\nlist size = " + listSize() + "  !=  node count =" +
+                                       nodeCount + " in KdTreeDynamic.verifyKdTree\n");
+        }
+
+        // Verify the length of the doubly linked list in the forward direction.
+        int listCount = 0;
+        KdNode node = getHead();
+        while (node != null) {
+            ++listCount;
+            node = node.next;
+        }
+        if (listSize() != listCount) {
+            throw new RuntimeException("\n\nlist size = " + listSize() + 
+                                       "  !=  forward counted nodes = " + listCount +
+                                       " in KdTreeDynamic.verifyKdTree\n");
+        }
+
+        // Verify the length of the doubly linked list in the reverse direction.
+        listCount = 0;
+        node = getTail();
+        while (node != null) {
+            ++listCount;
+            node = node.prev;
+        }
+        if (listSize() != listCount) {
+            throw new RuntimeException("\n\nlist size = " + listSize() + 
+                                       "  !=  reverse counted nodes = " + listCount +
+                                       " in KdTreeDynamic.verifyKdTree\n");
+        }
+
+        return super.verifyKdTree();
+    }
+
 } // class KdTreeDynamic

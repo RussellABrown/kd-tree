@@ -516,7 +516,7 @@ public class KdTree {
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
-    protected int verifyKdTree(final int[] permutation)
+    protected long verifyKdTree(final int[] permutation)
     {
         if (root == null) {
             return 0;
@@ -530,9 +530,9 @@ public class KdTree {
      * are correctly sorted relative to that node.
      * </p>
      * 
-    * @return the number of nodes in the k-d tree
+     * @return the number of nodes in the k-d tree
      */
-    protected int verifyKdTree()
+    protected long verifyKdTree()
     {
         if (root == null) {
             return 0;

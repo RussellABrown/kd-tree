@@ -461,9 +461,8 @@ public class TestKdTreeDynamic {
         final KdTreeDynamic tree = new KdTreeDynamic(numDimensions, executor, maximumSubmitDepth);
 
         // These variables will be modified by building and testing the k-d tree.
-        long treeSize = 0L;
-        int treeHeight = 0, staticTreeHeight = 0, numberOfNodes = 0, staticNumberOfNodes;
-        int numRegionNodes = 0, numNeighborsNodes = 0;
+        long treeSize = 0L, numberOfNodes = 0L, staticNumberOfNodes = 0L;
+        int treeHeight = 0, staticTreeHeight = 0, numRegionNodes = 0, numNeighborsNodes = 0;
 
         // Build and test the k-d tree for the specified number of iterations.
         for (int k = 0; k < iterations; ++k)
@@ -509,7 +508,7 @@ public class TestKdTreeDynamic {
                                                                            vT));
 
                 // Check that the static tree contains the correct number of nodes.
-                int worstNumberOfNodes = arbre.verifyKdTree();
+                long worstNumberOfNodes = arbre.verifyKdTree();
                 if (nN[0] != worstNumberOfNodes) {
                     throw new RuntimeException("\n\nfor worst tree, number of nodes from createKdTree = " + nN[0] +
                                                "  != number of nodes counted by verifyKdTree = " +
