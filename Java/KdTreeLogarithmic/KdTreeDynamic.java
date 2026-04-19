@@ -164,24 +164,12 @@ public class KdTreeDynamic extends KdTree {
 
     /**
      * <p>
-     * The {@code size} method returns the size of the {@code KdTreeDynamic}.
-     * 
-     * @return the tree size
-     * </p>
-     */
-    protected int size()
-    {
-        return nodeCount;
-    }
-
-    /**
-     * <p>
      * The {@code treeSize} method returns the size of the {@code KdTreeDynamic}.
      * 
      * @return the tree size if the tree is not null; otherwise, 0
      * </p>
      */
-    protected static int treeSize(final KdTreeDynamic tree)
+    protected static int getSize(final KdTreeDynamic tree)
     {
         if (tree == null) {
             return 0;
@@ -198,7 +186,7 @@ public class KdTreeDynamic extends KdTree {
      */
     protected boolean isEmpty()
     {
-        return (size() == 0);
+        return (nodeCount == 0);
     }
 
     /**
@@ -238,7 +226,8 @@ public class KdTreeDynamic extends KdTree {
                 }
             }
         } else {
-            // Insert the root, count it as an inserted node, and add it to the doubly linked list.
+            // Insert the root, count it as an inserted node, add it to the doubly linked list,
+            // and increment the histogram element.
             root = insertedNode = new KdNode(coordinate);
             add(insertedNode);
             inserted = changed = true;
@@ -1322,6 +1311,26 @@ public class KdTreeDynamic extends KdTree {
      * are correctly sorted relative to that node.
      * </p>
      * 
+     * @param verifyLinks - if true, references are checked between AVL nodes and k-d nodes
+     * @return the number of nodes in the k-d tree
+     */
+    protected long verifyKdTree(final boolean verifyLinks)
+    {
+        // Verify that the doubly linked list has the same number of k-d nodes as the tree.
+        if (listSize() != nodeCount) {
+            throw new RuntimeException("\n\nlist size = " + listSize() + "  !=  node count =" +
+                                       nodeCount + " in KdTreeDynamic.verifyKdTree\n");
+        }
+
+        return super.verifyKdTree(verifyLinks);
+    }
+
+    /**
+     * <p>
+     * The {@code verifyKdTree} method checks that the children of each node of the k-d tree
+     * are correctly sorted relative to that node.
+     * </p>
+     * 
      * @return the number of nodes in the k-d tree
      */
     protected long verifyKdTree()
@@ -1330,32 +1339,6 @@ public class KdTreeDynamic extends KdTree {
         if (listSize() != nodeCount) {
             throw new RuntimeException("\n\nlist size = " + listSize() + "  !=  node count =" +
                                        nodeCount + " in KdTreeDynamic.verifyKdTree\n");
-        }
-
-        // Verify the length of the doubly linked list in the forward direction.
-        int listCount = 0;
-        KdNode node = getHead();
-        while (node != null) {
-            ++listCount;
-            node = node.next;
-        }
-        if (listSize() != listCount) {
-            throw new RuntimeException("\n\nlist size = " + listSize() + 
-                                       "  !=  forward counted nodes = " + listCount +
-                                       " in KdTreeDynamic.verifyKdTree\n");
-        }
-
-        // Verify the length of the doubly linked list in the reverse direction.
-        listCount = 0;
-        node = getTail();
-        while (node != null) {
-            ++listCount;
-            node = node.prev;
-        }
-        if (listSize() != listCount) {
-            throw new RuntimeException("\n\nlist size = " + listSize() + 
-                                       "  !=  reverse counted nodes = " + listCount +
-                                       " in KdTreeDynamic.verifyKdTree\n");
         }
 
         return super.verifyKdTree();

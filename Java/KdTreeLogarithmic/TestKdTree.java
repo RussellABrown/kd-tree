@@ -373,8 +373,9 @@ public class TestKdTree {
         }
 
         // These variables will be modified by building and testing the k-d tree.
-        int treeHeight = 0, staticTreeHeight = 0, numberOfNodes = 0, staticNumberOfNodes;
+        int treeHeight = 0, staticTreeHeight = 0, staticNumberOfNodes;
         int numRegionNodes = 0, numNeighborsNodes = 0;
+        long numberOfNodes = 0L;
 
         // Build and test the k-d tree for the specified number of iterations.
         for (int k = 0; k < iterations; ++k)

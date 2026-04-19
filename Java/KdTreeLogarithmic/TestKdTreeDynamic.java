@@ -93,7 +93,7 @@
  * Usage:
  *
  * "java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
- *                         [-s S] [-p P] [-v] [-f] [-c] [-l] [-w] [-r] [-i] [-h]
+ *                         [-s S] [-p P] [-v] [-f] [-c] [-w] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -123,8 +123,6 @@
  * -f Search for the next pair after erasure of each pair (default off)
  * 
  * -c Search for all remaining pairs after erasure of each pair (default off)
- * 
- * -l Verify the integrity of the doubly linked list after erasure of each pair (default off)
  * 
  * -w Create a worst-case set of coordinates by walking a k-d tree in order (default off)
  * 
@@ -228,7 +226,6 @@ public class TestKdTreeDynamic {
         boolean verify = false;
         boolean find = false;
         boolean check = false;
-        boolean checkList = false;
         boolean worst = false;
         boolean reverse = false;
 		
@@ -288,11 +285,7 @@ public class TestKdTreeDynamic {
             if (args[i].equals("-c") || args[i].equals("--check")) {
                 check = !check;
                 continue;
-                }
-            if (args[i].equals("-l") || args[i].equals("--checkList")) {
-                checkList = !checkList;
-                continue;
-                }
+            }
             if (args[i].equals("-w") || args[i].equals("--worst")) {
                 worst = !worst;
                 continue;
@@ -564,14 +557,11 @@ public class TestKdTreeDynamic {
                                            "number of nodes + extra points = " + (numberOfNodes + extraPoints) + "\n");
             }
 
-             // Record the maximum tree height and the tree size.
+            // Record the maximum tree height and the tree size.
             treeHeight = tree.getTreeHeight();
-            treeSize = tree.size();
+            treeSize = KdTreeDynamic.getSize(tree);
 
-            // Verify correctness of the doubly linked list.
-            tree.verifyList();
-
-           // Search for each coordinate in the k-d tree. 
+            // Search for each coordinate in the k-d tree. 
             long sTime = System.currentTimeMillis();
             for (int i = 0; i < coordinates.length; ++i) {
                 if (!tree.contains(coordinates[i])) {
@@ -665,10 +655,6 @@ public class TestKdTreeDynamic {
                                 }
                             }
                         }
-                        // Verify correctness of the doubly linked list.
-                        if (checkList) {
-                            tree.verifyList();
-                        }
                     } else {
                         throw new RuntimeException("\n\nfailed to erase pair " + i + " from dynamic k-d tree\n");
                     }
@@ -695,10 +681,6 @@ public class TestKdTreeDynamic {
                                     throw new RuntimeException("\n\nfailed to find following pair " + j + " after erasing pair " + i + "\n");
                                 }
                             }
-                        }
-                        // Verify correctness of the doubly linked list.
-                        if (checkList) {
-                            tree.verifyList();
                         }
                     } else {
                         throw new RuntimeException("\n\nfailed to erase pair " + i + " from dynamic k-d tree\n");

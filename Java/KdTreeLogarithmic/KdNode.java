@@ -208,6 +208,7 @@ public class KdNode {
      * @param q - the leading dimension that permutes cyclically
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param verifyLinks - if true, references are checked between AVL nodes and k-d nodes
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
@@ -215,6 +216,7 @@ public class KdNode {
                                 final int q,
                                 final ExecutorService executor,
                                 final int maximumSubmitDepth,
+                                final boolean verifyLinks,
                                 final int depth) {
 
         if (tuple == null) {
@@ -248,8 +250,8 @@ public class KdNode {
             throw new RuntimeException("\n\nnode is unbalanced in verifyKdTree\n");
         }
 
-        // Check the links to AVL nodes if a logarithmic k-d tree is specified.
-        if (Constants.LOGARITHMIC_TREE && this.avlTreeNode.kdTreeNode != this) {
+        // Check the references between this node and the associated AVL node.
+        if (verifyLinks && avlTreeNode.kdTreeNode != this) {
             throw new RuntimeException("\n\nAVL and k-d nodes are incorrectly" +
                                         " linked in KdNode.verifyKdTree\n");
        }
@@ -265,25 +267,44 @@ public class KdNode {
 
             // No, so search the < branch with the current thread.
             if (ltChild != null) {
-                count += ltChild.verifyKdTree(dim, p + 1, executor, maximumSubmitDepth, depth + 1);
+                count += ltChild.verifyKdTree(dim,
+                                              p + 1,
+                                              executor,
+                                              maximumSubmitDepth,
+                                              verifyLinks,
+                                              depth + 1);
             }
 
             // Then search the > branch with the current thread.
             if (gtChild != null) {
-                count += gtChild.verifyKdTree(dim, p + 1, executor, maximumSubmitDepth, depth + 1);
+                count += gtChild.verifyKdTree(dim,
+                                              p + 1,
+                                              executor,
+                                              maximumSubmitDepth,
+                                              verifyLinks,
+                                              depth + 1);
             }
         } else {
 
             // Yes, so launch a child thread to search the < branch.
             Future<Long> future = null;
             if (ltChild != null) {
-                future = executor.submit( ltChild.verifyKdTreeWithThread(dim, p + 1, executor,
-                                                                         maximumSubmitDepth, depth + 1) );
+                future = executor.submit( ltChild.verifyKdTreeWithThread(dim,
+                                                                         p + 1,
+                                                                         executor,
+                                                                         maximumSubmitDepth,
+                                                                         verifyLinks,
+                                                                         depth + 1) );
             }
         
             // And simultaneously search the > branch with the current thread.
             if (gtChild != null) {
-                count += gtChild.verifyKdTree(dim, p + 1, executor, maximumSubmitDepth, depth + 1);
+                count += gtChild.verifyKdTree(dim,
+                                              p + 1,
+                                              executor,
+                                              maximumSubmitDepth,
+                                              verifyLinks,
+                                              depth + 1);
             }
 
             // If a child thread searched the < branch, get the result.
@@ -310,6 +331,7 @@ public class KdNode {
      * @param p - the leading dimension that permutes cyclically
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
+     * @param verifyLinks - if true, references are checked between AVL nodes and k-d nodes
      * @param depth - the depth in the k-d tree
      * @return the number of nodes in the k-d tree
      */
@@ -317,12 +339,13 @@ public class KdNode {
                                                   final int p,
                                                   final ExecutorService executor,
                                                   final int maximumSubmitDepth,
+                                                  final boolean verifyLinks,
                                                   final int depth) {
         
         return new Callable<Long>() {
             @Override
                 public Long call() {
-                return verifyKdTree(dim, p, executor, maximumSubmitDepth, depth);
+                return verifyKdTree(dim, p, executor, maximumSubmitDepth, verifyLinks, depth);
             }
         };
     }

@@ -345,6 +345,15 @@ public class KdTree {
      * whereas the doubly linked list provided by this {@code KdTree}
      * class exhibits O(1) complexity for deletion.
      * 
+     * The infinite excution problem would be avoided, and
+     * O(1) deletion would be preverved, by a doubly linked
+     * list of wrappers wherein each wrapper contained a
+     * reference to a wrapped {@code KdNode} and that node
+     * contained a reference to its wrapper. This approach
+     * would not guard against wrapper duplication, but the
+     * AvlNode.insert and KdtreeDynamic.insert methods would
+     * guard against such duplication.
+     * 
      * @param node - the {@code KdNode} to add
      * @return the length of the updated list
      * </p>
@@ -393,6 +402,15 @@ public class KdTree {
      * whereas the doubly linked list provided by this {@code KdTree}
      * class exhibits O(1) complexity for deletion.
      * 
+     * The infinite excution problem would be avoided, and
+     * O(1) deletion would be preverved, by a doubly linked
+     * list of wrappers wherein each wrapper contained a
+     * reference to a wrapped {@code KdNode} and that node
+     * contained a reference to its wrapper. This approach
+     * would not guard against wrapper duplication, but the
+     * AvlNode.insert and KdtreeDynamic.insert methods would
+     * guard against such duplication.
+     * 
      * @param tree - the source {@code KdTree}
      * @return the length of the updated list
      * </p>
@@ -426,69 +444,6 @@ public class KdTree {
             }
             return ( listNodeCount + tree.listNodeCount );
         }
-    }
-
-    /**
-     * <p>
-     * The {@code setList} method sets this {@code KdTree}'s {@code KdNode} list
-     * by copying the relevant fields from a source {@code KdTree}.
-     * 
-     * @param tree - the source {@code KdTree}
-     * @return the length of the {@code KdNode} list
-     * </p>
-     */
-    protected int setList(final KdTree tree)
-    {
-        if (tree == null) {
-            return 0;
-        } else {
-            head = tree.head;
-            tail = tree.tail;
-            listNodeCount = tree.listNodeCount;
-            return listNodeCount;
-        }
-    }
-    /**
-     * <p>
-     * The {@code verifyList} method checks the integrity of the {@code KdNode} list.
-     * 
-     * @return the length of the list
-     * </p>
-     */
-    protected int verifyList()
-    {
-        if (head == null) {
-            return 0;
-        }
-
-        // Count the number of KdNodes in the forward direction.
-        long headCount = 0;
-        KdNode node = head;
-        while (node != null) {
-            ++headCount;
-            node = node.next;
-        }
-
-        // Count the number of KdNodes in the reverse direction.
-       long tailCount = 0;
-        node = tail;
-        while (node != null) {
-            ++tailCount;
-            node = node.prev;
-        }
-
-        // Compare the counts.
-        if (headCount != listNodeCount) {
-            throw new RuntimeException("\n\nhead count = " + headCount +
-                                       "  != node count = " + listNodeCount + "\n");
-        }
-
-        if (tailCount != listNodeCount) {
-            throw new RuntimeException("\n\ntail count = " + tailCount +
-                                       "  != node count = " + listNodeCount + "\n");
-        }
-
-        return listNodeCount;
     }
 
     /**
@@ -530,6 +485,27 @@ public class KdTree {
      * are correctly sorted relative to that node.
      * </p>
      * 
+     * @param verifyLinks - if true, references are checked between AVL nodes and k-d nodes
+     * @return the number of nodes in the k-d tree
+     */
+    protected long verifyKdTree(final boolean verifyLinks)
+    {
+        if (root == null) {
+            return 0;
+        }
+
+        // Verify the length of the doubly linked list both directions.
+        verifyList();
+
+        return root.verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, verifyLinks, 0);
+    }
+
+    /**
+     * <p>
+     * The {@code verifyKdTree} method checks that the children of each node of the k-d tree
+     * are correctly sorted relative to that node.
+     * </p>
+     * 
      * @return the number of nodes in the k-d tree
      */
     protected long verifyKdTree()
@@ -537,7 +513,54 @@ public class KdTree {
         if (root == null) {
             return 0;
         }
-        return root.verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, 0);
+
+        // Verify the length of the doubly linked list both directions.
+        verifyList();
+
+        return root.verifyKdTree(numDimensions, 0, executor, maxSubmitDepth, false, 0);
+    }
+
+   /**
+     * <p>
+     * The {@code verifyList} method checks the integrity of the {@code KdNode} list.
+     * 
+     * @return the length of the list
+     * </p>
+     */
+    private int verifyList()
+    {
+        if (head == null) {
+            return 0;
+        }
+
+        // Count the number of KdNodes in the forward direction.
+        long headCount = 0;
+        KdNode node = head;
+        while (node != null) {
+            ++headCount;
+            node = node.next;
+        }
+
+        // Count the number of KdNodes in the reverse direction.
+       long tailCount = 0;
+        node = tail;
+        while (node != null) {
+            ++tailCount;
+            node = node.prev;
+        }
+
+        // Compare the counts.
+        if (headCount != listNodeCount) {
+            throw new RuntimeException("\n\nhead count = " + headCount +
+                                       "  != node count = " + listNodeCount + "\n");
+        }
+
+        if (tailCount != listNodeCount) {
+            throw new RuntimeException("\n\ntail count = " + tailCount +
+                                       "  != node count = " + listNodeCount + "\n");
+        }
+
+        return listNodeCount;
     }
 
     /**
