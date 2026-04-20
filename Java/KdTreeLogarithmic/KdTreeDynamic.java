@@ -45,7 +45,7 @@ import java.util.TreeSet;
  */
 public class KdTreeDynamic extends KdTree {
 
-    private int nodeCount;
+    protected int nodeCount;
     private boolean inserted, erased, changed;
     protected long[] insertionHistogramDyn, deletionHistogramDyn;
     protected KdNode insertedNode, deletedNode;

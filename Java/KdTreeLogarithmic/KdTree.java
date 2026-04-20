@@ -47,10 +47,8 @@ import java.util.TreeSet;
  */
 public class KdTree {
 
-    private KdNode head, tail;
-    protected KdNode root;
-    private int listNodeCount;
-    protected int numDimensions;
+    protected KdNode root, head, tail;
+    protected int listNodeCount, numDimensions;
     protected ExecutorService executor;
     protected int maxSubmitDepth;
 
@@ -234,38 +232,6 @@ public class KdTree {
         }
 
         return kdNodes;
-    }
-
-    /**
-     * <p>
-     * The {@code listSize} method returns the size of the doubly linked list.
-     * 
-     * @return the size of the doubly linked list
-     * </p>
-     */
-    protected int listSize()
-    {
-        return listNodeCount;
-    }
-
-    /**
-     * <p>
-     * The {@code getHead} method returns the head {@code KdNode} of the doubly linked list.
-     * 
-     * @return the head of the doubly linked list
-     */
-    protected KdNode getHead() {
-        return head;
-    }
-
-    /**
-     * <p>
-     * The {@code getTail} method returns the tail {@code KdNode} of the doubly linked list.
-     * 
-     * @return the tail of the doubly linked list
-     */
-    protected KdNode getTail() {
-        return tail;
     }
 
     /**

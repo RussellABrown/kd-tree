@@ -63,6 +63,8 @@ public class Constants {
 
     public static final boolean ENABLE_DEBUG = true;
 
+    public static final boolean ENABLE_MOVE_NODE = true;
+
     public static final boolean ENABLE_1TO3 = true;
 
     public static final boolean ENABLE_PREFERRED_NODE = true;
@@ -75,7 +77,7 @@ public class Constants {
 
     public static final boolean ENABLE_HISTOGRAMS = true;
 
-    public static final boolean ENABLE_NON_FULL_INSERTION = false;
+    public static final boolean ENABLE_SPARSE_INSERTION = false;
 
     public static final boolean ENABLE_TUPLE_COPY = false;
 
