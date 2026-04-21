@@ -63,8 +63,6 @@ public class Constants {
 
     public static final boolean ENABLE_DEBUG = true;
 
-    public static final boolean ENABLE_MOVE_NODE = true;
-
     public static final boolean ENABLE_1TO3 = true;
 
     public static final boolean ENABLE_PREFERRED_NODE = true;

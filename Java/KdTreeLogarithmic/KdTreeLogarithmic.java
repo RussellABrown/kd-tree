@@ -82,7 +82,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
 
         // Insert the key-value pair into the AVL Tree.
         boolean inserted = avlTree.insert(coordinate);
-        if (Constants.ENABLE_DEBUG && !inserted) {
+        if (!inserted) {
             throw new RuntimeException("\n\nfailed to insert key-value" +
                                        " pair into AVL tree" +
                                        " in KdTreeLogarithmic.insert\n");
@@ -104,28 +104,32 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         // 
         //     2^(i-2) < |B_i| <= 2^i
         //
-        // unless the tree is empty, where the allowed size |B_i| = 0 .
+        // unless the tree is empty, where the allowed size |B_i| = 0.
         //
-        // The above constraints limit tree sizes as follows (see the
-        // analysis further below of insertion into empty B_i).
+        // The above equation constrains tree sizes as follows.
         //
         // |B_3| = 0 or 2 < |B_3| <= 8
         // |B_2| = 0 or 1 < |B_2| <= 4
         // 0 <= |B_1| <= 2
         // 0 <= |B_0| <= 1
         // 
-        // For B_0 and B_1, 2^(i-2) is undefined so a lower limit of 0
-        // instead of 2^(i-2) is chosen for these trees.
+        // For B_0 and B_1, 2^(i-2) is undefined so a lower limit of
+        // 0 instead of 2^(i-2) is chosen for these trees. But the
+        // correct constraints for B_1 might be |B_1| = 0 or |B_1| = 2,
+        // thus excluding |B_1| = 1 from valid B_1. However, the tree-
+        // rebuilding algorithm of the erase method for i >= 2 uses the
+        // upper bound 2^(i-2) of B_(i-2) and hence only the maximum
+        // sizes of B_0 and B_1 are important, so |B_1| = 1 may be valid.
         //
         // In a departure from the above-referenced discussion by Overmars
-        // and van Leeuwen, it is not necessary to build a new k-d tree to
-        // insert the key-value pair; instead, the key-value pair is inserted
+        // and van Leeuwen, it is not always necessary to build a new tree
+        // to insert the key-value pair; instead, that pair may be inserted
         // into a non-full (aka sparse) tree that statisfies the constraints
         // 
         //     2^(i-2) < 1 + |B_i| <= 2^i
         //
         // where 1 is the size of the key-value pair and |B_i| is the size
-        // of the sparsel tree prior to insertion. Subtracting 1 from all
+        // of the sparse tree prior to insertion. Subtracting 1 from all
         // three terms of this equation yields
         //
         //     2^(i-2) <= |B_i| < 2^i
@@ -138,7 +142,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         // 0 <= |B_0| < 1
         //
         // Inspect the k-d trees in an attempt to find the smallest tree
-        // (excluding B_1) that satisfies 2^(i-2) <= |B_i| < 2^i .
+        // that satisfies the constraint 2^(i-2) <= |B_i| < 2^i.
         if (Constants.ENABLE_SPARSE_INSERTION) {
             int sparseTree = -1;
             if (getSize(kdTrees[0]) < 1) {
@@ -148,7 +152,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             } else {
                 // Initialize power-of-2 limits for i = 2 and exclude B_0 and B_1
                 // from the following 'for' loop.
-                int powerOf2Lower = 2, powerOf2Upper = 4;
+                int powerOf2Lower = 1; // Initialized to 2^(i-2) for i loop index below.
+                int powerOf2Upper = 4; // Initialized to 2^i for i loop index below.
                 for (int i = 2; i < Constants.MAX_POWER_OF_2; ++i) {
                     if (powerOf2Lower <= getSize(kdTrees[i]) &&
                         getSize(kdTrees[i]) < powerOf2Upper) {
@@ -160,12 +165,12 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 }
             }
 
-            // Was a non-full tree found wherein |2^(i-2) <= |B_i| < 2^i ? 
+            // Was a sparse tree found wherein |2^(i-2) <= |B_i| < 2^i ? 
             if (sparseTree >= 0) {
                 // Yes, so insert the key-value pair into that tree, which may be null
                 // for B_0 because the getSize method returns 0 for a null or empty tree.
                 //
-                // Insertion into the non-full tree, and rebalancing that tree,
+                // Insertion into the sparse tree, and rebalancing that tree,
                 // are performed as described by Brown in "A dynamic, self-balancing
                 // k-d tree," www.arxiv.org/abs/2509.08148, 1-19, 2026.
                 if (kdTrees[sparseTree] == null) {
@@ -193,10 +198,10 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 // Verify that the size of the tree does not exceed its limits
                 // and NOTE that B_0 and B_1 have specific verification tests
                 // because 2^(i-2) is undefined for i < 2 so for B_0 and B_1
-                // the constraint is 0 <= |B_i| <= 2^i .
+                // the constraint is 0 <= |B_i| <= 2^i, i.e., |B_i| <= 2^i.
                 if ( Constants.ENABLE_DEBUG &&
-                     getSize(kdTrees[sparseTree]) <= 0 || // |B_i| > 0 after insertion
-                     ( (sparseTree == 0 && getSize(kdTrees[0]) > 1) ||
+                     ( getSize(kdTrees[sparseTree]) <= 0 || // |B_i| > 0 after insertion.
+                       (sparseTree == 0 && getSize(kdTrees[0]) > 1) ||
                        (sparseTree == 1 && getSize(kdTrees[1]) > 2) ||
                        (sparseTree >= 2 &&
                          ( (1 << (sparseTree - 2) >= getSize(kdTrees[sparseTree])) ||
@@ -217,13 +222,13 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         }
 
         // Insertion of the new key-value pair into tree wherein |2^(i-2) <= |B_i| < 2^i
-        // was not requested or else such a tree was not found, so find the smallest tree
-        // that is empty.
-        int treeIndex; // The index of the replacement tree in kdTrees[treeIndex]
-        KdTreeDynamic tree;  // This tree that replaces kdTrees[treeIndex]
+        // either was not requested or such a tree was not found, so find the smallest
+        // empty tree, and replace either that tree or the next smaller tree with a new tree.
+        int treeIndex; // The index of the replacement tree in kdTrees
+        KdTreeDynamic tree;  // The tree that replaces kdTrees[treeIndex]
         if (getSize(kdTrees[0]) <= 0) {
             // B_0 is empty, so specify B_0 as the smallest tree via treeIndex,
-            // and insert the new key-value pair into the smallest tree, B_0.
+            // and insert the new key-value pair into B_0.
             treeIndex = 0;
             tree = kdTrees[0];
             if (tree == null) {
@@ -243,9 +248,10 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                                            " of KdTreeLogarithmic.insert\n");
             }
         } else if (getSize(kdTrees[1]) <= 0) {
-            // B_0 is not empty but B_1 is empty, set treeIndex to 1,
+            // B_0 is not empty but B_1 is empty, so set treeIndex to 1,
             // swap B_0 with B1, set kdTreeIndex to reference B_1, and
-            // insert the key-value pair into the smallest tree, B_1.
+            // insert the key-value pair into B_1. This approach mimics
+            // the behavior below for i > 2.
             treeIndex = 1;
             final KdTreeDynamic tmpTree = kdTrees[1];
             kdTrees[1] = kdTrees[0];
@@ -273,7 +279,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             int treeSizeSum = 1 + getSize(kdTrees[0]) + getSize(kdTrees[1]);
             int powerOf2 = 2; // Initialized to 2^(i-1) for i loop index below.
             for (int i = 2; i < Constants.MAX_POWER_OF_2; ++i) {
-                if (getSize(kdTrees[i]) == 0) {
+                if (getSize(kdTrees[i]) <= 0) {
                     emptyTree = i;
                     break;
                 }
@@ -295,7 +301,6 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             // If the above comparison is true, build a B_i from the key-value
             // pair plus the contents of all trees up to and including B_(i-1).
             // If the above comparison is false, build a B_(i-1) instead.
-            // treeSizeSum includes the inserted key-value pair (see above).
             treeIndex = (treeSizeSum > powerOf2) ? emptyTree : emptyTree - 1;
 
             // Create a new k-d tree with a single k-d node for the inserted
@@ -316,16 +321,22 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             }
 
             // Append the k-d nodes from trees B_0 ... B_(i-1) to the node list of
-            // the newly created k-d tree. Destroy trees B_0 ... B_(i-1) by setting
-            // their kdTrees[] elements to null. B_0 and B_1 could be null or empty
-            // because they were not included in the search for the first empty tree.
-            // But B_2 ... B_(i-1) can be neither null nor empty because the getSize
+            // the newly created k-d tree, and then clear trees B_0 ... B_(i-1)
+            // so that they appear empty. B_0 and B_1 could be null or empty because
+            // they were not included in the search for the first empty tree. But
+            // B_2 ... B_(i-1) can be neither null nor empty because the getSize
             // method returned a non-zero result for each of these trees.
-            for (int i = 0; i < emptyTree; ++i) {
-                if (kdTrees[i] != null) {
-                    tree.addList(kdTrees[i]);
-                    kdTrees[i] = null;
-                }
+            if (kdTrees[0] != null && kdTrees[0].nodeCount > 0) {
+                tree.addList(kdTrees[0]);
+                kdTrees[0].clear();
+            }
+            if (kdTrees[1] != null && kdTrees[1].nodeCount > 0) {
+                tree.addList(kdTrees[1]);
+                kdTrees[1].clear();
+            }
+            for (int i = 2; i < emptyTree; ++i) {
+                tree.addList(kdTrees[i]);
+                kdTrees[i].clear();
             }
 
             // Replace the new k-d tree with a k-d tree created from the list of k-d nodes.
@@ -344,18 +355,18 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             // Verify that the k-d tree contains the correct number of nodes; 
             if (Constants.ENABLE_DEBUG && getSize(tree) != treeSizeSum) {
                 throw new RuntimeException("\n\ntree size = " + getSize(tree) +
-                                           "  != list size = " + treeSizeSum +
+                                           "  !=  list size = " + treeSizeSum +
                                            " in KdTreeLogarithmic.insert\n");
             }
         }
 
         // Verify the correct size of the k-d tree.
         if ( Constants.ENABLE_DEBUG &&
-             getSize(tree) <= 0 || // |B_i| > 0 after insertion
-             (treeIndex == 0 && getSize(tree) > 1) ||
-             (treeIndex == 1 && getSize(tree) > 2) ||
-             (treeIndex >= 2 && (1 << (treeIndex - 2) >= getSize(tree) ||
-                                 getSize(tree) > (1 << treeIndex)))) {
+             (getSize(tree) <= 0 || // |B_i| > 0 after insertion.
+              (treeIndex == 0 && getSize(tree) > 1) ||
+              (treeIndex == 1 && getSize(tree) > 2) ||
+              (treeIndex >= 2 && (1 << (treeIndex - 2) >= getSize(tree) ||
+                                  getSize(tree) > (1 << treeIndex))))) {
             throw new RuntimeException("\n\ntree " + treeIndex + " size = " +
                                        getSize(tree) + "in elaborate insert" +
                                        " of KdTreeLogarithmic.insert\n");
@@ -417,7 +428,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         if ( Constants.ENABLE_DEBUG &&
              (kdTreeIndex < 0) || (kdTreeIndex >= Constants.MAX_POWER_OF_2) ) {
             throw new RuntimeException("\n\nk-d tree index = " + kdTreeIndex +
-                                       " is out of range in KdTreeLOgarithmic.erase\n");
+                                       " is out of range in KdTreeLogarithmic.erase\n");
         }
         if (kdTrees[kdTreeIndex].erase(coordinate) == false) {
             throw new RuntimeException("\n\nfailed to erase coordinate from" +
@@ -447,16 +458,20 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         // 
         // unless the tree is empty, in which case |B_i| = 0.
         // 
-        // The above constraints limit tree sizes as follows (see the
-        // analysis further below of insertion into empty B_i).
+        // The above equation constrains tree sizes as follows.
         //
         // |B_3| = 0 or 2 < |B_3| <= 8
         // |B_2| = 0 or 1 < |B_2| <= 4
         // 0 <= |B_1| <= 2
         // 0 <= |B_0| <= 1
         // 
-        // For B_0 and B_1, 2^(i-2) is undefined so a lower limit of 0
-        // instead of 2^(i-2) is chosen for these trees.
+        // For B_0 and B_1, 2^(i-2) is undefined so a lower limit of
+        // 0 instead of 2^(i-2) is chosen for these trees. But the
+        // correct constraints for B_1 might be |B_1| = 0 or |B_1| = 2,
+        // thus excluding |B_1| = 1 from valid B_1. However, the tree-
+        // rebuilding algorithm below for i >= 2 uses the upper bound
+        // 2^(i-2) of B_(i-2) and hence only the maximum sizes of
+        // B_0 and B_1 are important, so |B_1| = 1 may be valid.
         //
         // A departure from the above-reference discussion by Overmars
         // and van Leeuwen is that deletion of the key-value pair has
@@ -478,24 +493,12 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         // the tree-insertion algorithms of the insert method guarantee
         // that this contraint is satisfied.
         //
-        // For i < 2, the above post-deletion constraint is analyzed
-        // below for the specific cases of B_0 and B_1 because 2^(i-2)
-        // is undefined for these cases.
-        //
-        // Before deletion, B_0 contains 1 k-d node, so deletion of that
-        // node produces an empty tree that satisfies the post-deletion
-        // constraint. Hence, no further processing is necessary.
-        //
-        // Before deletion, B_1 contains 2 k-d nodes, so deletion of 1
-        // node produces a tree that contains 1 node. This tree violates
-        // the post-deletion constraint, so further processing is required.
-        // 
         // Consistent with the algorithm below for B_i where i >= 2, and
         // also consistent with the algorithms of the insert method, the
         // following code handles the cases of B_0 and B_1.
         if (kdTreeIndex == 0) {
             // B_0 should be empty due to erasure of its one allowed node,
-            // so no further processing is necessary becaise |B_0| = 0
+            // so no further processing is necessary because |B_0| = 0
             // is allowed by its constraints. Check that B_0 is indeed empty.
             if (Constants.ENABLE_DEBUG) {
                 if (getSize(kdTrees[0]) > 0) {
@@ -510,24 +513,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
 
         } else if (kdTreeIndex == 1 && getSize(kdTrees[1]) < 1) {
             // B_1 is empty, so no further processing is required
-            // because its constraints allow |B_1| = 0 .
-            //
-            // However, becauses B_0 is not empty, it is possible
-            // to move B_0's one node to B_1, which is equivalent
-            // to the first general case below where |B_(i-1)| > 0
-            // and |B_i| = 2^(i-2) but B_1 satifies |B_i| = 0
-            // instead of |B_i| = 2^(i-2) .
-            //
-            // The easiet to move B_0's node to empty B_1 is to
-            // swap the trees and then set the kdTreeIndex to
-            // reference B_1.
-            if (Constants.ENABLE_MOVE_NODE) {
-                final KdTreeDynamic tmpTree = kdTrees[1];
-                kdTrees[1] = kdTrees[0];
-                kdTrees[0] = tmpTree;
-                kdTrees[1].root.avlTreeNode.kdTreeIndex = 1;
-            }
-
+            // because its constraints allow |B_1| = 0.
             return true;
 
         } else if (getSize(kdTrees[kdTreeIndex]) > (1 << (kdTreeIndex - 2))) {
@@ -548,46 +534,48 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         } else {
 
             // Given the above processing, |B_i| <= 2^(i-2) for i >= 2
-            // after deletion, and in fact, for a correctly built tree,
-            // after deletion of one node, |B_i| = 2^(i-2) because
-            // before deletion |B_i| > 2^(i-2) so declare a new, empty
-            // tree that will be subsequently created and then used
-            // to build a correctly constrained tree. And declare
-            // that tree's index in the kdTrees array.
+            // after deletion, and in fact, after deletion of one node
+            // from a correctly built tree, |B_i| = 2^(i-2) because
+            // the above test for a deletion that does not require
+            // rebuilding a tree is |B_i| > 2^(i-2). Declare a tree
+            // reference for the tree that will be rebuilt, as well as
+            // an index for that tree into the kdTrees array.
             KdTreeDynamic tree;
             int treeIndex;
 
             // Overmars' and van Leeuwen's algorithm determines which
-            // k-d tree to build and from which trees to cull the nodes
-            // used to build the tree. Destroy the trees from which the
-            // nodes are culled by setting their elements to null in the
-            // kdTrees array to. The logic below is correct for i >= 2.
+            // k-d tree to build and from which tree to cull the nodes
+            // used to build the tree. After culling, clear the tree
+            // from which the nodes are culled so that it is empty.
+            // The logic below is correct for i >= 2 because 2^(i-2)
+            // is defined.
 
             // Is B_(i-1) empty?
             if (getSize(kdTrees[kdTreeIndex-1]) > 0) {
-                // B_(i-1) is not empty; hence, the k-d nodes are
-                // culled from B_(i-1) and B_i into the new tree.
-                tree = new KdTreeDynamic(coordinate.getKey().length,
-                                         executor,
-                                         maxSubmitDepth);
-                tree.addList(kdTrees[kdTreeIndex]);
-                tree.addList(kdTrees[kdTreeIndex-1]);
-                kdTrees[kdTreeIndex] = kdTrees[kdTreeIndex-1] = null;
-                // Is |B_(i-1) > 2^(i-2)?
+                // B_(i-1) is not empty; hence, the nodes are culled
+                // from either B_(i-1) or B_i into the new tree.
+                //
+                // Is |B_(i-1)| > 2^(i-2)?
                 if (getSize(kdTrees[kdTreeIndex-1]) > (1 << (kdTreeIndex-2))) {
                     // |B_(i-1)| > 2^(i-2) and |B_i| = 2^(i-2) (see above),
                     // so |B_(i-1)| + |B_i| > 2*2^(i-2) = 2^(i-1) and hence
-                    // the combined nodes culled from B_(i-1) and B_i exceed
-                    // the post-deletion constraint |B_(i-1)| <= 2^(i-1) so
-                    // build B_i using the nodes culled from B_(i-1) and B_i
+                    // the combined nodes of B_(i-1) and B_i exceed the
+                    // the constraint |B_(i-1)| <= 2^(i-1) so cull the nodes
+                    // from B_(i-1) into B_i, and then clear B_(i-1).
                     treeIndex = kdTreeIndex;
+                    tree = kdTrees[treeIndex];
+                    tree.addList(kdTrees[kdTreeIndex-1]);
+                    kdTrees[kdTreeIndex-1].clear();
                 } else {
-                    // |B_i-1)| + |B_i| <= 2^(i-1) so build B_(i-1)
-                    // using the nodes culled from B_(i-1) and B_i
+                    // |B_i-1)| + |B_i| <= 2^(i-1) so cull the nodes from
+                    // B_i into B_(i-1), and then clear B_i.
                     treeIndex = kdTreeIndex - 1;
+                    tree = kdTrees[treeIndex];
+                    tree.addList(kdTrees[kdTreeIndex]);
+                    kdTrees[kdTreeIndex].clear();
                 }
                 // Replace either B_i or B_(i-1) with a tree created
-                // from the list of nodes.
+                // from the combined nodes from B_i and B_(i-1).
                 if (Constants.ENABLE_1TO3 && tree.listNodeCount <= 3) {
                     kdTrees[treeIndex] =
                         KdTreeDynamic.createKdTree1to3(tree,
@@ -608,16 +596,17 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 // so because |B_(i-2)| <= 2^(i-2) and further
                 // because |B_i| = 2^(i-2) as discussed above,
                 // |B_(i-2)| + |B_i| <= 2*2^(i-2) = 2^(i-1) so
-                // build B_(i-1) using the nodes culled from
-                // B_i and B_(i-2)
+                // cull the nodes from B_i and B_(i-2), clear
+                // these trees, and then build B_(i-1) from
+                // the nodes culled from B_i and B_(i-2).
                 treeIndex = kdTreeIndex - 1;
-                tree = new KdTreeDynamic(coordinate.getKey().length,
-                                         executor,
-                                         maxSubmitDepth);
+                tree = kdTrees[treeIndex];
                 tree.addList(kdTrees[kdTreeIndex]);
                 tree.addList(kdTrees[kdTreeIndex-2]);
-                kdTrees[kdTreeIndex] = kdTrees[kdTreeIndex-2] = null;
-                // Replace B_(i-2) with a tree created from the list of nodes.
+                kdTrees[kdTreeIndex].clear();
+                kdTrees[kdTreeIndex-2].clear();
+                // Replace B_(i-1) with a tree created from the
+                // combined nodes from B_i and B_(i-2).
                 if (Constants.ENABLE_1TO3 && tree.listNodeCount <= 3) {
                     kdTrees[treeIndex] =
                         KdTreeDynamic.createKdTree1to3(tree,
@@ -634,18 +623,22 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
 
             } else {
                 // B_(i-1) and B_(i-2) are both empty and, as
-                // discussed above, |B_i| = 2^(i-2) so move
-                // B_i to B_(i-2) instead of creating a new tree.
+                // discussed above, |B_i| = 2^(i-2) so swap
+                // B_i and B_(i-2) thus moving the nodes
+                // from B_i to B_(i-2) and emptying B_i.
                 treeIndex = kdTreeIndex - 2;
-                tree = kdTrees[treeIndex] = kdTrees[kdTreeIndex];
-                kdTrees[kdTreeIndex] = null;
+                final KdTreeDynamic tmpTree = kdTrees[kdTreeIndex];
+                kdTrees[kdTreeIndex] = kdTrees[treeIndex];
+                kdTrees[treeIndex] = tmpTree;
+                kdTrees[treeIndex].root.avlTreeNode.kdTreeIndex = (short) treeIndex;
+                tree = kdTrees[treeIndex];
             }
 
             // Verify the correct size of the k-d tree B_i for i >= 2.
             if ( Constants.ENABLE_DEBUG &&
-                getSize(tree) == 0 ||
-                (1 << (treeIndex - 2) >= getSize(tree) ||
-                getSize(tree) > (1 << treeIndex) ) ) {
+                (getSize(tree) <= 0 ||
+                 (1 << (treeIndex - 2) >= getSize(tree) ||
+                 getSize(tree) > (1 << treeIndex)))) {
                     throw new RuntimeException("\n\ntree " + treeIndex +
                                                " size = " + getSize(tree) +
                                                " in elaborate rebuild of" +
@@ -665,8 +658,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
 
     /**
      * <p>
-     * The {@code verifyTree} method checks that the children of each node of the k-d tree
-     * are correctly sorted relative to that node.
+     * The {@code verifyTree} method checks that the children of each node
+     * of the k-d tree is correctly sorted relative to that node.
      * </p>
      * 
      * @return the number of nodes in the k-d tree
@@ -681,9 +674,10 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 KdNode node = kdTrees[i].head;
                 while (node != null) {
                     if (node.avlTreeNode.kdTreeIndex != (short) i) {
-                        throw new RuntimeException("\n\nAVL node index = " + node.avlTreeNode.kdTreeIndex +
-                                                "  !=  tree index = " + i +
-                                                " in KdTreeLorarithmic.verifyKdTree\n");
+                        throw new RuntimeException("\n\nAVL node index = " +
+                                                   node.avlTreeNode.kdTreeIndex +
+                                                   "  !=  tree index = " + i +
+                                                   " in KdTreeLorarithmic.verifyKdTree\n");
                     }
                     node = node.next;
                 }
@@ -694,4 +688,52 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         return count;
     }
 
+    /**
+     * <p>
+     * The {@code contains} method searches the tree for a key-value pair.
+     * 
+     * @param coordinate - a {@code Pair}<{@code long}[], {@code String}>
+     * @return {@code true} if the key was found; otherwise, {@code false}
+     * </p>
+     */
+    protected boolean contains(final Pair coordinate)
+    {
+        KdNode avlKdTreeNode = null, kdKdTreeNode = null;
+        boolean avlResult = false, kdResult = false;
+
+        // Search the AVL-tree dictionary for the key.
+        final AvlNode avlTreeNode = avlTree.find(coordinate);
+        if (avlTreeNode != null) {
+            // The key was found in an AVL node, so search for the value
+            // in the associated k-d node.
+            avlKdTreeNode = avlTreeNode.kdTreeNode;
+            if (avlKdTreeNode.values.contains(coordinate.getValue())) {
+                avlResult = true;
+            }
+        }
+
+        // Compare the search of the AVL tree to a search of the k-d trees.
+        if (Constants.ENABLE_DEBUG) {
+            for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
+                if (kdTrees[i] != null && kdTrees[i].nodeCount > 0) {
+                    kdKdTreeNode = kdTrees[i].find(coordinate);
+                    if (kdKdTreeNode != null) {
+                        kdResult = true;
+                        break;
+                    }
+                }
+            }
+            if (avlResult != kdResult) {
+                throw new RuntimeException("\n\nboolean mismatch in contains:" +
+                                           " AVL result = " + avlResult +
+                                           "  k-d result = " + kdResult + "\n");
+            }
+            if (avlKdTreeNode != kdKdTreeNode) {
+                throw new RuntimeException("\n\nsearch mismatch in contains\n");
+            }
+        }
+
+        return avlResult;
+    }
+    
 } // class KdTreeLogarithmic

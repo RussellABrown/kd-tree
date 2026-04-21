@@ -60,9 +60,20 @@ public class KdTree {
         this.executor = executor;
         this.maxSubmitDepth = maxSubmitDepth;
 
+        clear();
+   }
+
+    /**
+     * <p>
+     * The {@code clear} method clears some fields of the tree
+     * instance so that it becomes an empty tree.
+     * </p>
+     */
+    protected void clear()
+    {
         listNodeCount = 0;
         root = head = tail = null;
-   }
+    }
 
     /**
      * <p>
@@ -703,7 +714,11 @@ public class KdTree {
     protected boolean contains(final Pair coordinate)
     {
         if (root != null) {
-            return contains(root, coordinate.getKey(), coordinate.getValue(), 0);
+            if (find(root, coordinate.getKey(), coordinate.getValue(), 0) != null) {
+                return true;
+            } else {
+                return false;
+            }
         } else {
             return false;
         }
@@ -711,19 +726,36 @@ public class KdTree {
     
     /**
      * <p>
-     * The {@code contains} method searches a subtree for a key-value pair.
+     * The {@code find} method searches a subtree for a key-value pair.
+     * 
+     * @param coordinate - a {@code Pair}<{@code long}[], {@code String}>
+     * @return {@code KdNode} if the key was found; otherwise, {@code null}
+     * </p>
+     */
+    protected KdNode find(final Pair coordinate)
+    {
+        if (root != null) {
+            return find(root, coordinate.getKey(), coordinate.getValue(), 0);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * <p>
+     * The {@code find} method searches a subtree for a key-value pair.
      * 
      * @param node - the root {@code KdNode} of the subtree
      * @param key - a {@code long}[] tuple
      * @param value - a {@code String}
      * @param q - the leading dimension that is permuted cyclically
-     * @return {@code true} if the key was found; otherwise, {@code false}
+     * @return {@code KdNode} if the key was found; otherwise, {@code null}
      * </p>
      */
-    private boolean contains(final KdNode node,
-                             final long[] key,
-                             final String value,
-                             final int q)
+    private KdNode find(final KdNode node,
+                        final long[] key,
+                        final String value,
+                        final int q)
     {
         KdNode ptr = node;
         int p = q;
@@ -735,14 +767,18 @@ public class KdTree {
                 ptr = ptr.gtChild;
             } else {
                 // found the key, so check for the value
-                return ptr.values.contains(value);
+                if (ptr.values.contains(value)) {
+                    return ptr;
+                } else {
+                    return null;
+                }
             }
             // Permute the most significant dimension p cyclically using
             // a fast alternative to the modulus operator for p <= dim.
             ++p;
             p = (p < dim) ? p : 0;
         }
-        return false; // didn't find the key
+        return null; // didn't find the key
     }
     
     /**

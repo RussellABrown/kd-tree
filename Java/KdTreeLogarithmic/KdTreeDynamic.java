@@ -89,6 +89,18 @@ public class KdTreeDynamic extends KdTree {
 
     /**
      * <p>
+     * The {@code clear} method clears some fields of the tree
+     * instance so that it becomes an empty tree.
+     * </p>
+     */
+    protected void clear()
+    {
+        super.clear();
+        nodeCount = 0;
+    }
+
+    /**
+     * <p>
      * The {@code createKdTree} method builds a k-d tree from a list
      * of {@code KdNode}s where the list is provided by a {@code KdTree}
      * and where the coordinates of each point are stored in KdNode.tuple
@@ -119,7 +131,7 @@ public class KdTreeDynamic extends KdTree {
                                                                       histogram));
 
         // Record the number of k-d nodes in the tree.
-        newTree.nodeCount = tree.listSize();
+        newTree.nodeCount = tree.listNodeCount;
 
         return newTree;
     }
@@ -157,7 +169,7 @@ public class KdTreeDynamic extends KdTree {
                                                                           histogram));
 
         // Record the number of k-d nodes in the tree.
-        newTree.nodeCount = tree.listSize();
+        newTree.nodeCount = tree.listNodeCount;
 
         return newTree;
     }
@@ -1317,8 +1329,8 @@ public class KdTreeDynamic extends KdTree {
     protected long verifyKdTree(final boolean verifyLinks)
     {
         // Verify that the doubly linked list has the same number of k-d nodes as the tree.
-        if (listSize() != nodeCount) {
-            throw new RuntimeException("\n\nlist size = " + listSize() + "  !=  node count =" +
+        if (listNodeCount != nodeCount) {
+            throw new RuntimeException("\n\nlist size = " + listNodeCount + "  !=  node count =" +
                                        nodeCount + " in KdTreeDynamic.verifyKdTree\n");
         }
 
@@ -1336,8 +1348,8 @@ public class KdTreeDynamic extends KdTree {
     protected long verifyKdTree()
     {
         // Verify that the doubly linked list has the same number of k-d nodes as the tree.
-        if (listSize() != nodeCount) {
-            throw new RuntimeException("\n\nlist size = " + listSize() + "  !=  node count =" +
+        if (listNodeCount != nodeCount) {
+            throw new RuntimeException("\n\nlist size = " + listNodeCount + "  !=  node count =" +
                                        nodeCount + " in KdTreeDynamic.verifyKdTree\n");
         }
 
