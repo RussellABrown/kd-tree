@@ -797,7 +797,7 @@ public class KdNode {
      *
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code double, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Paire}{@code double, KdNode>>}
      */
     protected List<Paire> findNearestNeighbors(final long[] query,
                                                final int numNeighbors) {
@@ -826,7 +826,7 @@ public class KdNode {
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
      * @param enable - an array that specifies which dimensions to search
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code double, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Paire}{@code double, KdNode>>}
      */
     protected List<Paire> findNearestNeighbors(final long[] query,
                                                final int numNeighbors,
@@ -896,7 +896,7 @@ public class KdNode {
      *
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code double, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Paire}{@code double, KdNode>>}
      */
     protected  List<Paire> findBruteNeighbors(final long[] query,
                                               final int numNeighbors) {
@@ -925,7 +925,7 @@ public class KdNode {
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
      * @param enable - an array that specifies which dimensions to search
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code double, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Paire}{@code double, KdNode>>}
      */
     protected List<Paire> findBruteNeighbors(final long[] query,
                                              final int numNeighbors,

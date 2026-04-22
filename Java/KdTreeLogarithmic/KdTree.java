@@ -394,7 +394,7 @@ public class KdTree {
      */
     protected int addList(final KdTree tree)
     {
-        if (head == null && (tree == null || (tree != null && tree.head == null))) {
+        if (head == null && (tree == null || tree.head == null)) {
             // Both lists are empty.
             return 0;
         } else if (head == null) {
@@ -403,7 +403,7 @@ public class KdTree {
             tail = tree.tail;
             listNodeCount = tree.listNodeCount;
             return listNodeCount;
-        } else if (tree == null || (tree != null && tree.head == null)) {
+        } else if (tree == null || tree.head == null) {
             // The source tree's list is empty.
             return listNodeCount;
         } else {
@@ -412,14 +412,15 @@ public class KdTree {
                 // Prepend the source linked list.
                 tree.tail.next = head;
                 head.prev = tree.tail;
-                tree.tail = tail;
+                head = tree.head;
             } else {
                 // Append the source linked list.
                 tail.next = tree.head;
                 tree.head.prev = tail;
                 tail = tree.tail;
             }
-            return ( listNodeCount + tree.listNodeCount );
+            listNodeCount += tree.listNodeCount;
+            return listNodeCount;
         }
     }
 
@@ -468,7 +469,7 @@ public class KdTree {
     protected long verifyKdTree(final boolean verifyLinks)
     {
         if (root == null) {
-            return 0;
+            return 0L;
         }
 
         // Verify the length of the doubly linked list both directions.
@@ -488,7 +489,7 @@ public class KdTree {
     protected long verifyKdTree()
     {
         if (root == null) {
-            return 0;
+            return 0L;
         }
 
         // Verify the length of the doubly linked list both directions.
@@ -553,9 +554,7 @@ public class KdTree {
      * @param p - the leading dimension that permutes cyclically
      * @param depth - the depth in the k-d tree
      * @param enableAll - enable or disable all of the k dimensions
-     * @return the size of the {@link java.util.LinkedList List}{@code <}{@link KdNode}{@code >}
-     *         instead of returning void that doesn't appear to be
-     *         an acceptable return value for the Callable.call method
+     * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
      */
     protected List<KdNode> searchKdTree(final long[] queryLower,
                                         final long[] queryUpper,
@@ -592,7 +591,6 @@ public class KdTree {
      * @param depth - the depth in the k-d tree
      * @param enable - enable search culling on a per-component basis
      * @return a {@link java.util.List List}{@code <}{@link KdNode}{@code >}
-     * that contains the k-d nodes that lie within the cutoff distance of the query node
      */
     protected List<KdNode> searchKdTree(final long[] queryLower,
                                         final long[] queryUpper,
@@ -624,7 +622,7 @@ public class KdTree {
      *
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Paire}{@code double, KdNode>>}
      */
     protected List<Paire> findNearestNeighbors(final long[] query,
                                                final int numNeighbors)
@@ -646,7 +644,7 @@ public class KdTree {
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
      * @param enable - an array that specifies which dimensions to search
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Paire}{@code double, KdNode>>}
      */
     protected List<Paire> findNearestNeighbors(final long[] query,
                                                final int numNeighbors,
@@ -668,7 +666,7 @@ public class KdTree {
      *
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Paire}{@code double, KdNode>>}
      */
     protected List<Paire> findBruteNeighbors(final long[] query,
                                              final int numNeighbors)
@@ -690,7 +688,7 @@ public class KdTree {
      * @param query - the query array
      * @param numNeighbors - the number M of nearest neighbors to attempt to find
      * @param enable - an array that specifies which dimensions to search
-     * @return a {@link java.util.List List}{@code <}{@link Pair}{@code BigInteger, KdNode>>}
+     * @return a {@link java.util.List List}{@code <}{@link Paire}{@code double, KdNode>>}
      */
     protected List<Paire> findBruteNeighbors(final long[] query,
                                              final int numNeighbors,

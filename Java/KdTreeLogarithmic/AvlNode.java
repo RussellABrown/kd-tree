@@ -262,12 +262,10 @@ public class AvlNode {
         } else { // The tree already contains the key, so add the value to KdTreeNode.values
             if (p.kdTreeNode != null) {
                 p.kdTreeNode.values.add(value);
-                tree.insertedNode = null;
-                tree.inserted = true; // A value has been inserted into the TreeSet
-                tree.changed = false; // A new AvlNode was not inserted, so the height hasn't changed
-            } else {
-                throw new RuntimeException("\n\nkdTreeNode reference is null in AvlNode.insert\n");
             }
+            tree.insertedNode = null;
+            tree.inserted = true; // A value has been inserted into the TreeSet
+            tree.changed = false; // A new AvlNode was not inserted, so the height hasn't changed
         }
 
         return p; // The root of the rebalanced sub-tree

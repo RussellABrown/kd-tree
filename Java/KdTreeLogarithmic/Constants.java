@@ -59,8 +59,6 @@ public class Constants {
 
     public static final boolean NLOGN = true;
 
-    public static final boolean LOGARITHMIC_TREE = false;
-
     public static final boolean ENABLE_DEBUG = true;
 
     public static final boolean ENABLE_1TO3 = true;
