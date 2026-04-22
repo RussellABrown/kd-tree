@@ -250,8 +250,9 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         int treeIndex; // The index of the replacement tree in kdTrees
         KdTreeDynamic tree;  // The tree that replaces kdTrees[treeIndex]
         if (getSize(kdTrees[0]) == 0) {
-            // B_0 is empty, so specify B_0 as the smallest tree via treeIndex,
-            // and insert the new key-value pair into B_0.
+            // B_0 is empty, so set treeIndex to 0 to specify 
+            // that B_0 is the smallest tree, and insert the
+            // new key-value pair into B_0.
             treeIndex = 0;
             tree = kdTrees[0];
             if (tree == null) {
@@ -270,19 +271,19 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                                            " in tree 0" +
                                            " of KdTreeLogarithmic.insert\n");
             }
-        } else if (getSize(kdTrees[1]) == 0) {
-            // B_0 is not empty but B_1 is empty, so set treeIndex to 1,
-            // swap B_0 with B1, set kdTreeIndex to reference B_1, and
-            // insert the key-value pair into B_1. This approach mimics
-            // the behavior below for i > 2.
+        } else if (getSize(kdTrees[1]) == 0 || getSize(kdTrees[1]) == 1) {
+            // B_0 is not empty but |B_1| < 2, so set treeIndex to 1
+            // to specify that B1 is the smallest tree, and insert the
+            // new key-value pair into B_1.
             treeIndex = 1;
-            final KdTreeDynamic tmpTree = kdTrees[1];
-            kdTrees[1] = kdTrees[0];
-            kdTrees[0] = tmpTree;
-            kdTrees[1].root.avlTreeNode.kdTreeIndex = 1;
-            tree = kdTrees[1]; 
+            tree = kdTrees[1];
+            if (tree == null) {
+                tree = new KdTreeDynamic(coordinate.getKey().length,
+                                         executor,
+                                         maxSubmitDepth);
+            }
             inserted = tree.insert(coordinate);
-             if (Constants.ENABLE_DEBUG && !inserted) {
+            if (Constants.ENABLE_DEBUG && !inserted) {
                 throw new RuntimeException("\n\nfailure to insert coordinate" +
                                            " into tree 1" +
                                            " in KdTreeLogarithmic.insert\n");
