@@ -106,13 +106,15 @@ public class KdTreeDynamic extends KdTree {
      * and where the coordinates of each point are stored in KdNode.tuple
      * </p>
      *  
+     * @param coordinate - a {@code Pair}<{@code long}[],{@code String}>
      * @param kdTree - a KdTree that holds a list of KdNodes
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
      * @param histogram - a {@code long}[] for counting rebalancing operations
      * @return the root of the k-d tree
      */
-    protected static KdTreeDynamic createKdTree(final KdTreeDynamic tree,
+    protected static KdTreeDynamic createKdTree(final Pair coordinate,
+                                                final KdTreeDynamic tree,
                                                 final ExecutorService executor,
                                                 final int maximumSubmitDepth,
                                                 final long[] histogram)
@@ -121,57 +123,63 @@ public class KdTreeDynamic extends KdTree {
             throw new RuntimeException("\n\nk-d tree is null in createKdTree\n");
         }
         
-        // Create the k-d tree.
-        KdTreeDynamic newTree = new KdTreeDynamic(tree.root.tuple.length,
+        // Copy the k-d node references into an array,
+        // and update tree.insertedNode.
+        KdNode[] kdNodes = nodeListToArray(coordinate, tree);
+
+        // Create a k-d tree, copy tree.insertedNode to it,
+        // and add the doubly linked node list to it.
+        KdTreeDynamic newTree = new KdTreeDynamic(coordinate.getKey().length,
                                                   executor,
                                                   maximumSubmitDepth,
-                                                  KdTree.createKdTree(tree,
-                                                                      executor,
-                                                                      maximumSubmitDepth,
-                                                                      histogram));
-
-        // Record the number of k-d nodes in the tree.
+                                                  createKdTree(kdNodes,
+                                                               executor,
+                                                               maximumSubmitDepth,
+                                                               0));
+        newTree.insertedNode = tree.insertedNode;
+        newTree.addList(tree);
         newTree.nodeCount = tree.listNodeCount;
-
+        
         return newTree;
     }
 
     /**
      * <p>
-     * The {@code createKdTree1to3} method builds a k-d tree from a list
-     * of no more than 3 {@code KdNode}s where the list is provided by a
-     * {@code KdTree} and where the coordinates of each point are stored
-     * in KdNode.tuple
+     * The {@code nodeListToArray} method copies a list of {@code KdNode}
+     * references into an array, and sets to null the child references
+     * of each {@code KdNode}.
+     * 
+     * NOTE: this method modifies the insertedNode field of its tree argument.
      * </p>
-     *  
-     * @param kdTree - a KdTree that holds a list of KdNodes
-     * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
-     * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
-     * @param histogram - a {@code long}[] for counting rebalancing operations
-     * @return the root of the k-d tree
+     * 
+     * @param coordinate - a {@code Pair}<{@code long}[],{@code String}>
+     * @param tree - a {@code KdTree} that contains the list 
      */
-    protected static KdTreeDynamic createKdTree1to3(final KdTree tree,
-                                                    final ExecutorService executor,
-                                                    final int maximumSubmitDepth,
-                                                    final long[] histogram)
+    private static KdNode[] nodeListToArray(final Pair coordinate,
+                                            final KdTreeDynamic tree)
     {
-        if (tree == null) {
-            throw new RuntimeException("\n\nk-d tree is null in createKdTree1to3\n");
+        if (tree.head == null) {
+            throw new RuntimeException("\n\nlist is null in nodeListToArray\n\n");
         }
-        
-        // Create the k-d tree.
-        KdTreeDynamic newTree = new KdTreeDynamic(tree.root.tuple.length,
-                                                  executor,
-                                                  maximumSubmitDepth,
-                                                  KdTree.createKdTree1to3(tree,
-                                                                          executor,
-                                                                          maximumSubmitDepth,
-                                                                          histogram));
 
-        // Record the number of k-d nodes in the tree.
-        newTree.nodeCount = tree.listNodeCount;
+        KdNode[] kdNodes = new KdNode[tree.listNodeCount];
+        KdNode node = tree.head;
+        int i = 0;
 
-        return newTree;
+        // Copy each node reference from the list into the array,
+        // and identify the node that matches the coordinate
+        // argument to the KdTreeLogarithmic.insert method
+        // by assigning that node reference to tree.insertedNode.
+        while (node != null) {
+            node.ltChild = node.gtChild = null;
+            kdNodes[i++] = node;
+            if (MergeSort.superKeyCompare(node.tuple, coordinate.getKey(), 0) == 0) {
+                tree.insertedNode = node;
+            }
+            node = node.next;
+        }
+
+        return kdNodes;
     }
 
     /**

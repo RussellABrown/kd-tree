@@ -805,7 +805,7 @@ public class TestKdTreeLogarithmic {
             System.out.println("\nHistograms of built tree sizes follow.");
             System.out.println("\npow\tinsert\tdelete\n");
             for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-                System.out.println(i + "\t" + tree.insertionHistogramDyn[i] + "\t" + tree.deletionHistogramDyn[i]);
+                System.out.println(i + "\t" + tree.insertionHistogramLog[i] + "\t" + tree.deletionHistogramLog[i]);
             }
             System.out.println("\nHistograms of n*log(n) operations follow.");
             System.out.println("\npow\tinsert\t\tdelete\n");
@@ -813,8 +813,8 @@ public class TestKdTreeLogarithmic {
             int powerOf2 = 2;
             double insertSum = 0.0, deleteSum = 0.0;
             for (int i = 1; i < Constants.MAX_POWER_OF_2; ++i) {
-                double insertValue = (double) (tree.insertionHistogramDyn[i]) * (double) (i * powerOf2);
-                double deleteValue = (double) (tree.deletionHistogramDyn[i]) * (double) (i * powerOf2);
+                double insertValue = (double) (tree.insertionHistogramLog[i]) * (double) (i * powerOf2);
+                double deleteValue = (double) (tree.deletionHistogramLog[i]) * (double) (i * powerOf2);
                 insertSum += insertValue;
                 deleteSum += deleteValue;
                 System.out.printf("%d\t%.2e\t%.2e\n", i, insertValue, deleteValue);

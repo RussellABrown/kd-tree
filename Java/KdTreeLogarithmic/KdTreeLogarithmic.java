@@ -206,7 +206,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                                                 " in KdTreeLogarithmic.insert\n");
                 }
                 if (kdTrees[sparseTree].insertedNode == null) {
-                    throw new RuntimeException("\n\nnull inserted k-d node" +
+                    throw new RuntimeException("\n\nnull inserted k-d node " +
                                                " in sparse tree" + sparseTree +
                                                " of KdTreeLogarithmic.insert\n");
                 }
@@ -240,8 +240,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                     node.avlTreeNode.kdTreeIndex = (short) sparseTree;
                     node = node.next;
                 }
+                return true;
             }
-            return true;
         }
 
         // Insertion of the new key-value pair into tree wherein |2^(i-2) <= |B_i| < 2^i
@@ -363,17 +363,11 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             }
 
             // Replace the new k-d tree with a k-d tree created from the list of k-d nodes.
-            if (Constants.ENABLE_1TO3 && tree.listNodeCount <= 3) {
-                tree = KdTreeDynamic.createKdTree1to3(tree,
-                                                      executor,
-                                                      maxSubmitDepth,
-                                                      insertionHistogramLog);
-            } else {
-                tree = KdTreeDynamic.createKdTree(tree,
-                                                  executor,
-                                                  maxSubmitDepth,
-                                                  insertionHistogramLog);
-            }
+            tree = createKdTree(coordinate,
+                                tree,
+                                executor,
+                                maxSubmitDepth,
+                                insertionHistogramLog);
 
             // Verify that the k-d tree contains the correct number of nodes; 
             if (Constants.ENABLE_DEBUG && getSize(tree) != treeSizeSum) {
@@ -629,19 +623,11 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 }
                 // Replace the selected tree between B_i and B_(i-1) with the
                 // tree created from the combined nodes from B_i and B_(i-1).
-                if (Constants.ENABLE_1TO3 && tree.listNodeCount <= 3) {
-                    kdTrees[treeIndex] =
-                        KdTreeDynamic.createKdTree1to3(tree,
-                                                       executor,
-                                                       maxSubmitDepth,
-                                                       insertionHistogramLog);
-                } else {
-                    kdTrees[treeIndex] =
-                        KdTreeDynamic.createKdTree(tree,
-                                                   executor,
-                                                   maxSubmitDepth,
-                                                   insertionHistogramLog);
-                }
+                kdTrees[treeIndex] = createKdTree(coordinate,
+                                                  tree,
+                                                  executor,
+                                                  maxSubmitDepth,
+                                                  insertionHistogramLog);
 
             // Is B_(i-2) empty?
             } else if (getSize(kdTrees[kdTreeIndex-2]) > 0) {
@@ -660,19 +646,11 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 kdTrees[kdTreeIndex-2].clear();
                 // Replace B_(i-1) with a tree created from
                 // the combined nodes from B_i and B_(i-2).
-                if (Constants.ENABLE_1TO3 && tree.listNodeCount <= 3) {
-                    kdTrees[treeIndex] =
-                        KdTreeDynamic.createKdTree1to3(tree,
-                                                       executor,
-                                                       maxSubmitDepth,
-                                                       insertionHistogramLog);
-                } else {
-                    kdTrees[treeIndex] =
-                        KdTreeDynamic.createKdTree(tree,
-                                                   executor,
-                                                   maxSubmitDepth,
-                                                   insertionHistogramLog);
-                }
+                kdTrees[treeIndex] = createKdTree(coordinate,
+                                                  tree,
+                                                  executor,
+                                                  maxSubmitDepth,
+                                                  insertionHistogramLog);
 
             } else {
                 // B_(i-1) and B_(i-2) are both empty but
@@ -703,6 +681,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             KdNode node = tree.head;
             while (node != null) {
                 node.avlTreeNode.kdTreeIndex = (short) treeIndex;
+                node = node.next;
             }
 
             return true;
@@ -724,7 +703,6 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         // Inspect all non-empty k-d trees.
         for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
             if (getSize(kdTrees[i]) > 0) {
-                System.out.println("****** verifying tree " + i);
                 // Verify that each non-empty k-d tree B_i conforms
                 // to its size constaints 2^(i-2) < |B_i| <= 2^i that
                 // require, for example, the following tree sizes.
@@ -755,7 +733,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                     }
                     node = node.next;
                 }
-                count += super.verifyKdTree(true);
+                count += kdTrees[i].verifyKdTree(true);
             }
         }
 
@@ -841,26 +819,19 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         List<KdNode> nodeList;
         if (Constants.ENABLE_LINKED_LIST) {
             nodeList = new LinkedList<KdNode>();
-            // Search all non-empty k-d trees and append the results.
-            for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-                if (getSize(kdTrees[i]) > 0) {
-                    nodeList.addAll(kdTrees[i].root.searchKdTreeLL(queryLower, queryUpper,
-                                                                   executor, maximumSubmitDepth,
-                                                                   p, depth, enableAll));
-                }
-            }
         } else {
             nodeList = new ArrayList<KdNode>();
-            // Search all non-empty k-d trees and append the results.
-            for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-                if (getSize(kdTrees[i]) > 0) {
-                    nodeList.addAll(kdTrees[i].root.searchKdTreeAL(queryLower, queryUpper,
-                                                                   executor, maximumSubmitDepth,
-                                                                   p, depth, enableAll));
-                }
+        }
+
+        // Search all non-empty k-d trees and append the results.
+        for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
+            if (getSize(kdTrees[i]) > 0) {
+                nodeList.addAll(kdTrees[i].searchKdTree(queryLower, queryUpper,
+                                                        executor, maximumSubmitDepth,
+                                                        p, depth, enableAll));
             }
         }
-        return nodeList;
+      return nodeList;
     }
 
    /**
@@ -889,26 +860,19 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         List<KdNode> nodeList;
         if (Constants.ENABLE_LINKED_LIST) {
             nodeList = new LinkedList<KdNode>();
-            // Search all non-empty k-d trees and append the results.
-            for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-                if (getSize(kdTrees[i]) > 0) {
-                    nodeList.addAll(kdTrees[i].root.searchKdTreeLL(queryLower, queryUpper,
-                                                                   executor, maximumSubmitDepth,
-                                                                   p, depth, enable));
-                }
-            }
         } else {
             nodeList = new ArrayList<KdNode>();
-            // Search all non-empty k-d trees and append the results.
-            for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-                if (getSize(kdTrees[i]) > 0) {
-                    nodeList.addAll(kdTrees[i].root.searchKdTreeAL(queryLower, queryUpper,
-                                                                   executor, maximumSubmitDepth,
-                                                                   p, depth, enable));
-                }
+        }
+        
+        // Search all non-empty k-d trees and append the results.
+        for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
+            if (getSize(kdTrees[i]) > 0) {
+                nodeList.addAll(kdTrees[i].searchKdTree(queryLower, queryUpper,
+                                                        executor, maximumSubmitDepth,
+                                                        p, depth, enable));
             }
         }
-        return nodeList;
+      return nodeList;
     }
 
     /**
