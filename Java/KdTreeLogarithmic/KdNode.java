@@ -252,8 +252,12 @@ public class KdNode {
 
         // Check the references between this node and the associated AVL node.
         if (verifyLinks && avlTreeNode.kdTreeNode != this) {
-            throw new RuntimeException("\n\nAVL and k-d nodes are incorrectly" +
-                                        " linked in KdNode.verifyKdTree\n");
+            throw new RuntimeException("\n\nAVL tree node is not linked to" +
+                                        " k-d tree node in KdNode.verifyKdTree\n");
+       }
+       if (verifyLinks && this.avlTreeNode.kdTreeNode != this) {
+            throw new RuntimeException("\n\nk-d tree node is not linked to" +
+                                        " AVL tree node in KdNode.verifyKdTree\n");
        }
         
         // Count this node.

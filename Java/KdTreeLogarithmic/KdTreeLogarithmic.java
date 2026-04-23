@@ -326,15 +326,12 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             // If the above comparison is false, build a B_(i-1) instead.
             treeIndex = (treeSizeSum > powerOf2) ? emptyTree : emptyTree - 1;
 
-            // Create a new k-d tree with a single k-d node for the inserted
-            // key-value pair, and save the reference to the inserted k-d node.
-            final KdTreeDynamic tree =
-                new KdTreeDynamic(coordinate.getKey().length,
-                                  executor,
-                                  maxSubmitDepth);
+            // Create a new k-d tree and insert the key-value pair.
+            final KdTreeDynamic tree = new KdTreeDynamic(coordinate.getKey().length,
+                                                         executor,
+                                                         maxSubmitDepth);
 
             inserted = tree.insert(coordinate);
-            final KdNode savedInsertedNode = tree.insertedNode;
             if (Constants.ENABLE_DEBUG && !inserted) {
                 throw new RuntimeException("\n\nfailed to insert coordinate into" +
                                            " nascent tree " + treeIndex +
@@ -366,13 +363,14 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             }
 
             // Replace the new k-d tree with a k-d tree created from the list of k-d nodes,
-            // and set its reference to the inserted k-d node from the saved reference above,
-            // because the createKdTree method does not set the referenced to the inserted node.
+            // and set its reference to the inserted k-d node from previously created tree
+            // into which the key-value pair was inserted, because the createKdTree method
+            // does not set the referenced to the inserted node.
             kdTrees[treeIndex] = createKdTree(tree,
                                               executor,
                                               maxSubmitDepth,
                                               insertionHistogramLog);
-            kdTrees[treeIndex].insertedNode = savedInsertedNode;
+            kdTrees[treeIndex].insertedNode = tree.insertedNode;
 
             // Verify that the k-d tree contains the correct number of nodes; 
             if (Constants.ENABLE_DEBUG && getSize(kdTrees[treeIndex]) != treeSizeSum) {
@@ -384,8 +382,10 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
 
         // Verify the correct size of the k-d tree.
         if ( Constants.ENABLE_DEBUG &&
-             ((treeIndex == 0 && (getSize(kdTrees[treeIndex]) <= 0 || getSize(kdTrees[treeIndex]) > 1)) ||
-              (treeIndex == 1 && (getSize(kdTrees[treeIndex]) <= 0 || getSize(kdTrees[treeIndex]) > 2)) ||
+             ((treeIndex == 0 &&
+                (getSize(kdTrees[treeIndex]) <= 0 || getSize(kdTrees[treeIndex]) > 1)) ||
+              (treeIndex == 1 &&
+                (getSize(kdTrees[treeIndex]) <= 0 || getSize(kdTrees[treeIndex]) > 2)) ||
               (treeIndex >= 2 && (1 << (treeIndex - 2) >= getSize(kdTrees[treeIndex]) ||
                                   getSize(kdTrees[treeIndex]) > (1 << treeIndex))))) {
             throw new RuntimeException("\n\ntree " + treeIndex + " size = " +
