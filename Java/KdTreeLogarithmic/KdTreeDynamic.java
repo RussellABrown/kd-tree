@@ -106,15 +106,13 @@ public class KdTreeDynamic extends KdTree {
      * and where the coordinates of each point are stored in KdNode.tuple
      * </p>
      *  
-     * @param coordinate - a {@code Pair}<{@code long}[],{@code String}>
      * @param kdTree - a KdTree that holds a list of KdNodes
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
      * @param histogram - a {@code long}[] for counting rebalancing operations
      * @return the root of the k-d tree
      */
-    protected static KdTreeDynamic createKdTree(final Pair coordinate,
-                                                final KdTreeDynamic tree,
+    protected static KdTreeDynamic createKdTree(final KdTreeDynamic tree,
                                                 final ExecutorService executor,
                                                 final int maximumSubmitDepth,
                                                 final long[] histogram)
@@ -123,20 +121,29 @@ public class KdTreeDynamic extends KdTree {
             throw new RuntimeException("\n\nk-d tree is null in createKdTree\n");
         }
         
-        // Copy the k-d node references into an array,
-        // and update tree.insertedNode.
-        KdNode[] kdNodes = nodeListToArray(coordinate, tree);
+        // Create an array of references to the k-d nodes
+        // in the k-d tree's doubly linked list.
+        KdNode[] kdNodes = new KdNode[tree.listNodeCount];
 
-        // Create a k-d tree, copy tree.insertedNode to it,
-        // and add the doubly linked node list to it.
-        KdTreeDynamic newTree = new KdTreeDynamic(coordinate.getKey().length,
+        // Copy each node reference from the list into the array.
+        int i = 0;
+        KdNode node = tree.head;
+        while (node != null) {
+            node.ltChild = node.gtChild = null;
+            kdNodes[i++] = node;
+            node = node.next;
+        }
+
+        // Create a k-d tree, add the doubly linked node list to it,
+        // and set the node count to the length of the list because
+        // the createKdTree method sets neither node count nor the list.
+        KdTreeDynamic newTree = new KdTreeDynamic(tree.head.tuple.length,
                                                   executor,
                                                   maximumSubmitDepth,
                                                   createKdTree(kdNodes,
                                                                executor,
                                                                maximumSubmitDepth,
                                                                0));
-        newTree.insertedNode = tree.insertedNode;
         newTree.addList(tree);
         newTree.nodeCount = tree.listNodeCount;
         

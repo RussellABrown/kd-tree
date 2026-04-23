@@ -212,9 +212,11 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 }
 
                 // Create links between the new AVL node and the new k-d node,
-                // and return because there is no need to build a new k-d tree.
+                // set the AVL tree's k-d tree index to the sparse tree, and
+                // return because there is no need to build a new k-d tree.
                 avlTree.insertedNode.kdTreeNode = kdTrees[sparseTree].insertedNode;
                 kdTrees[sparseTree].insertedNode.avlTreeNode = avlTree.insertedNode;
+                avlTree.insertedNode.kdTreeIndex = (short) sparseTree;
 
                 // Verify that the size of the tree does not exceed its limits
                 // and NOTE that B_0 and B_1 have specific verification tests
@@ -248,25 +250,23 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         // either was not requested or such a tree was not found, so find the smallest
         // empty tree, and replace either that tree or the next smaller tree with a new tree.
         int treeIndex; // The index of the replacement tree in kdTrees
-        KdTreeDynamic tree;  // The tree that replaces kdTrees[treeIndex]
         if (getSize(kdTrees[0]) == 0) {
             // B_0 is empty, so set treeIndex to 0 to specify 
             // that B_0 is the smallest tree, and insert the
             // new key-value pair into B_0.
             treeIndex = 0;
-            tree = kdTrees[0];
-            if (tree == null) {
-                tree = new KdTreeDynamic(coordinate.getKey().length,
-                                         executor,
-                                         maxSubmitDepth);
+            if (kdTrees[0] == null) {
+                kdTrees[0] = new KdTreeDynamic(coordinate.getKey().length,
+                                               executor,
+                                               maxSubmitDepth);
             }
-            inserted = tree.insert(coordinate);
+            inserted = kdTrees[0].insert(coordinate);
             if (Constants.ENABLE_DEBUG && !inserted) {
                 throw new RuntimeException("\n\nfailure to insert coordinate" +
                                            " into tree 0" +
                                            " in KdTreeLogarithmic.insert\n");
             }
-            if (tree.insertedNode == null) {
+            if (kdTrees[0].insertedNode == null) {
                 throw new RuntimeException("\n\nnull inserted k-d node" +
                                            " in tree 0" +
                                            " of KdTreeLogarithmic.insert\n");
@@ -276,19 +276,18 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             // to specify that B1 is the smallest tree, and insert the
             // new key-value pair into B_1.
             treeIndex = 1;
-            tree = kdTrees[1];
-            if (tree == null) {
-                tree = new KdTreeDynamic(coordinate.getKey().length,
-                                         executor,
-                                         maxSubmitDepth);
+            if (kdTrees[1] == null) {
+                kdTrees[1] = new KdTreeDynamic(coordinate.getKey().length,
+                                               executor,
+                                               maxSubmitDepth);
             }
-            inserted = tree.insert(coordinate);
+            inserted = kdTrees[1].insert(coordinate);
             if (Constants.ENABLE_DEBUG && !inserted) {
                 throw new RuntimeException("\n\nfailure to insert coordinate" +
                                            " into tree 1" +
                                            " in KdTreeLogarithmic.insert\n");
             }
-            if (tree.insertedNode == null) {
+            if (kdTrees[1].insertedNode == null) {
                 throw new RuntimeException("\n\nnull inserted k-d node" +
                                            " in tree 1" +
                                            " of KdTreeLogarithmic.insert\n");
@@ -328,19 +327,22 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             treeIndex = (treeSizeSum > powerOf2) ? emptyTree : emptyTree - 1;
 
             // Create a new k-d tree with a single k-d node for the inserted
-            // key-value pair.
-            tree = new KdTreeDynamic(coordinate.getKey().length,
-                                     executor,
-                                     maxSubmitDepth);
+            // key-value pair, and save the reference to the inserted k-d node.
+            final KdTreeDynamic tree =
+                new KdTreeDynamic(coordinate.getKey().length,
+                                  executor,
+                                  maxSubmitDepth);
 
             inserted = tree.insert(coordinate);
+            final KdNode savedInsertedNode = tree.insertedNode;
             if (Constants.ENABLE_DEBUG && !inserted) {
                 throw new RuntimeException("\n\nfailed to insert coordinate into" +
-                                           " nascent tree in KdTreeLogarithmic.insert\n");
+                                           " nascent tree " + treeIndex +
+                                           " in KdTreeLogarithmic.insert\n");
             }
             if (tree.insertedNode == null) {
                 throw new RuntimeException("\n\ninserted node is null" +
-                                           " in nascent tree" +
+                                           " in nascent tree " + treeIndex +
                                            " of KdTreeLogarithmic.insert\n");
             }
 
@@ -363,16 +365,18 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 kdTrees[i].clear();
             }
 
-            // Replace the new k-d tree with a k-d tree created from the list of k-d nodes.
-            tree = createKdTree(coordinate,
-                                tree,
-                                executor,
-                                maxSubmitDepth,
-                                insertionHistogramLog);
+            // Replace the new k-d tree with a k-d tree created from the list of k-d nodes,
+            // and set its reference to the inserted k-d node from the saved reference above,
+            // because the createKdTree method does not set the referenced to the inserted node.
+            kdTrees[treeIndex] = createKdTree(tree,
+                                              executor,
+                                              maxSubmitDepth,
+                                              insertionHistogramLog);
+            kdTrees[treeIndex].insertedNode = savedInsertedNode;
 
             // Verify that the k-d tree contains the correct number of nodes; 
-            if (Constants.ENABLE_DEBUG && getSize(tree) != treeSizeSum) {
-                throw new RuntimeException("\n\ntree size = " + getSize(tree) +
+            if (Constants.ENABLE_DEBUG && getSize(kdTrees[treeIndex]) != treeSizeSum) {
+                throw new RuntimeException("\n\ntree size = " + getSize(kdTrees[treeIndex]) +
                                            "  !=  list size = " + treeSizeSum +
                                            " in KdTreeLogarithmic.insert\n");
             }
@@ -380,29 +384,26 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
 
         // Verify the correct size of the k-d tree.
         if ( Constants.ENABLE_DEBUG &&
-             ((treeIndex == 0 && (getSize(tree) <= 0 || getSize(tree) > 1)) ||
-              (treeIndex == 1 && (getSize(tree) <= 0 || getSize(tree) > 2)) ||
-              (treeIndex >= 2 && (1 << (treeIndex - 2) >= getSize(tree) ||
-                                  getSize(tree) > (1 << treeIndex))))) {
+             ((treeIndex == 0 && (getSize(kdTrees[treeIndex]) <= 0 || getSize(kdTrees[treeIndex]) > 1)) ||
+              (treeIndex == 1 && (getSize(kdTrees[treeIndex]) <= 0 || getSize(kdTrees[treeIndex]) > 2)) ||
+              (treeIndex >= 2 && (1 << (treeIndex - 2) >= getSize(kdTrees[treeIndex]) ||
+                                  getSize(kdTrees[treeIndex]) > (1 << treeIndex))))) {
             throw new RuntimeException("\n\ntree " + treeIndex + " size = " +
-                                       getSize(tree) + "in elaborate insert" +
+                                       getSize(kdTrees[treeIndex]) + "in elaborate insert" +
                                        " of KdTreeLogarithmic.insert\n");
         }
 
         // Create links between the new AVL node and the inserted k-d node.
-        avlTree.insertedNode.kdTreeNode = tree.insertedNode;
-        tree.insertedNode.avlTreeNode = avlTree.insertedNode;
+        avlTree.insertedNode.kdTreeNode = kdTrees[treeIndex].insertedNode;
+        kdTrees[treeIndex].insertedNode.avlTreeNode = avlTree.insertedNode;
 
         // Walk the list of k-d tree nodes and ensure that each corresponding
         // AVL tree node indexes the correct k-d tree in the kdTrees array.
-        KdNode node = tree.head;
+        KdNode node = kdTrees[treeIndex].head;
         while (node != null) {
             node.avlTreeNode.kdTreeIndex = (short) treeIndex;
             node = node.next;
         }
-
-        // Reference the new k-d tree from the kdTrees array.
-        kdTrees[treeIndex] = tree;
 
         return true;
     }
@@ -624,8 +625,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 }
                 // Replace the selected tree between B_i and B_(i-1) with the
                 // tree created from the combined nodes from B_i and B_(i-1).
-                kdTrees[treeIndex] = createKdTree(coordinate,
-                                                  tree,
+                kdTrees[treeIndex] = createKdTree(tree,
                                                   executor,
                                                   maxSubmitDepth,
                                                   insertionHistogramLog);
@@ -647,8 +647,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 kdTrees[kdTreeIndex-2].clear();
                 // Replace B_(i-1) with a tree created from
                 // the combined nodes from B_i and B_(i-2).
-                kdTrees[treeIndex] = createKdTree(coordinate,
-                                                  tree,
+                kdTrees[treeIndex] = createKdTree(tree,
                                                   executor,
                                                   maxSubmitDepth,
                                                   insertionHistogramLog);
