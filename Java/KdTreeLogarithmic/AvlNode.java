@@ -72,9 +72,13 @@ public class AvlNode {
         kdTreeNode = null;  // Assign after insertion into the k-d tree.
         left = right = null;
 
-        // Make a copy of the key.
-        tuple = new long[key.length];
-        System.arraycopy(key, 0, tuple, 0, key.length);
+        if (Constants.ENABLE_TUPLE_COPY) {
+            final int numDimensions = key.length;
+            tuple = new long[numDimensions];
+            System.arraycopy(key, 0, tuple, 0, numDimensions);
+        } else {
+            tuple = key;
+        }
     }
 
     /**
@@ -433,23 +437,14 @@ public class AvlNode {
             }
         } else {
             tree.removedNode = p;          // AvlNode p will be removed from the tree...
-            final long[] tmpT = q.tuple;   // ...so swap the fields of p and q
-            final KdNode tmpK = q.kdTreeNode;
-            final short tmpI = q.kdTreeIndex;
-            q.tuple = p.tuple;
+            q.tuple = p.tuple;             // ...so copy the fields of p into q...
             q.kdTreeNode = p.kdTreeNode;
             q.kdTreeIndex = p.kdTreeIndex;
-            if (q.kdTreeNode != null) {
+            if (q.kdTreeNode != null) {   // ...and set the AVL node reference to q.
                 q.kdTreeNode.avlTreeNode = q;
             }
-            p.tuple = tmpT;
-            p.kdTreeNode = tmpK;           // tmpK.values is empty for subsequent KdNode.erase
-            p.kdTreeIndex = tmpI;
-            if (p.kdTreeNode != null) {
-                p.kdTreeNode.avlTreeNode = p;
-            }
             p = p.right;                   // Replace AvlNode p with right branch...
-            tree.changed = true;           // ...and signal that height has changed
+            tree.changed = true;           // ...and signal that height has changed.
         }
         return p; // The root of the sub-tree
     }
@@ -482,23 +477,14 @@ public class AvlNode {
             }
         } else {
             tree.removedNode = p;          // AvlNode p will be removed from the tree...
-            final long[] tmpT = q.tuple;   // ...so swap the fields of p and q
-            final KdNode tmpK = q.kdTreeNode;
-            final short tmpI = q.kdTreeIndex;
-            q.tuple = p.tuple;
+            q.tuple = p.tuple;             // ...so copy the fields of p into q...
             q.kdTreeNode = p.kdTreeNode;
             q.kdTreeIndex = p.kdTreeIndex;
-            if (q.kdTreeNode != null) {
+            if (q.kdTreeNode != null) {    // ...and set the AVL node reference to q.
                 q.kdTreeNode.avlTreeNode = q;
             }
-            p.tuple = tmpT;
-            p.kdTreeNode = tmpK;           // tmpK.values is empty for subsequent KdNode.erase
-            p.kdTreeIndex = tmpI;
-            if (p.kdTreeNode != null) {
-                p.kdTreeNode.avlTreeNode = p;
-            }
             p = p.left;                    // Replace AvlNode p with left branch...
-            tree.changed = true;           // ...and signal that height has changed
+            tree.changed = true;           // ...and signal that height has changed.
         }
         return p; // T the root of the sub-tree
     }

@@ -107,12 +107,14 @@ public class KdTreeDynamic extends KdTree {
      * </p>
      *  
      * @param kdTree - a KdTree that holds a list of KdNodes
+     * @param numDimensions - the number of dimensions k for the k-d tree
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
      * @param histogram - a {@code long}[] for counting rebalancing operations
      * @return the root of the k-d tree
      */
     protected static KdTreeDynamic createKdTree(final KdTreeDynamic tree,
+                                                final int numDimensions,
                                                 final ExecutorService executor,
                                                 final int maximumSubmitDepth,
                                                 final long[] histogram)
@@ -137,7 +139,7 @@ public class KdTreeDynamic extends KdTree {
         // Create a k-d tree, add the doubly linked node list to it,
         // and set the node count to the length of the list because
         // the createKdTree method sets neither node count nor the list.
-        KdTreeDynamic newTree = new KdTreeDynamic(tree.head.tuple.length,
+        KdTreeDynamic newTree = new KdTreeDynamic(numDimensions,
                                                   executor,
                                                   maximumSubmitDepth,
                                                   createKdTree(kdNodes,
@@ -147,49 +149,12 @@ public class KdTreeDynamic extends KdTree {
         newTree.addList(tree);
         newTree.nodeCount = tree.listNodeCount;
         
+        incrementHistogram(histogram, kdNodes.length);
+
         return newTree;
     }
 
-    /**
-     * <p>
-     * The {@code nodeListToArray} method copies a list of {@code KdNode}
-     * references into an array, and sets to null the child references
-     * of each {@code KdNode}.
-     * 
-     * NOTE: this method modifies the insertedNode field of its tree argument.
-     * </p>
-     * 
-     * @param coordinate - a {@code Pair}<{@code long}[],{@code String}>
-     * @param tree - a {@code KdTree} that contains the list 
-     */
-    private static KdNode[] nodeListToArray(final Pair coordinate,
-                                            final KdTreeDynamic tree)
-    {
-        if (tree.head == null) {
-            throw new RuntimeException("\n\nlist is null in nodeListToArray\n\n");
-        }
-
-        KdNode[] kdNodes = new KdNode[tree.listNodeCount];
-        KdNode node = tree.head;
-        int i = 0;
-
-        // Copy each node reference from the list into the array,
-        // and identify the node that matches the coordinate
-        // argument to the KdTreeLogarithmic.insert method
-        // by assigning that node reference to tree.insertedNode.
-        while (node != null) {
-            node.ltChild = node.gtChild = null;
-            kdNodes[i++] = node;
-            if (MergeSort.superKeyCompare(node.tuple, coordinate.getKey(), 0) == 0) {
-                tree.insertedNode = node;
-            }
-            node = node.next;
-        }
-
-        return kdNodes;
-    }
-
-    /**
+   /**
      * <p>
      * The {@code treeSize} method returns the size of the {@code KdTreeDynamic}.
      * 
@@ -483,7 +448,6 @@ public class KdTreeDynamic extends KdTree {
                     // Does the node have only a < child?
                     if (nodePtr.ltChild != null && nodePtr.gtChild == null) {
                         // Yes, so the node will be erased from the tree.
-                        deletedNode = nodePtr;
                         // Does the subtree rooted at the < child contain <= 3 nodes?
                         //
                         // Checking the height prior to checking the countNodes result
@@ -499,18 +463,20 @@ public class KdTreeDynamic extends KdTree {
                             //
                             // Note that rebuildSubTree1to3 computes the height
                             // of the rebuilt < child subtree.
+                            deletedNode = nodePtr;
                             nodePtr = rebuildSubTree1to3(nodePtr.ltChild, nodeCount, histogram, p);
                         }
                         else
                         {
-                            // No, the < child subtree contains > 3 nodes. So, find
-                            // the immediate predecessor node, copy the tuple and the
-                            // AvlNode reference from that predecessor node to the
-                            // one-child node, swap the values set of that predecessor
-                            // node with the values set of the one-child node (whose
-                            // values set is currently empty), delete the predecessor
-                            // node recursively, and recompute the heights along the
-                            // path back to and including the < child.
+                            // No, the < child subtree contains > 3 nodes. So, find the
+                            // immediate predecessor node, copy the tuple from that
+                            // predecessor node to the one-child node, swap the values
+                            // set of that predecessor node with the values set of the
+                            // one-child node (whose values set is now empty), copy the
+                            // AVL node reference from the predecessor node to the one-child
+                            // node, set the k-d node reference to the one-child node, delete
+                            // the predecessor node recursively, and recompute the heights
+                            // along the path back to and including the < child.
                             KdNode predecessor = nodePtr.ltChild;
                             predecessor = findPredecessor(nodePtr.ltChild, predecessor, p, p+1);
                             if (Constants.ENABLE_TUPLE_COPY) {
@@ -518,10 +484,13 @@ public class KdTreeDynamic extends KdTree {
                             } else {
                                 nodePtr.tuple = predecessor.tuple;
                             }
-                            nodePtr.avlTreeNode = predecessor.avlTreeNode;
-                            final TreeSet<String> tmp = predecessor.values;
+                            final TreeSet<String> tmpV = predecessor.values;
                             predecessor.values = nodePtr.values;
-                            nodePtr.values = tmp;
+                            nodePtr.values = tmpV;
+                            nodePtr.avlTreeNode = predecessor.avlTreeNode;
+                            if (nodePtr.avlTreeNode != null) {
+                                nodePtr.avlTreeNode.kdTreeNode = nodePtr;
+                            }
                             // value is a dummy argument because the predecessor node's
                             // values set is empty.
                             nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, histogram, p+1);
@@ -555,7 +524,6 @@ public class KdTreeDynamic extends KdTree {
                     // Does the node have only a > child?
                     else if (nodePtr.gtChild != null && nodePtr.ltChild == null) {
                         // Yes, so the node will be erased from the tree.
-                        deletedNode = nodePtr;
                         // Does the subtree rooted at the > child contain <= 3 nodes?
                         //
                         // Checking the height prior to checking the countNodes result
@@ -567,22 +535,24 @@ public class KdTreeDynamic extends KdTree {
                             // Yes, the > child subtree contains <= 3 nodes. So, rebuild
                             // the > child subtree using the leading dimension p at this
                             // level of the tree, and replace the node with its > child.
-                            // This approach avoids the need to find a predecessor node.
+                            // This approach avoids the need to find a successor node.
                             //
                             // Note that rebuildSubTree1to3 computes the height
                             // of the rebuilt > child subtree.
+                            deletedNode = nodePtr;
                             nodePtr = rebuildSubTree1to3(nodePtr.gtChild, nodeCount, histogram, p);
                         }
                         else
                         {
-                            // No, the > child subtree contains > 3 nodes. So, find
-                            // the immediate successor node, copy the tuple and the
-                            // AvlNode reference from that successor node to the
-                            // one-child node, swap the values set of that successor
-                            // node with the values set of the one-child node (whose
-                            // values set is currently empty), delete the successor
-                            // node recursively, and recompute the heights along the
-                            // path back to and including the > child.
+                            // No, the > child subtree contains > 3 nodes. So, find the
+                            // immediate successor node, copy the tuple from that
+                            // successor node to the one-child node, swap the values
+                            // set of that successor node with the values set of the
+                            // one-child node (whose values set is now empty), copy the
+                            // AVL node reference from the successor node to the one-child
+                            // node, set the k-d node reference to the one-child node, delete
+                            // the successor node recursively, and recompute the heights
+                            // along the path back to and including the > child.
                             KdNode successor = nodePtr.gtChild;
                             successor = findSuccessor(nodePtr.gtChild, successor, p, p+1);
                             if (Constants.ENABLE_TUPLE_COPY) {
@@ -590,10 +560,13 @@ public class KdTreeDynamic extends KdTree {
                             } else {
                                 nodePtr.tuple = successor.tuple;
                             }
-                            nodePtr.avlTreeNode = successor.avlTreeNode;
-                            final TreeSet<String> tmp = successor.values;
+                            final TreeSet<String> tmpV = successor.values;
                             successor.values = nodePtr.values;
-                            nodePtr.values = tmp;
+                            nodePtr.values = tmpV;
+                            nodePtr.avlTreeNode = successor.avlTreeNode;
+                            if (nodePtr.avlTreeNode != null) {
+                                nodePtr.avlTreeNode.kdTreeNode = nodePtr;
+                            }
                             // value is a dummy argument because the successor node's
                             // values set is empty.
                             nodePtr.gtChild = erase(nodePtr.gtChild, nodePtr.tuple, value, histogram, p+1);
@@ -663,13 +636,14 @@ public class KdTreeDynamic extends KdTree {
                             {
                                 // Find the node with the largest super-key in the
                                 // subtree rooted at the < child, which is the
-                                // immediate predecessor node. Copy the tuple and the
-                                // AvlTree reference from that predecessor node to the
-                                // two-child node, swap the values set of that predecessor
-                                // node with the values set of the two-child node (whose
-                                // values set is currently empty), delete the predecessor
-                                // node recursively, and recompute the heights along the
-                                // path back to and including the < child.
+                                // immediate predecessor node. Copy the tuple from that
+                                // predecessor node to the two-child node, swap the values
+                                // set of that predecessor node with the values set of the
+                                // two-child node (whose values set is now empty), copy the
+                                // AVL node reference from the predecessor node to the two-child
+                                // node, set the k-d node reference to the two-child node, delete
+                                // the predecessor node recursively, and recompute the heights
+                                // along the path back to and including the < child.
                                 KdNode predecessor = nodePtr.ltChild;
                                 predecessor = findPredecessor(nodePtr.ltChild, predecessor, p, p+1);
                                 if (Constants.ENABLE_TUPLE_COPY) {
@@ -678,10 +652,14 @@ public class KdTreeDynamic extends KdTree {
                                     nodePtr.tuple = predecessor.tuple;
                                 }
                                     nodePtr.avlTreeNode = predecessor.avlTreeNode;
-                                final TreeSet<String> tmp = predecessor.values;
+                                final TreeSet<String> tmpV = predecessor.values;
                                 predecessor.values = nodePtr.values;
-                                nodePtr.values = tmp;
-                                 // value is a dummy argument because the predecessor node's
+                                nodePtr.values = tmpV;
+                                nodePtr.avlTreeNode = predecessor.avlTreeNode;
+                                if (nodePtr.avlTreeNode != null) {
+                                    nodePtr.avlTreeNode.kdTreeNode = nodePtr;
+                                }
+                                // value is a dummy argument because the predecessor node's
                                 // values set is empty
                                 nodePtr.ltChild = erase(nodePtr.ltChild, nodePtr.tuple, value, histogram, p+1);
 
@@ -703,13 +681,14 @@ public class KdTreeDynamic extends KdTree {
                             {
                                 // Find the node with the smallest super-key in the
                                 // subtree rooted at the > child, which is the
-                                // immediate successor node. Copy the tuple and the
-                                // AvlTree reference from that successor node to the
-                                // two-child node, swap the values set of that successor
-                                // node with the values set of the two-child node (whose
-                                // values set is currently empty), delete the successor
-                                // node recursively, and recompute the heights along the
-                                // path back to and including the > child.
+                                // immediate successor node. Copy the tuple from that
+                                // successor node to the two-child node, swap the values
+                                // set of that successor node with the values set of the
+                                // two-child node (whose values set is now empty), copy the
+                                // AVL node reference from the predecessor node to the two-child
+                                // node, set the k-d node reference to the two-child node, delete
+                                // the successor node recursively, and recompute the heights
+                                // along the path back to and including the > child.
                                 KdNode successor = nodePtr.gtChild;
                                 successor = findSuccessor(nodePtr.gtChild, successor, p, p+1);
                                 if (Constants.ENABLE_TUPLE_COPY) {
@@ -718,9 +697,13 @@ public class KdTreeDynamic extends KdTree {
                                     nodePtr.tuple = successor.tuple;
                                 }
                                 nodePtr.avlTreeNode = successor.avlTreeNode;
-                                final TreeSet<String> tmp = successor.values;
+                                final TreeSet<String> tmpV = successor.values;
                                 successor.values = nodePtr.values;
-                                nodePtr.values = tmp;
+                                nodePtr.values = tmpV;
+                                nodePtr.avlTreeNode = successor.avlTreeNode;
+                                if (nodePtr.avlTreeNode != null) {
+                                    nodePtr.avlTreeNode.kdTreeNode = nodePtr;
+                                }
                                 // value is a dummy argument because the successor node's
                                 // values set is empty.
                                 nodePtr.gtChild = erase(nodePtr.gtChild, nodePtr.tuple, value, histogram, p+1);

@@ -168,18 +168,17 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 int powerOf2Lower = 1; // Initialized to 2^(i-2) for i loop index below.
                 int powerOf2Upper = 4; // Initialized to 2^i for i loop index below.
                 for (int i = 2; i < Constants.MAX_POWER_OF_2; ++i) {
-                    if (powerOf2Lower <= getSize(kdTrees[i]) &&
+                    if (getSize(kdTrees[i]) > powerOf2Lower &&
                         getSize(kdTrees[i]) < powerOf2Upper) {
                             sparseTree = i;
-                            if (Constants.ENABLE_DEBUG &&
-                                (powerOf2Lower >= getSize(kdTrees[sparseTree]) ||
-                                 getSize(kdTrees[sparseTree]) > powerOf2Upper)) {
+                            break;
+                    } else if (Constants.ENABLE_DEBUG &&
+                               (getSize(kdTrees[sparseTree]) < powerOf2Lower ||
+                                getSize(kdTrees[sparseTree]) > powerOf2Upper)) {
                                 throw new RuntimeException("\n\ntree " + sparseTree + " size = " +
                                                            getSize(kdTrees[sparseTree]) +
                                                            " before simple" +
                                                            " insert of KdTreeLogarithmic.insert\n");
-                            }
-                            break;
                     }
                     powerOf2Lower <<= 1;
                     powerOf2Upper <<= 1;
@@ -367,6 +366,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             // into which the key-value pair was inserted, because the createKdTree method
             // does not set the referenced to the inserted node.
             kdTrees[treeIndex] = createKdTree(tree,
+                                              numDimensions,
                                               executor,
                                               maxSubmitDepth,
                                               insertionHistogramLog);
@@ -456,14 +456,6 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         if (kdTrees[kdTreeIndex].deletedNode == null) {
             throw new RuntimeException("\n\nnull deleted node" +
                                        " in KdTreeLogarithmic.erase\n");
-        }
-
-        // Verify that the removed AVL and k-d nodes are correctly linked.
-        if ( Constants.ENABLE_DEBUG &&
-             ( (avlTree.removedNode.kdTreeNode != kdTrees[kdTreeIndex].deletedNode) ||
-               (avlTree.removedNode != kdTrees[kdTreeIndex].deletedNode.avlTreeNode) ) ) {
-            throw new RuntimeException("\n\nAVL and k-d nodes are incorrectly" +
-                                       " linked in KdTreeLogarithmic.erase\n");
         }
 
         // The k-d node was removed from its k-d tree, so processing will
@@ -563,7 +555,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             return true;
 
         } else if (getSize(kdTrees[kdTreeIndex]) > (1 << (kdTreeIndex - 2))) {
-            // B_i for i >= 2 statifies the constraint |B_1| > 2^(i-2)
+            // B_i for i >= 2 satisfies the constraint |B_1| > 2^(i-2)
             // so no further processing is necessary. But verify the
             // correct size of the k-d tree B_i for i >= 2.
             if (Constants.ENABLE_DEBUG &&
@@ -626,9 +618,10 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 // Replace the selected tree between B_i and B_(i-1) with the
                 // tree created from the combined nodes from B_i and B_(i-1).
                 kdTrees[treeIndex] = createKdTree(tree,
+                                                  numDimensions,
                                                   executor,
                                                   maxSubmitDepth,
-                                                  insertionHistogramLog);
+                                                  deletionHistogramLog);
 
             // Is B_(i-2) empty?
             } else if (getSize(kdTrees[kdTreeIndex-2]) > 0) {
@@ -645,12 +638,14 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 tree.addList(kdTrees[kdTreeIndex-2]);
                 kdTrees[kdTreeIndex].clear();
                 kdTrees[kdTreeIndex-2].clear();
+                System.out.println("cull from B_i and B_(i-2) into B_(i-1)");
                 // Replace B_(i-1) with a tree created from
                 // the combined nodes from B_i and B_(i-2).
                 kdTrees[treeIndex] = createKdTree(tree,
+                                                  numDimensions,
                                                   executor,
                                                   maxSubmitDepth,
-                                                  insertionHistogramLog);
+                                                  deletionHistogramLog);
 
             } else {
                 // B_(i-1) and B_(i-2) are both empty but
@@ -662,12 +657,11 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 final KdTreeDynamic tmpTree = kdTrees[kdTreeIndex];
                 kdTrees[kdTreeIndex] = kdTrees[treeIndex];
                 kdTrees[treeIndex] = tmpTree;
-                kdTrees[treeIndex].root.avlTreeNode.kdTreeIndex = (short) treeIndex;
                 tree = kdTrees[treeIndex];
             }
 
             // Verify the correct size of the k-d tree B_i for i >= 2.
-            if (Constants.ENABLE_DEBUG &&
+            if (Constants.ENABLE_DEBUG && getSize(tree) >= 2 &&
                 (1 << (treeIndex - 2) >= getSize(tree) ||
                  getSize(tree) > (1 << treeIndex))) {
                     throw new RuntimeException("\n\ntree " + treeIndex +
