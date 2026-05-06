@@ -439,7 +439,9 @@ public class AvlNode {
             tree.removedNode = p;          // AvlNode p will be removed from the tree...
             q.tuple = p.tuple;             // ...so copy the fields of p into q...
             q.kdTreeNode = p.kdTreeNode;
+            final short tmpIndex = q.kdTreeIndex;
             q.kdTreeIndex = p.kdTreeIndex;
+            p.kdTreeIndex = tmpIndex;     // ...swap the index field between p and q...
             if (q.kdTreeNode != null) {   // ...and set the AVL node reference to q.
                 q.kdTreeNode.avlTreeNode = q;
             }
@@ -479,7 +481,9 @@ public class AvlNode {
             tree.removedNode = p;          // AvlNode p will be removed from the tree...
             q.tuple = p.tuple;             // ...so copy the fields of p into q...
             q.kdTreeNode = p.kdTreeNode;
+            final short tmpIndex = q.kdTreeIndex;
             q.kdTreeIndex = p.kdTreeIndex;
+            p.kdTreeIndex = tmpIndex;      // ...swap the index field between p and q...
             if (q.kdTreeNode != null) {    // ...and set the AVL node reference to q.
                 q.kdTreeNode.avlTreeNode = q;
             }
