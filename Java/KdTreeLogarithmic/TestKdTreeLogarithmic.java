@@ -802,25 +802,33 @@ public class TestKdTreeLogarithmic {
         }
 
         if (Constants.ENABLE_HISTOGRAMS) {
+            tree.sumHistograms();
             System.out.println("\nHistograms of built tree sizes follow.");
-            System.out.println("\npow\tinsert\tdelete\n");
+            System.out.println("\npow\tinsert log\tdelete log\tinsert dyn\tdelete dyn\tswap log\n");
             for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-                System.out.println(i + "\t" + tree.insertionHistogramLog[i] + "\t" + tree.deletionHistogramLog[i]);
+                System.out.println(i + "\t" + tree.insertionHistogramLog[i] +
+                                   "\t\t" + tree.deletionHistogramLog[i] +
+                                   "\t\t" + tree.insertHistogramDyn[i] +
+                                   "\t\t" + tree.deleteHistogramDyn[i] +
+                                   "\t\t" + tree.swapHistogramLog[i]);
             }
             System.out.println("\nHistograms of n*log(n) operations follow.");
-            System.out.println("\npow\tinsert\t\tdelete\n");
-            System.out.println("0\t-Inf\t\t-Inf");
+            System.out.println("\npow\tinsert log\tdelete log\tinsert dyn\tdelete dyn\n");
+            System.out.println("0\t-Inf\t\t-Inf\t\t-Inf\t\t-Inf");
             int powerOf2 = 2;
             double insertSum = 0.0, deleteSum = 0.0;
             for (int i = 1; i < Constants.MAX_POWER_OF_2; ++i) {
-                double insertValue = (double) (tree.insertionHistogramLog[i]) * (double) (i * powerOf2);
-                double deleteValue = (double) (tree.deletionHistogramLog[i]) * (double) (i * powerOf2);
-                insertSum += insertValue;
-                deleteSum += deleteValue;
-                System.out.printf("%d\t%.2e\t%.2e\n", i, insertValue, deleteValue);
+                double insertValueLog = (double) (tree.insertionHistogramLog[i]) * (double) (i * powerOf2);
+                double deleteValueLog = (double) (tree.deletionHistogramLog[i]) * (double) (i * powerOf2);
+                double insertValueDyn = (double) (tree.insertHistogramDyn[i]) * (double) (i * powerOf2);
+                double deleteValueDyn = (double) (tree.deleteHistogramDyn[i]) * (double) (i * powerOf2);
+                insertSum += insertValueLog + insertValueDyn;
+                deleteSum += deleteValueLog + deleteValueDyn;
+                System.out.printf("%d\t%.2e\t%.2e\t%.2e\t%.2e\n", i, insertValueLog, deleteValueLog, insertValueDyn, deleteValueDyn);
             }
             System.out.println();
-            System.out.printf("total\t%.2e\t%.2e\n", insertSum, deleteSum);
+            System.out.println("total\tinsert\t\tdelete\n");
+            System.out.printf("\t%.2e\t%.2e\n", insertSum, deleteSum);
         }
     
         System.out.println();

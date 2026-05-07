@@ -224,7 +224,6 @@ public class KdTreeDynamic extends KdTree {
             add(insertedNode);
             inserted = changed = true;
             ++nodeCount;
-            incrementHistogram(insertionHistogramDyn, 1); // Built a 1-node sub-tree.
         }
 
         return inserted;

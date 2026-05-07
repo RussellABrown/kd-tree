@@ -48,6 +48,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
     private KdTreeDynamic[] kdTrees;
     private AvlTree avlTree;
     protected long[] insertionHistogramLog, deletionHistogramLog;
+    protected long[] insertHistogramDyn, deleteHistogramDyn, swapHistogramLog;
 
     KdTreeLogarithmic(final int numDimensions,
                       final ExecutorService executor,
@@ -63,10 +64,30 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         // by default, each array element is initialized to 0L.
         insertionHistogramLog = new long[Constants.MAX_POWER_OF_2];
         deletionHistogramLog = new long[Constants.MAX_POWER_OF_2];
+        swapHistogramLog = new long[Constants.MAX_POWER_OF_2];
+        insertHistogramDyn = new long[Constants.MAX_POWER_OF_2];
+        deleteHistogramDyn = new long[Constants.MAX_POWER_OF_2];
 
         // Create an instance of AvlTree.
         avlTree = new AvlTree();
    }
+
+    /**
+    * <p>
+    * The {@code sumHistograms} method sums the dynamic histograms
+    * <p>
+    */
+    protected void sumHistograms()
+    {
+        for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
+            for (int j = 0; j < Constants.MAX_POWER_OF_2; ++j) {
+                if (kdTrees[j] != null) {
+                    insertHistogramDyn[i] += kdTrees[j].insertionHistogramDyn[i];
+                    deleteHistogramDyn[i] += kdTrees[j].deletionHistogramDyn[i];
+                }
+            }
+        }
+    }
 
     /**
      * <p>
@@ -649,6 +670,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 // above, |B_i| = 2^(i-2) so swap B_i and
                 // B_(i-2) thus moving the nodes from B_i
                 // to B_(i-2) and emptying B_i.
+                incrementHistogram(swapHistogramLog, getSize(kdTrees[kdTreeIndex]));
                 treeIndex = kdTreeIndex - 2;
                 final KdTreeDynamic tmpTree = kdTrees[kdTreeIndex];
                 kdTrees[kdTreeIndex] = kdTrees[kdTreeIndex-2];
