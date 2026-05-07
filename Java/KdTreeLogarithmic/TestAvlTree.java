@@ -39,7 +39,7 @@
  * 
  * Usage:
  *
- * "java TestAvlTree [-n N] [-x X] [-d D] [-v] [-f] [-c] [-r] [-i] [-h]
+ * java TestAvlTree [-n N] [-x X] [-d D] [-v] [-f] [-c] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 

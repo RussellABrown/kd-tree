@@ -92,7 +92,7 @@
  * 
  * Usage:
  *
- * "java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
+ * java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
  *                         [-s S] [-p P] [-v] [-f] [-c] [-w] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.

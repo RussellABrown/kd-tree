@@ -885,7 +885,7 @@ public class KdTreeDynamic extends KdTree {
         return succ;
     }
 
-   /**
+    /**
      * <p>
      * The {@code rebuildSubTree} method rebuilds a subtree
      * rooted at a {@code KdNode} to rebalance it.
@@ -906,29 +906,18 @@ public class KdTreeDynamic extends KdTree {
         final KdNode[] kdNodes = new KdNode[count];
         getSubTree(node, kdNodes);
         
-        // If Constants.ENABLE_1TO3 is true, check whether
-        // the subtree contains 3 KdNodes or fewer.
-        if (Constants.ENABLE_1TO3 && count <= 3) {
-            // The subtree contains 3 nodes or fewer,
-            // so rebuild the subtree by explicitly
-            // comparing the nodes' super-keys.
-            return rebuildSubTree1to3(kdNodes, histogram, p);
+        // Call KdTree.createKdTree to rebuild the subtree,
+        // which recycles the nodes and hence invalidates
+        // the node argument to this rebuildSubTree function.
+        KdTree tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
 
-        } else {
-            // The subtree contains more than 3 nodes, so
-            // call KdTree.createKdTree to rebuild the subtree,
-            // which recycles the nodes and hence invalidates
-            // the node argument to this rebuildSubTree function.
-            KdTree tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
-
-            // Increment the histogram element.
-            if (Constants.ENABLE_HISTOGRAMS) {
-                incrementHistogram(histogram, kdNodes.length);
-            }
-
-            // Return the root of the rebuilt subtree.
-            return tree.root;
+        // Increment the histogram element
+        if (Constants.ENABLE_HISTOGRAMS) {
+            incrementHistogram(histogram, kdNodes.length);
         }
+
+        // Return the root of the rebuilt subtree.
+        return tree.root;
     }
 
     /**
@@ -970,13 +959,7 @@ public class KdTreeDynamic extends KdTree {
                                       final long[] histogram,
                                       final int p)
     {
-        // Increment the histogram element. Note: if '&& !isBalanced(node)' is added
-        // to the following 'if' statement, fewer calls to the incrementHistogram
-        // method will occur. This observation may explain why no subtree-rebuild
-        // operations are reported in histogram bins 0 and 1 for the case where
-        // Constants.ENABLE_1TO3==false. But the value of Constants.ENABLE_1TO3
-        // affects neither the correctness of the k-d tree, nor the numbers of
-        // subtree-rebuild operations reported in histogram bins >= 2.
+        // Increment the histogram element
         if (Constants.ENABLE_HISTOGRAMS) {
             incrementHistogram(histogram, kdNodes.length);
         }

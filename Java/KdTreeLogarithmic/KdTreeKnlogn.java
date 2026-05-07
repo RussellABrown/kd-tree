@@ -64,7 +64,16 @@ public class KdTreeKnlogn
         // Allocate the references arrays including one additional array.
         final int numPoints = kdNodes.length;
         final int numDimensions = kdNodes[0].tuple.length;
-        final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
+
+        // Create the k-d tree.
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+
+        // If Constants.ENABLE_1TO3 is true, check whether the subtree
+        // contains 3 KdNodes or fewer, and if so call buildKdTree1to3.
+        if (Constants.ENABLE_1TO3 && numPoints <= 3) {
+            tree.root = KdTreeNlogn.buildKdTree1to3(kdNodes, 0, numPoints-1, p);
+            return tree;
+        }
 
         // Don't allocate KdNodes instances for the pth references array
         // (where p is the leading dimension) instead of the first
@@ -74,6 +83,7 @@ public class KdTreeKnlogn
         //
         // Copy references from the KdNode instances of the kdNodes array.
         // These references will be re-ordered by the MergeSort methods.
+        final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
         for (int i = 0; i < numPoints; ++i) {
             references[p][i] = kdNodes[i];
         }
@@ -142,7 +152,6 @@ public class KdTreeKnlogn
         }
 
         // Build the k-d tree via heirarchical multi-threading if possible.
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreeKnlogn(references, permutation, 0, end,
                                       executor, maximumSubmitDepth, 0);
                 
@@ -176,11 +185,11 @@ public class KdTreeKnlogn
         final int numPoints = coordinates.length;
         final int numDimensions = coordinates[0].getKey().length;
 
+        // Create the k-d tree.
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+
         // Create the references arrays including one additional array.
         final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
-
-        // Create a KdTree instance that will be passed to the KdNode constructor.
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
 
         // Create KdNodes instances for the first references array,
         // and add each KdNode instance to the doubly linked list.
@@ -189,6 +198,25 @@ public class KdTreeKnlogn
             tree.add(node);
         }
         initTime = System.currentTimeMillis() - initTime;
+
+        // If Constants.ENABLE_1TO3 is true, check whether the subtree
+        // contains 3 KdNodes or fewer, and if so call buildKdTree1to3.
+        if (Constants.ENABLE_1TO3 && numPoints <= 3) {
+            long kdTime = System.currentTimeMillis();
+            tree.root = KdTreeNlogn.buildKdTree1to3(references[0], 0, numPoints-1, 0);
+            kdTime = System.currentTimeMillis() - kdTime;
+
+            // Return the number of nodes and the execution times by reference via arrays.
+            nN[0] = numPoints;
+            iT[0] = (double) initTime / Constants.MILLISECONDS_TO_SECONDS;
+            sT[0] = 0;
+            rT[0] = 0;
+            kT[0] = (double) kdTime / Constants.MILLISECONDS_TO_SECONDS;
+            vT[0] = 0;
+                
+            // Return the tree.
+            return tree;
+        }
 
         // Sort the first reference array using the first dimension (0) as the most significant
         // key of the super key.

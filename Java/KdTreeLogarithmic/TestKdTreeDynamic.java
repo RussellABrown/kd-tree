@@ -92,7 +92,7 @@
  * 
  * Usage:
  *
- * "java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
+ * java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
  *                         [-s S] [-p P] [-v] [-f] [-c] [-w] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
@@ -297,7 +297,7 @@ public class TestKdTreeDynamic {
             if (args[i].equals("-h") || args[i].equals("--help")) {
                 System.out.println("\nUsage:\n");
                 System.out.println("java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] " +
-                                   "[-b] [-g] [-m M] [-j] [-s S] [-p P] [-v] [-f] [-r] [-i] [-h]\n\n" +
+                                   "[-b] [-g] [-m M] [-j] [-s S] [-p P] [-v] [-f] [-c] [-c] [-r] [-i] [-h]\n\n" +
                                    "where the command-line options are interpreted as follows.\n");
                 System.out.println("-n The number N of randomly generated points used to build the k-d tree\n");
                 System.out.println("-x The number X of duplicate points added to to randomly generated points\n");
@@ -311,7 +311,6 @@ public class TestKdTreeDynamic {
                 System.out.println("-p The maximum number P of nodes to report when reporting region search results\n");
                 System.out.println("-v Verify the k-d tree ordering and balance after insertion or erasure of each pair\n");
                 System.out.println("-f Check for the next point after deleting each point (a cheap alternative to -v)\n");
-                System.out.println("-l Verify the integrity of the doubly linked list after erasure of each pair\n");
                 System.out.println("-c Check for all remaining points after deleting each point (an expensive alternative to -v)\n");
                 System.out.println("-w Create a worst-case set of coordinates by walking a k-d tree in order\n");
                 System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n");
@@ -801,28 +800,6 @@ public class TestKdTreeDynamic {
             System.out.printf("brute search time  = %.4f  std dev = %.4f\n", mean[0], std[0]);
         }
 
-        if (Constants.ENABLE_HISTOGRAMS) {
-            System.out.println("\nHistograms of built tree sizes follow.");
-            System.out.println("\npow\tinsert\tdelete\n");
-            for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-                System.out.println(i + "\t" + tree.insertionHistogramDyn[i] + "\t" + tree.deletionHistogramDyn[i]);
-            }
-            System.out.println("\nHistograms of n*log(n) operations follow.");
-            System.out.println("\npow\tinsert\t\tdelete\n");
-            System.out.println("0\t-Inf\t\t-Inf");
-            int powerOf2 = 2;
-            double insertSum = 0.0, deleteSum = 0.0;
-            for (int i = 1; i < Constants.MAX_POWER_OF_2; ++i) {
-                double insertValue = (double) (tree.insertionHistogramDyn[i]) * (double) (i * powerOf2);
-                double deleteValue = (double) (tree.deletionHistogramDyn[i]) * (double) (i * powerOf2);
-                insertSum += insertValue;
-                deleteSum += deleteValue;
-                System.out.printf("%d\t%.2e\t%.2e\n", i, insertValue, deleteValue);
-            }
-            System.out.println();
-            System.out.printf("total\t%.2e\t%.2e\n", insertSum, deleteSum);
-        }
-    
         if (Constants.ENABLE_HISTOGRAMS) {
             System.out.println("\nHistograms of built tree sizes follow.");
             System.out.println("\npow\tinsert\tdelete\n");
