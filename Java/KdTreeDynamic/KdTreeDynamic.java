@@ -702,7 +702,7 @@ public class KdTreeDynamic extends KdTree {
         return succ;
     }
 
-   /**
+    /**
      * <p>
      * The {@code rebuildSubTree} method rebuilds a subtree
      * rooted at a {@code KdNode} to rebalance it.
@@ -721,33 +721,13 @@ public class KdTreeDynamic extends KdTree {
         final KdNode[] kdNodes = new KdNode[count];
         getSubTree(node, kdNodes);
         
-        // If Constants.ENABLE_1TO3 is true, check whether
-        // the subtree contains 3 KdNodes or fewer.
-        if (Constants.ENABLE_1TO3 && count <= 3) {
-            // The subtree contains 3 nodes or fewer,
-            // so rebuild the subtree by explicitly
-            // comparing the nodes' super-keys.
-            return rebuildSubTree1to3(node, kdNodes, p);
+        // Call KdTree.createKdTree to rebuild the subtree,
+        // which recycles the nodes and hence invalidates
+        // the node argument to this rebuildSubTree function.
+        KdTree tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
 
-        } else {
-            // The subtree contains more than 3 nodes, so
-            // call KdTree.createKdTree to rebuild the subtree,
-            // which recycles the nodes and hence invalidates
-            // the node argument to this rebuildSubTree function.
-            //
-            // Do not use mutiple threads to build the subtree, even
-            // though multiple threads are available, unless the size of the
-            // subtree is sufficiently large to justify spawning child threads.
-            KdTree tree;
-            if (count < Constants.MULTI_THREAD_CUTOFF) {
-                tree = KdTree.createKdTree(kdNodes, executor, -1, p);
-            } else {
-                tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
-            }
-
-            // Return the root of the rebuilt subtree.
-            return tree.root;
-        }
+        // Return the root of the rebuilt subtree.
+        return tree.root;
     }
 
     /**
@@ -761,105 +741,32 @@ public class KdTreeDynamic extends KdTree {
      * @return the root {@code KdNode} of the rebalanced subtree
      * </p>
      */
-    private static KdNode rebuildSubTree1to3(final KdNode node,
-                                             final int nodeCount,
-                                             final int p) {
+    private KdNode rebuildSubTree1to3(final KdNode node,
+                                      final int nodeCount,
+                                      final int p) {
 
         // Allocate an array of KdNode references, and walk the subtree
         // to assign to each array element a reference to a KdNode instance.
         final KdNode[] kdNodes = new KdNode[nodeCount];
         getSubTree(node, kdNodes);
-        return rebuildSubTree1to3(node, kdNodes, p);
+        return rebuildSubTree1to3(kdNodes, p);
     }
 
-    private static KdNode rebuildSubTree1to3(final KdNode node,
-                                             final KdNode[] kdNodes,
-                                             final int p)
+    /**
+     * <p>
+     * The {@code rebuildSubTree1to3} method rebuilds a subtree from
+     * an array of {@code KdNode}s that contains 3 nodes or fewer.
+     * 
+     * @param kdNodes - an array of {@code KdNode} instances
+     * @param p - the leading dimension
+     * @return the root {@code KdNode} of the rebalanced subtree
+     * </p>
+     */
+    private KdNode rebuildSubTree1to3(final KdNode[] kdNodes,
+                                      final int p)
     {
-
-        // The return value because the node argument to this function is read only.
-        KdNode ptr = node;
-
-        if (kdNodes.length == 1) {
-
-            // The subtree contains 1 node, so it is the root of the rebuilt subtree.
-            ptr = kdNodes[0];
-            ptr.height = 1;
-
-        } else if (kdNodes.length == 2) {
-
-            // The subtree contains 2 nodes, so the first node is the root of the rebuilt
-            // subtree. Compare super-keys to determine whether second node is the < child
-            // or the > child of the first node.
-            ptr = kdNodes[0];
-            ptr.height = 2;
-            if (MergeSort.superKeyCompare(kdNodes[0].tuple, kdNodes[1].tuple, p) < 0L) {
-                ptr.gtChild = kdNodes[1];
-                ptr.gtChild.height = 1;
-            } else {
-                ptr.ltChild = kdNodes[1];
-                ptr.ltChild.height = 1;
-            }
-
-        } else if (kdNodes.length == 3) {
-
-            // The subtree contains 3 nodes, so compare their super-keys to determine which
-            // node is the median node. The node with the smallest super-key is the < child.
-            // The node with the larges super-key is the > child.
-            if (MergeSort.superKeyCompare(kdNodes[0].tuple, kdNodes[1].tuple, p) < 0L) {
-                // kdNodes[0].tuple < kdNodes[1].tuple
-                if (MergeSort.superKeyCompare(kdNodes[1].tuple, kdNodes[2].tuple, p) < 0L) {
-                    // kdNodes[0].tuple < kdNodes[1].tuple < kdNodes[2].tuple
-                    ptr = kdNodes[1];
-                    ptr.ltChild = kdNodes[0];
-                    ptr.gtChild = kdNodes[2];
-                } else {
-                    // kdNodes[0].tuple < kdNodes[1].tuple; kdNodes[2].tuple < kdNodes[1].tuple
-                    if (MergeSort.superKeyCompare(kdNodes[0].tuple, kdNodes[2].tuple, p) < 0L) {
-                        // kdNodes[0].tuple < kdNodes[2].tuple < kdNodes[1].tuple
-                        ptr = kdNodes[2];
-                        ptr.ltChild = kdNodes[0];
-                        ptr.gtChild = kdNodes[1];
-                    } else {
-                        // kdNodes[2].tuple < kdNodes[0].tuple < kdNodes[1].tuple
-                        ptr = kdNodes[0];
-                        ptr.ltChild = kdNodes[2];
-                        ptr.gtChild = kdNodes[1];
-                    }
-                }
-            } else {
-                // kdNodes[1].tuple < kdNodes[0].tuple
-                if (MergeSort.superKeyCompare(kdNodes[0].tuple, kdNodes[2].tuple, p) < 0L) {
-                    // kdNodes[1].tuple < kdNodes[0].tuple < kdNodes[2].tuple
-                    ptr = kdNodes[0];
-                    ptr.ltChild = kdNodes[1];
-                    ptr.gtChild = kdNodes[2];
-                } else {
-                    // kdNodes[1].tuple < kdNodes[0].tuple; kdNodes[2].tuple < kdNodes[0].tuple
-                    if (MergeSort.superKeyCompare(kdNodes[1].tuple, kdNodes[2].tuple, p) < 0L) {
-                        // kdNodes[1].tuple < kdNodes[2].tuple < kdNodes[0].tuple
-                        ptr = kdNodes[2];
-                        ptr.ltChild = kdNodes[1];
-                        ptr.gtChild = kdNodes[0];
-                    }
-                    else {
-                        // kdNodes[2].tuple < kdNodes[1].tuple < kdNodes[0].tuple
-                        ptr = kdNodes[1];
-                        ptr.ltChild = kdNodes[2];
-                        ptr.gtChild = kdNodes[0];
-                    }
-                }
-            }
-            ptr.ltChild.height = ptr.gtChild.height = 1;
-            ptr.height = 2;
-
-        } else {
-
-            // This is an illegal condition that should never occur.
-            throw new RuntimeException("\n\n" + kdNodes.length + " KdNode instances in rebuildSubTree1to3\n");
-        }
-
-        return ptr;
+        // Rebuild the subtree and return its root.
+        return KdTreeNlogn.buildKdTree1to3(kdNodes, 0, kdNodes.length-1, p);
     }
 
     /**
@@ -874,15 +781,15 @@ public class KdTreeDynamic extends KdTree {
      * @return the root {@code KdNode} of the rebalanced subtree
      * </p>
      */
-    private static KdNode rebuildSubTreeSkipRoot1to3(final KdNode node,
-                                                     final int nodeCount,
-                                                     final int p) {
+    private KdNode rebuildSubTreeSkipRoot1to3(final KdNode node,
+                                              final int nodeCount,
+                                              final int p) {
 
         // Allocate an array of KdNode references, and walk the subtree
         // to assign to each array element a reference to a KdNode instance.
         final KdNode[] kdNodes = new KdNode[nodeCount];
         getSubTreeSkipRoot(node, kdNodes);
-        return rebuildSubTree1to3(node, kdNodes, p);
+        return rebuildSubTree1to3(kdNodes, p);
     }
 
     /**

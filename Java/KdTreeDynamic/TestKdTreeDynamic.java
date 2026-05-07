@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2019, 2020, 2023, 2025 Russell A. Brown
+ * Copyright (c) 2015, 2019, 2020, 2023, 2025, 2026 Russell A. Brown
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -85,8 +85,8 @@
  * 
  * Usage:
  *
- * "java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] \
- *                         [-j] [-s S] [-p P] [-v] [-f] [-r] [-i] [-h]
+ * java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
+ *                         [-s S] [-p P] [-v] [-f] [-c] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -114,6 +114,8 @@
  * -v Verify a correct k-d tree after each insertion or erasure (default off)
  * 
  * -f Search for the tuple and the next tuple after erasure of each tuple (default off)
+ * 
+ * -c Search for all remaining pairs after erasure of each pair (default off)
  * 
  * -r Reverse the order of coordinates for erasure relative to insertion (default off)
  *
@@ -214,6 +216,7 @@ public class TestKdTreeDynamic {
         boolean balanced = false;
         boolean verify = false;
         boolean find = false;
+        boolean check = false;
         boolean reverse = false;
 		
         for (int i = 0; i < args.length; i++) {
@@ -269,14 +272,18 @@ public class TestKdTreeDynamic {
             find = !find;
             continue;
             }
+            if (args[i].equals("-c") || args[i].equals("--check")) {
+                check = !check;
+                continue;
+            }
             if (args[i].equals("-r") || args[i].equals("--reverse")) {
             find = !find;
             continue;
             }
             if (args[i].equals("-h") || args[i].equals("--help")) {
                 System.out.println("\nUsage:\n\n");
-                System.out.println("java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-c C] " +
-                                   "[-b] [-g] [-m M] [-j] [-s S] [-p P] [-v] [-f] [-r] [-i] [-h]\n\n" +
+                System.out.println("java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] " +
+                                   "[-b] [-g] [-m M] [-j] [-s S] [-p P] [-v] [-f] [-c] [-r] [-i] [-h]\n\n" +
                                    "where the command-line options are interpreted as follows.\n\n");
                 System.out.println("-n The number N of randomly generated points used to build the k-d tree\n\n");
                 System.out.println("-x The number X of duplicate points added to to randomly generated points\n\n");
@@ -290,6 +297,7 @@ public class TestKdTreeDynamic {
                 System.out.println("-p The maximum number P of nodes to report when reporting region search results\n\n");
                 System.out.println("-v Verify the k-d tree ordering and balance after insertion or erasure of each point\n\n");
                 System.out.println("-f Check for the next point after deleting each point (a cheap alternative to -v)\n\n");
+                System.out.println("-c Check for all remaining points after deleting each point (an expensive alternative to -v)\n");
                 System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n\n");
                 System.out.println("-i The number I of iterations of k-d tree creation\n\n");
                 System.out.println("-h List the command-line options\n\n");;
@@ -549,6 +557,13 @@ public class TestKdTreeDynamic {
                         if (find && i > 0 && !tree.contains(coordinates[i-1])) {
                             throw new RuntimeException("failed to find prior tuple after erasing tuple " + i);
                         }
+                        if (check && i > 0) {
+                            for (int j = i-1; j >= 0; --j) {
+                                if (!tree.contains(coordinates[j])) {
+                                    throw new RuntimeException("\n\nfailed to find prior pair " + j + " after erasing pair " + i + "\n");
+                                }
+                            }
+                        }
                     } else {
                         throw new RuntimeException("failed to erase tuple " + i);
                     }
@@ -556,15 +571,22 @@ public class TestKdTreeDynamic {
             } else {
                 for (int i = 0; i < coordinates.length; ++i) {
                     if (tree.erase(coordinates[i])) {
-                    if (verify) {
-                        tree.verifyKdTree();
-                    }
-                    if (find && tree.contains(coordinates[i])) {
-                        throw new RuntimeException("found tuple after erasing tuple " + i);
-                    }
-                    if (find && i < coordinates.length-1 && !tree.contains(coordinates[i+1])) {
-                        throw new RuntimeException("failed to find next tuple after erasing tuple " + i);
-                   }
+                        if (verify) {
+                            tree.verifyKdTree();
+                        }
+                        if (find && tree.contains(coordinates[i])) {
+                            throw new RuntimeException("found tuple after erasing tuple " + i);
+                        }
+                        if (find && i < coordinates.length-1 && !tree.contains(coordinates[i+1])) {
+                            throw new RuntimeException("failed to find next tuple after erasing tuple " + i);
+                        }
+                        if (check && i < coordinates.length-1) {
+                            for (int j = i+1; j < coordinates.length; ++j) {
+                                if (!tree.contains(coordinates[j])) {
+                                    throw new RuntimeException("\n\nfailed to find following pair " + j + " after erasing pair " + i + "\n");
+                                }
+                            }
+                        }
                     } else {
                         throw new RuntimeException("failed to erase tuple " + i + " in dynamic tree");
                     }

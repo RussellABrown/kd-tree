@@ -60,10 +60,21 @@ public class KdTreeNlogn
                                               final int maximumSubmitDepth,
                                               final int p)
     {        
-        // Create the reference array and initialize it by
-        // copying to it each reference in the kdNodes array.
         final int numPoints = kdNodes.length;
         final int numDimensions = kdNodes[0].tuple.length;
+
+        // Create the k-d tree.
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+
+        // If Constants.ENABLE_1TO3 is true, check whether the subtree
+        // contains 3 KdNodes or fewer, and if so call buildKdTree1to3.
+        if (Constants.ENABLE_1TO3 && numPoints <= 3) {
+            tree.root = buildKdTree1to3(kdNodes, 0, numPoints-1, p);
+            return tree;
+        }
+
+        // Create the reference array and initialize it by
+        // copying to it each reference in the kdNodes array.
         final KdNode[] reference = new KdNode[numPoints];
         for (int i = 0; i < numPoints; ++i) {
             reference[i] = kdNodes[i];
@@ -98,7 +109,6 @@ public class KdTreeNlogn
             
         // Build the k-d tree with multiple threads if possible. For a dynamic k-d tree,
         // call the KdNode::buildKdTree function instead of KdNode::buildKdTreePresorted.
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreeNlogn(reference, temporary, permutation, 0,
                                      end, executor, maximumSubmitDepth, 0);
             
@@ -128,16 +138,41 @@ public class KdTreeNlogn
                                               double[] kT,
                                               double[] vT)
     {        
-        // Declare and initialize the reference array.
         long initTime = System.currentTimeMillis();
         final int numPoints = coordinates.length;
         final int numDimensions = coordinates[0].getKey().length;
+
+        // Create a KdTree instance.
+        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+
+        // Create the reference array.
         final KdNode[] reference = new KdNode[numPoints];
+
+        // Create KdNodes instances for the reference array.
         for (int i = 0; i < numPoints; ++i) {
-            reference[i] = new KdNode(coordinates[i]);
+            KdNode node = reference[i] = new KdNode(coordinates[i]);
         }
         initTime = System.currentTimeMillis() - initTime;
-            
+
+        // If Constants.ENABLE_1TO3 is true, check whether the subtree
+        // contains 3 KdNodes or fewer, and if so call buildKdTree1to3.
+        if (Constants.ENABLE_1TO3 && numPoints <= 3) {
+            long kdTime = System.currentTimeMillis();
+            tree.root = buildKdTree1to3(reference, 0, numPoints-1, 0);
+            kdTime = System.currentTimeMillis() - kdTime;
+
+            // Return the number of nodes and the execution times by reference via arrays.
+            nN[0] = numPoints;
+            iT[0] = (double) initTime / Constants.MILLISECONDS_TO_SECONDS;
+            sT[0] = 0;
+            rT[0] = 0;
+            kT[0] = (double) kdTime / Constants.MILLISECONDS_TO_SECONDS;
+            vT[0] = 0;
+                
+            // Return the tree.
+            return tree;
+        }
+
         // Sort the reference array using the first dimension (0) as the most significant
         // key of the super key.
         final KdNode[] temporary = new KdNode[numPoints];
@@ -175,7 +210,6 @@ public class KdTreeNlogn
         // keys so that each key is used as the most significant key of the
         // super key, beginning with key=0 at the first level of tree building.
         long kdTime = System.currentTimeMillis();
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
         tree.root = buildKdTreePresorted(reference, temporary, permutation, 0,
                                          end, executor, maximumSubmitDepth);
         kdTime = System.currentTimeMillis() - kdTime;
@@ -185,7 +219,7 @@ public class KdTreeNlogn
         nN[0] = tree.verifyKdTree(permutation);
         verifyTime = System.currentTimeMillis() - verifyTime;
 
-        // Return the number of nodes and the execution by reference via arrays.
+        // Return the number of nodes and the execution times by reference via arrays.
         iT[0] = (double) initTime / Constants.MILLISECONDS_TO_SECONDS;
         sT[0] = (double) sortTime / Constants.MILLISECONDS_TO_SECONDS;
         rT[0] = (double) removeTime / Constants.MILLISECONDS_TO_SECONDS;
@@ -229,89 +263,9 @@ public class KdTreeNlogn
         // The partition cycles as x, y, z, etc.
         final int p = permutation[depth];
 
-        if (end == start) {
+        if (end <= start + 2) {
 
-            // Only one reference was passed to this method, so store it at this level of the tree.
-            node = reference[start];
-            if (Constants.KD_MAP_DYNAMIC) {
-                node.height = 1;
-            }
-
-        } else if (end == start + 1) {
-                
-        // Two references were passed to this method in unsorted order, so store the
-        // start reference at this level of the tree and determine whether to store the
-        // end reference as the < child or the > child.
-        node = reference[start];
-        if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-            node.gtChild = reference[end];
-            if (Constants.KD_MAP_DYNAMIC) {
-                node.height = 2;
-                node.gtChild.height = 1;
-            }
-        } else {
-            node.ltChild = reference[end];
-            if (Constants.KD_MAP_DYNAMIC) {
-                node.height = 2;
-                node.ltChild.height = 1;
-            }
-        }
-                
-        } else if (end == start + 2) {
-                
-        // Three references were passed to this method in unsorted order, so compare
-        // the three references to determine which reference is the median reference.
-        // Store the median reference at this level of the tree, store the smallest
-        // reference as the < child and store the largest reference as the > child.
-        int mid = start + 1;
-        if (MergeSort.superKeyCompare(reference[start].tuple, reference[mid].tuple, p) < 0L) {
-            // reference[start] < reference[mid]
-            if (MergeSort.superKeyCompare(reference[mid].tuple, reference[end].tuple, p) < 0L) {
-            // reference[start] < reference[mid] < reference[end]
-            node = reference[mid];
-            node.ltChild = reference[start];
-            node.gtChild = reference[end];
-            } else {
-                // reference[start] < reference[mid]; reference[end] < reference[mid]
-                if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-                    // reference[start] < reference[end] < reference[mid]
-                    node = reference[end];
-                    node.ltChild = reference[start];
-                    node.gtChild = reference[mid];
-                } else {
-                    // reference[end] < reference[start] < reference[mid]
-                    node = reference[start];
-                    node.ltChild = reference[end];
-                    node.gtChild = reference[mid];
-                }
-            }
-        } else {
-            // reference[mid] < reference[start]
-            if (MergeSort.superKeyCompare(reference[start].tuple, reference[end].tuple, p) < 0L) {
-            // reference[mid] < reference[start] < reference[end]
-            node = reference[start];
-            node.ltChild = reference[mid];
-            node.gtChild = reference[end];
-            } else {
-                // reference[mid] < reference[start]; reference[end] < reference[start]
-                if (MergeSort.superKeyCompare(reference[mid].tuple, reference[end].tuple, p) < 0L) {
-                    // reference[mid] < reference[end] < reference[start]
-                    node = reference[end];
-                    node.ltChild = reference[mid];
-                    node.gtChild = reference[start];
-                } else { 
-                    // reference[end] < reference[mid] < reference[start]
-                    node = reference[mid];
-                    node.ltChild = reference[end];
-                    node.gtChild = reference[start];
-                }
-            }
-        }
-        if (Constants.KD_MAP_DYNAMIC) {
-            node.height = 2;
-            node.ltChild.height = 1;
-            node.gtChild.height = 1;
-        }
+            node = buildKdTree1to3(reference, start, end, p);
                 
         } else if (end > start + 2) {
                 
@@ -376,6 +330,112 @@ public class KdTreeNlogn
         }
             
         return node;
+    }
+
+    /**
+     * <p>
+     * The {@code buildKdTree1to3} method builds a k-d tree
+     * that contains 3 nodes or fewer.
+     * 
+     * @param kdNodes - an array of {@code KdNode} instances
+     * @param start - the index of the first element of the kdNodes array
+     * @param end - the index of the last element of the kdNodes array
+     * @param p - the partition that cycles as x, y, z, etc.
+     * @return the root {@code KdNode} of the rebalanced subtree
+     * </p>
+     */
+    protected static KdNode buildKdTree1to3(final KdNode[] kdNodes,
+                                            final int start,
+                                            final int end,
+                                            final int p)
+    {
+        KdNode root = kdNodes[start];
+
+        if (end == start) {
+
+            // Only one KdNode was passed to this method, so it is the root of the tree.
+            root = kdNodes[start];
+            root.height = 1;
+
+        } else if (end == start + 1) {
+                
+            // Two KdNodes were passed to this method in unsorted order, so choose the
+            // start KdNode to be the root the tree, and compare their super-keys
+            // to determine whether the end KdNode is the < child or the > child.
+            root = kdNodes[start];
+            if (MergeSort.superKeyCompare(kdNodes[start].tuple, kdNodes[end].tuple, p) < 0L) {
+                root.gtChild = kdNodes[end];
+                root.height = 2;
+                root.gtChild.height = 1;
+            } else {
+                root.ltChild = kdNodes[end];
+                root.height = 2;
+                root.ltChild.height = 1;
+            }
+
+        } else if (end == start + 2) {
+                
+            // Three KdNodes were passed to this method in unsorted order, so compare
+            // their super-keys to determine which KdNode is the root of the tree,
+            // which KdNode is the < child, and which KdNode is the > child.
+            int mid = start + 1;
+            if (MergeSort.superKeyCompare(kdNodes[start].tuple, kdNodes[mid].tuple, p) < 0L) {
+                // kdNodes[start] < kdNodes[mid]
+                if (MergeSort.superKeyCompare(kdNodes[mid].tuple, kdNodes[end].tuple, p) < 0L) {
+                // kdNodes[start] < kdNodes[mid] < kdNodes[end]
+                root = kdNodes[mid];
+                root.ltChild = kdNodes[start];
+                root.gtChild = kdNodes[end];
+                } else {
+                    // kdNodes[start] < kdNodes[mid]; kdNodes[end] < kdNodes[mid]
+                    if (MergeSort.superKeyCompare(kdNodes[start].tuple, kdNodes[end].tuple, p) < 0L) {
+                        // kdNodes[start] < kdNodes[end] < kdNodes[mid]
+                        root = kdNodes[end];
+                        root.ltChild = kdNodes[start];
+                        root.gtChild = kdNodes[mid];
+                    } else {
+                        // kdNodes[end] < kdNodes[start] < kdNodes[mid]
+                        root = kdNodes[start];
+                        root.ltChild = kdNodes[end];
+                        root.gtChild = kdNodes[mid];
+                    }
+                }
+            } else {
+                // kdNodes[mid] < kdNodes[start]
+                if (MergeSort.superKeyCompare(kdNodes[start].tuple, kdNodes[end].tuple, p) < 0L) {
+                // kdNodes[mid] < kdNodes[start] < kdNodes[end]
+                root = kdNodes[start];
+                root.ltChild = kdNodes[mid];
+                root.gtChild = kdNodes[end];
+                } else {
+                    // kdNodes[mid] < kdNodes[start]; kdNodes[end] < kdNodes[start]
+                    if (MergeSort.superKeyCompare(kdNodes[mid].tuple, kdNodes[end].tuple, p) < 0L) {
+                        // kdNodes[mid] < kdNodes[end] < kdNodes[start]
+                        root = kdNodes[end];
+                        root.ltChild = kdNodes[mid];
+                        root.gtChild = kdNodes[start];
+                    } else { 
+                        // kdNodes[end] < kdNodes[mid] < kdNodes[start]
+                        root = kdNodes[mid];
+                        root.ltChild = kdNodes[end];
+                        root.gtChild = kdNodes[start];
+                    }
+                }
+            }
+            root.height = 2;
+            root.ltChild.height = 1;
+            root.gtChild.height = 1;
+        } else if (end < start) {
+
+            throw new RuntimeException("\n\nIn buildKdTree1to3, end = " + end +
+                                       "  <  start = " + start + "\n");
+        } else if (end > start + 2) {
+
+            throw new RuntimeException("\n\nToo many k-d nodes in buildKdTree1to3, end = " + end +
+                                        "  start = " + start + "\n");
+        }
+
+        return root;
     }
 
     /**

@@ -71,8 +71,8 @@
  * 
  * Usage:
  *
- * "java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] \
- *                         [-j] [-s S] [-p P] [-i] [-h]
+ * java TestKdTree [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] \
+ *                 [-j] [-s S] [-p P] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 
