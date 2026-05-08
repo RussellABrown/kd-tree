@@ -1070,7 +1070,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
     {
         int height = 0;
         for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
-            if (kdTrees[i] != null && kdTrees[i].root != null && kdTrees[i].root.height > height) {
+            if (KdTreeDynamic.getSize(kdTrees[i])> 0 && kdTrees[i].root.height > height) {
                 height = kdTrees[i].root.height;
             }
         }
