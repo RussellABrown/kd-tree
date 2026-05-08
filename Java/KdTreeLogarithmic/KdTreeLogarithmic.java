@@ -193,7 +193,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                         getSize(kdTrees[i]) < powerOf2Upper) {
                             sparseTree = i;
                             break;
-                    } else if (Constants.ENABLE_DEBUG &&
+                    } else if (Constants.ENABLE_DEBUG && sparseTree >= 0 &&
                                (getSize(kdTrees[sparseTree]) < powerOf2Lower ||
                                 getSize(kdTrees[sparseTree]) > powerOf2Upper)) {
                                 throw new RuntimeException("\n\ntree " + sparseTree + " size = " +
@@ -1058,4 +1058,41 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         return finalNeighbors;
     }
   
-} // class KdTreeLogarithmic
+    /**
+     * <p>
+     * The {@code getTreeHeight} method returns the height at the root
+     * of the highest {@code KdTreeDynamic} of the {@code KdTreeLogarithmic}.
+     * 
+     * @return the height of the tallest KdTreeDynamic
+     * </p>
+     */
+    protected int getTreeHeight()
+    {
+        int height = 0;
+        for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
+            if (kdTrees[i] != null && kdTrees[i].root != null && kdTrees[i].root.height > height) {
+                height = kdTrees[i].root.height;
+            }
+        }
+        return height;
+    }
+
+    /**
+     * <p>
+     * The {@code treeSize} method returns the sum of sizes of all of the
+     * {@code KdTreeDynamic} of the {@code KdTreeLogarithmic}.
+     * 
+     * @return the tree size if the tree is not null; otherwise, 0
+     * </p>
+     */
+    protected static long getSize(final KdTreeLogarithmic tree)
+    {
+        long nodeCount = 0L;
+        for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
+            nodeCount += KdTreeDynamic.getSize(tree.kdTrees[i]);
+        }
+        return nodeCount;
+    }
+
+}
+ // class KdTreeLogarithmic

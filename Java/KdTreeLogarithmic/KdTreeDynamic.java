@@ -1194,7 +1194,7 @@ public class KdTreeDynamic extends KdTree {
 
         // Count this node and over-write an entry in the coordinates
         // array by a pair composed of copies of the node's tuple and
-        //  the first of its values. Make copies to avoid unintended
+        // the first of its values. Make copies to avoid unintended
         // side effects that could be caused by over-writing randomized
         // coordinate-array elements by sorted-order pairs.
         ++count;

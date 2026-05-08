@@ -93,7 +93,7 @@
  * Usage:
  *
  * java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
- *                         [-s S] [-p P] [-v] [-f] [-c] [-w] [-r] [-i] [-h]
+ *                        [-s S] [-p P] [-v] [-f] [-c] [-w] [-z Z] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -126,6 +126,8 @@
  * 
  * -w Create a worst-case set of coordinates by walking a k-d tree in order (default off)
  * 
+ * -z The number Z of segments into which to break the points for erasure/insertion (default 1)
+ * 
  * -r Reverse the order of coordinates for erasure relative to insertion (default off)
  *
  * -i The number I of iterations of k-d tree insertion, search, and deletion (default 1)
@@ -135,6 +137,8 @@
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -220,6 +224,7 @@ public class TestKdTreeLogarithmic {
         long searchDivisor = 10;
         int maximumNumberOfNodesToPrint = 5;
         int numNearestNeighbors = 5;
+        int fraction = 1;
         boolean neighbors = false;
         boolean region = false;
         boolean balanced = false;
@@ -290,6 +295,10 @@ public class TestKdTreeLogarithmic {
                 worst = !worst;
                 continue;
             }
+            if ( args[i].equals("-z") || args[i].equals("--fraction") ) {
+                fraction= Integer.parseInt(args[++i]);
+                continue;
+            }
             if (args[i].equals("-r") || args[i].equals("--reverse")) {
                 reverse = !reverse;
                 continue;
@@ -314,6 +323,7 @@ public class TestKdTreeLogarithmic {
                 System.out.println("-l Verify the integrity of the doubly linked list after erasure of each pair\n");
                 System.out.println("-c Check for all remaining points after deleting each point (an expensive alternative to -v)\n");
                 System.out.println("-w Create a worst-case set of coordinates by walking a k-d tree in order\n");
+                System.out.println("-z The number Z of segments into which to break the points for erasure/insertion\n");
                 System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n");
                 System.out.println("-i The number I of iterations of k-d tree creation\n");
                 System.out.println("-h List the command-line options\n");
@@ -397,6 +407,8 @@ public class TestKdTreeLogarithmic {
         final double[] verifyTime = new double[iterations];
         final double[] searchTime = new double[iterations];
         final double[] eraseTime = new double[iterations];
+        final double[] finsertTime = new double[iterations];
+        final double[] feraseTime = new double[iterations];
         final double[] containsTime = new double[iterations];
         final double[] neighborsSearchTime = new double[iterations];
         final double[] neighborsBruteTime = new double[iterations];
@@ -559,7 +571,7 @@ public class TestKdTreeLogarithmic {
 
             // Record the maximum tree height and the tree size.
             treeHeight = tree.getTreeHeight();
-            treeSize = KdTreeDynamic.getSize(tree);
+            treeSize = KdTreeLogarithmic.getSize(tree);
 
             // Search for each coordinate in the k-d tree. 
             long sTime = System.currentTimeMillis();
@@ -625,6 +637,111 @@ public class TestKdTreeLogarithmic {
                         System.out.println("nearest-neighbor and brute-force values at " + i + " do not match");
                         System.out.println("nn dist = " + nnList.get(i).getKey() +
                                            "  bf dist = " + bfList.get(i).getKey()+ "\n");
+                    }
+                }
+            }
+
+            // Erase and re-insert the coordinates in pieces.
+            if (fraction > 1) {
+                int size = coordinates.length / fraction;
+
+                // Each piece must contain at least 1 coordinate.
+                if (size >= 1) {
+
+                    // Randomly shuffle the coordinates.
+                    List<Pair> coordinateList = Arrays.asList(coordinates);
+                    Collections.shuffle(coordinateList);
+                    Pair[] shuffledCoordinates = coordinateList.toArray(new Pair[0]);
+
+                    // Iterate over the pieces.
+                    for (int i = 0, start = 0; i < fraction; ++i, start += size) {
+                        // Prevent the end of the piece from exceeding the number of shuffled coordinates.
+                        int end = (start + size > shuffledCoordinates.length) ? shuffledCoordinates.length : start + size;
+                        if (reverse) {
+                            long feraTime = System.currentTimeMillis();
+                            for (int j = end-1; j >= start; --j) {
+                                if (tree.erase(shuffledCoordinates[j])) {
+                                    // Verify correctness of the k-d tree after each erasure.
+                                    if (verify) {
+                                        tree.verifyKdTree();
+                                    }
+                                    // A search for a (key, value) pair after erasing it should fail.
+                                    if (find && tree.contains(shuffledCoordinates[j])) {
+                                        throw new RuntimeException("\n\nfound fractional pair " + j + " after erasing it\n");
+                                    }
+                                    // A search for the prior (key, value) pair after erasing a (key, value) pair should succeed.
+                                    if (find && j > 0 && !tree.contains(shuffledCoordinates[j-1])) {
+                                        throw new RuntimeException("\n\nfailed to find prior fractional pair " + (j-1) + " after erasing pair " + j + "\n");
+                                    }
+                                    // A search for all prior (key value) pairs after erasing a (key, value) pair should succeed.
+                                    if (check && j > 0) {
+                                        for (int l = j-1; l >= 0; --l) {
+                                            if (!tree.contains(coordinates[l])) {
+                                                throw new RuntimeException("\n\nfailed to find prior fractional pair " + l + " after erasing pair " + j + "\n");
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to erase fractional pair " + j + " from dynamic k-d tree\n");
+                                }
+                            }
+                            feraTime = System.currentTimeMillis() - feraTime;
+                            feraseTime[k] += (double) feraTime / Constants.MILLISECONDS_TO_SECONDS;
+                            long finsTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.insert(shuffledCoordinates[j])) {
+                                    if (verify) {
+                                        tree.verifyKdTree();
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to insert fractional pair " + j + "\n");
+                                }
+                            }
+                            finsTime = System.currentTimeMillis() - finsTime;
+                            finsertTime[k] += (double) finsTime / Constants.MILLISECONDS_TO_SECONDS;
+                        } else {
+                            long feraTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.erase(shuffledCoordinates[j])) {
+                                    // Verify correctness of the k-d tree after each erasure.
+                                    if (verify) {
+                                        tree.verifyKdTree();
+                                    }
+                                    // A search for a (key, value) pair after erasing it should fail.
+                                    if (find && tree.contains(shuffledCoordinates[j])) {
+                                        throw new RuntimeException("\n\nfound fractional pair " + j + " after erasing it\n");
+                                    }
+                                    // A search for the next (key, value) pair after erasing a (key, value) pair should succeed.
+                                    if (find && j < coordinates.length-1 && !tree.contains(coordinates[j+1])) {
+                                        throw new RuntimeException("\n\nfailed to find next fractional pair " + (j+1) + " after erasing pair " + j + "\n");
+                                    }
+                                    // A search for all following (key, value) pairs after erasing a (key, value) pair should succeed.
+                                    if (check && j < coordinates.length-1) {
+                                        for (int l = j+1; l < coordinates.length; ++l) {
+                                            if (!tree.contains(coordinates[l])) {
+                                                throw new RuntimeException("\n\nfailed to find following fractional pair " + l + " after erasing pair " + j + "\n");
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to erase fractional pair " + j + " from dynamic k-d tree\n");
+                                }
+                            }
+                            feraTime = System.currentTimeMillis() - feraTime;
+                            feraseTime[k] += (double) feraTime / Constants.MILLISECONDS_TO_SECONDS;
+                            long finsTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.insert(shuffledCoordinates[j])) {
+                                    if (verify) {
+                                        tree.verifyKdTree();
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to insert fractional pair " + j + "\n");
+                                }
+                            }
+                            finsTime = System.currentTimeMillis() - finsTime;
+                            finsertTime[k] += (double) finsTime / Constants.MILLISECONDS_TO_SECONDS;
+                        }
                     }
                 }
             }
@@ -752,8 +869,8 @@ public class TestKdTreeLogarithmic {
         }
 
         // Report k-d tree statistics.
-        System.out.println("\ndynamic tree:\n");
-        System.out.println("number of nodes = " + treeSize + "  k-d tree height = " +
+        System.out.println("\nlogarithmic tree:\n");
+        System.out.println("total number of nodes = " + treeSize + "  maximum k-d tree height = " +
                            treeHeight + "\n");
 
         // Here is a kludge for passing parameters to the calcMeanStd method by reference.
@@ -769,6 +886,12 @@ public class TestKdTreeLogarithmic {
         System.out.printf("search time = %.4f  std dev = %.4f\n", mean[0], std[0]);
         calcMeanStd(eraseTime, mean, std);
         System.out.printf("delete time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+        if (fraction > 1) {
+            calcMeanStd(finsertTime, mean, std);
+            System.out.printf("finser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            calcMeanStd(feraseTime, mean, std);
+            System.out.printf("fdelet time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+        }
 
         if (balanced) {
             System.out.println("\nstatic tree:\n");
