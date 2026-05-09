@@ -83,6 +83,15 @@ public class KdTree {
                                          final int maximumSubmitDepth,
                                          final int p)
     {
+        // Do not use mutiple threads to build the subtree, even
+        // though multiple threads are available, unless the size of the
+        // subtree is sufficiently large to justify spawning child threads.
+        int maxDepth = maximumSubmitDepth;
+        if (kdNodes.length < Constants.MULTI_THREAD_CUTOFF) {
+            maxDepth = -1;
+        }
+
+        // Use the k-d tree-building algorithm specified by Constants.NLOGN
         KdTree tree;
         if (Constants.NLOGN) {
             tree = KdTreeNlogn.createKdTreeNlogn(kdNodes, executor,
@@ -129,6 +138,36 @@ public class KdTree {
         return tree;
     }
     
+    /**
+     * <p>
+     * The {@code incrementHistogram} method increments an element of a histogram.
+     * 
+     * @param histogram - a {@code long}[] for counting rebalancing operations
+     * @param subTreeSize - the subtree size that selects the histogram element
+     * </p>
+     */
+    protected static void incrementHistogram(final long[] histogram,
+                                             final int subTreeSize)
+    {
+        int powerOf2 = 1;
+        for (int i = 0; i < Constants.MAX_POWER_OF_2; ++i) {
+            final int nextPowerOf2 = powerOf2 << 1;
+            if ( (subTreeSize >= powerOf2) && (subTreeSize < nextPowerOf2) ) {
+                ++histogram[i];
+                return;
+            }
+            powerOf2 = nextPowerOf2;
+        }
+        int size = subTreeSize;
+        int i = 0;
+        while (size > 0) {
+            size >>= 1;
+            ++i;
+        }
+        throw new RuntimeException("\nunsupported subtree size = " + subTreeSize +
+                                   " increase Constants.MAX_POWER_OF_2 to " + i);
+    }
+
     /**
      * <p>
      * The {@code verifyKdTree} method checks that the children of each node of the k-d tree

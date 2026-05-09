@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2019, 2020, 2023, 2025 Russell A. Brown
+ * Copyright (c) 2015, 2019, 2020, 2023, 2025, 2026 Russell A. Brown
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -39,7 +39,9 @@
  */
 public class Constants {
 
-	protected static final int INSERTION_SORT_CUTOFF = 15;
+    public static final boolean NLOGN = true;
+
+    protected static final int INSERTION_SORT_CUTOFF = 15;
 		
     protected static final int MEDIAN_OF_MEDIANS_CUTOFF = 15;
 
@@ -51,20 +53,34 @@ public class Constants {
 
     protected static final int MULTI_THREAD_CUTOFF = 16384;
 
-    protected static final long MILLISECONDS_TO_SECONDS = 1000L;
+    public static final boolean AVL_BALANCE = false;
 
     protected static final int HEIGHT_DIFF = 1;
     
-    public static final boolean AVL_BALANCE = false;
-
-    public static final boolean NLOGN = true;
-
-    public static final boolean KD_MAP_DYNAMIC = true;
+    public static final boolean ENABLE_DEBUG = true;
 
     public static final boolean ENABLE_1TO3 = true;
 
     public static final boolean ENABLE_PREFERRED_NODE = true;
 
     public static final boolean ENABLE_LINKED_LIST = true;
+
+    public static final boolean ENABLE_INSERTION_REBALANCE = true;
+
+    public static final boolean ENABLE_DELETION_REBALANCE = true;
+
+    public static final boolean ENABLE_HISTOGRAMS = true;
+
+    public static final boolean ENABLE_SPARSE_INSERTION = true;
+
+    public static final boolean ENABLE_TUPLE_COPY = false;
+
+    public static final boolean ENABLE_LIST_PREPEND = true;
+
+    public static final boolean ENABLE_LIST_PREPEND_ALL = true;
+
+    public static final int MAX_POWER_OF_2 = 31; // Max array size = 2^31-1
+
+    protected static final long MILLISECONDS_TO_SECONDS = 1000L;
 
 } // class Constants
