@@ -245,9 +245,11 @@ public class KdNode {
             }
         }
 
-        // Check the balance at this node.
-        if (KdTreeDynamic.isBalanced(this) == false) {
-            throw new RuntimeException("\n\nnode is unbalanced in verifyKdTree\n");
+        // Check the balance at this node if rebalancing was performed.
+        if (Constants.ENABLE_INSERTION_REBALANCE &&
+            Constants.ENABLE_DELETION_REBALANCE &&
+            KdTreeDynamic.isBalanced(this) == false) {
+                throw new RuntimeException("\n\nnode is unbalanced in verifyKdTree\n");
         }
 
         // Verify the links between this node and the associated AVL node.

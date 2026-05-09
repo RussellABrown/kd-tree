@@ -39,7 +39,9 @@
  */
 public class Constants {
 
-	protected static final int INSERTION_SORT_CUTOFF = 15;
+    public static final boolean NLOGN = true;
+
+    protected static final int INSERTION_SORT_CUTOFF = 15;
 		
     protected static final int MEDIAN_OF_MEDIANS_CUTOFF = 15;
 
@@ -51,19 +53,17 @@ public class Constants {
 
     protected static final int MULTI_THREAD_CUTOFF = 16384;
 
-    protected static final long MILLISECONDS_TO_SECONDS = 1000L;
+    public static final boolean AVL_BALANCE = false;
 
     protected static final int HEIGHT_DIFF = 1;
     
-    public static final boolean AVL_BALANCE = false;
-
-    public static final boolean NLOGN = true;
-
     public static final boolean ENABLE_DEBUG = true;
 
     public static final boolean ENABLE_1TO3 = true;
 
-    public static final boolean ENABLE_PREFERRED_NODE = true;
+    public static final boolean ENABLE_PREFERRED_AVL_NODE = true;
+
+    public static final boolean ENABLE_PREFERRED_KD_NODE = true;
 
     public static final boolean ENABLE_LINKED_LIST = true;
 
@@ -73,7 +73,7 @@ public class Constants {
 
     public static final boolean ENABLE_HISTOGRAMS = true;
 
-    public static final boolean ENABLE_SPARSE_INSERTION = false;
+    public static final boolean ENABLE_SPARSE_INSERTION = true;
 
     public static final boolean ENABLE_TUPLE_COPY = false;
 
@@ -82,5 +82,7 @@ public class Constants {
     public static final boolean ENABLE_LIST_PREPEND_ALL = true;
 
     public static final int MAX_POWER_OF_2 = 31; // Max array size = 2^31-1
+
+    protected static final long MILLISECONDS_TO_SECONDS = 1000L;
 
 } // class Constants

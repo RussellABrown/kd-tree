@@ -557,7 +557,7 @@ public class AvlNode {
                     tree.removedNode = p;       // Left branch is null...
                     p = p.right;                // ...so replace AvlNode p with its right child...
                     tree.changed = true;        // ...and signal that the height has changed
-                } else {
+                } else if (Constants.ENABLE_PREFERRED_AVL_NODE) {
                     switch ( p.bal ) {          // Neither branch is null...
                         case 0: case -1:        // ...and left or neither branch is deeper, so swap...
                             p.left = p.left.eraseRight( p, tree ); // ...AvlNode p's fields with predecessor
@@ -576,6 +576,11 @@ public class AvlNode {
                                 throw new RuntimeException("\n\n" + "bal = " + p.bal +
                                                            " is out of range in AvlNode.erase\n");
                             }
+                    }
+                } else {
+                    p.left = p.left.eraseRight( p, tree ); // Swap AvlNode p's fields with predecessor
+                    if ( tree.changed == true ) {
+                        p = balanceLeft( tree );
                     }
                 }
             }

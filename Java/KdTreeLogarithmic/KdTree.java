@@ -245,7 +245,7 @@ public class KdTree {
             head = tail = node;
             node.prev = node.next = null;
         } else {
-            if(Constants.ENABLE_LIST_PREPEND) {
+            if (Constants.ENABLE_LIST_PREPEND) {
                 // Prepend the node to a non-empty list.
                 node.prev = null;
                 node.next = head;

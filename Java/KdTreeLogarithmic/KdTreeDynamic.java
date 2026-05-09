@@ -219,9 +219,10 @@ public class KdTreeDynamic extends KdTree {
             }
         } else {
             // Insert the root, count it as an inserted node, add it to the doubly linked list,
-            // and increment the histogram element.
+            // and increment histogram element 0.
             root = insertedNode = new KdNode(coordinate);
             add(insertedNode);
+            incrementHistogram(insertionHistogramDyn, 1);
             inserted = changed = true;
             ++nodeCount;
         }
@@ -628,9 +629,9 @@ public class KdTreeDynamic extends KdTree {
                             // > 3 nodes, excluding this two-child node, so replace this
                             // two-child node by either its predecessor or its successor.
                             //
-                            // If Constants.ENABLE_PREFERRED_NODE is true, select the replacement
-                            // node from the taller of the child subtrees.
-                            if (Constants.ENABLE_PREFERRED_NODE
+                            // If Constants.ENABLE_PREFERRED_KD_NODE is true, select the
+                            // replacement node from the taller of the child subtrees.
+                            if (Constants.ENABLE_PREFERRED_KD_NODE
                                 && (getHeight(nodePtr.ltChild) >= getHeight(nodePtr.gtChild)))
                             {
                                 // Find the node with the largest super-key in the
