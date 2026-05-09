@@ -149,36 +149,11 @@ public class KdTreeDynamic extends KdTree {
         newTree.addList(tree);
         newTree.nodeCount = tree.listNodeCount;
         
-        incrementHistogram(histogram, kdNodes.length);
+        if (Constants.ENABLE_HISTOGRAMS) {
+            incrementHistogram(histogram, kdNodes.length);
+        }
 
         return newTree;
-    }
-
-   /**
-     * <p>
-     * The {@code treeSize} method returns the size of the {@code KdTreeDynamic}.
-     * 
-     * @return the tree size if the tree is not null; otherwise, 0
-     * </p>
-     */
-    protected static int getSize(final KdTreeDynamic tree)
-    {
-        if (tree == null) {
-            return 0;
-        }
-        return tree.nodeCount;
-    }
-
-    /**
-     * <p>
-     * The {@code isEmpty} checks for an empty {@code KdTreeDynamic}.
-     * 
-     * @return {@code true} if the tree is empty; otherwise {@code false}.
-     * </p>
-     */
-    protected boolean isEmpty()
-    {
-        return (nodeCount == 0);
     }
 
     /**
@@ -211,20 +186,26 @@ public class KdTreeDynamic extends KdTree {
                 // remains balanced, compute the height at the
                 // root node; otherwise rebuild the subtree to
                 // rebalance it, which also computes the height.
-                if ( !Constants.ENABLE_INSERTION_REBALANCE || isBalanced(root) ) {
+                if (!Constants.ENABLE_INSERTION_REBALANCE || isBalanced(root)) {
                     root.height = computeHeight(root);
                 } else {
                     root = rebuildSubTree(root, insertionHistogramDyn, 0);
                 }
             }
         } else {
-            // Insert the root, count it as an inserted node, add it to the doubly linked list,
-            // and increment histogram element 0.
+            // Insert the root, count it as an inserted node, add it to the doubly linked list.
             root = insertedNode = new KdNode(coordinate);
             add(insertedNode);
-            incrementHistogram(insertionHistogramDyn, 1);
             inserted = changed = true;
             ++nodeCount;
+
+            // Increment histogram element 0 only if Constants.ENABLE_1TO3 is true
+            // because for deletion, element 0 is increments only in that case.
+            if (Constants.ENABLE_INSERTION_REBALANCE &&
+                Constants.ENABLE_1TO3 &&
+                Constants.ENABLE_HISTOGRAMS) {
+                    incrementHistogram(insertionHistogramDyn, 1);
+            }
         }
 
         return inserted;
@@ -295,7 +276,7 @@ public class KdTreeDynamic extends KdTree {
             // recycles its nodes, the node argument to this
             // insert function might no longer specify the
             // root of the subtree.
-            if ( !Constants.ENABLE_INSERTION_REBALANCE || isBalanced(nodePtr) ) {
+            if (!Constants.ENABLE_INSERTION_REBALANCE || isBalanced(nodePtr)) {
                 nodePtr.height = computeHeight(nodePtr);
             } else {
                 nodePtr = rebuildSubTree(nodePtr, histogram, p);
@@ -334,7 +315,7 @@ public class KdTreeDynamic extends KdTree {
                 // remains balanced, compute the height at the
                 // root node; otherwise rebuild the subtree to
                 // rebalance it, which also computes the height.
-                if ( !Constants.ENABLE_DELETION_REBALANCE || isBalanced(root) ) {
+                if (!Constants.ENABLE_DELETION_REBALANCE || isBalanced(root)) {
                     root.height = computeHeight(root);
                 } else {
                     root = rebuildSubTree(root, deletionHistogramDyn, 0);
@@ -453,7 +434,9 @@ public class KdTreeDynamic extends KdTree {
                         // Checking the height prior to checking the countNodes result
                         // avoids a time-consuming call of countNodes for a large subtree.
                         int nodeCount;
-                        if (Constants.ENABLE_1TO3 && nodePtr.ltChild.height <= 3
+                        if (Constants.ENABLE_DELETION_REBALANCE &&
+                            Constants.ENABLE_1TO3 &&
+                            nodePtr.ltChild.height <= 3
                             && (nodeCount = countNodes(nodePtr.ltChild)) <= 3)
                         {
                             // Yes, the < child subtree contains <= 3 nodes. So, rebuild
@@ -529,7 +512,9 @@ public class KdTreeDynamic extends KdTree {
                         // Checking the height prior to checking the countNodes result
                         // avoids a time-consuming call of countNodes for a large subtree.
                         int nodeCount;
-                        if (Constants.ENABLE_1TO3 && nodePtr.gtChild.height <= 3
+                        if (Constants.ENABLE_DELETION_REBALANCE &&
+                            Constants.ENABLE_1TO3 &&
+                            nodePtr.gtChild.height <= 3
                             && (nodeCount = countNodes(nodePtr.gtChild)) <= 3)
                         {
                             // Yes, the > child subtree contains <= 3 nodes. So, rebuild
@@ -612,7 +597,9 @@ public class KdTreeDynamic extends KdTree {
                         // Checking the height prior to checking the countNodesSkipRoot result
                         // avoids a time-consuming call of countNodesSkipRoot for a large subtree.
                         int nodeCount;
-                        if (Constants.ENABLE_1TO3 && nodePtr.height <= 3
+                        if (Constants.ENABLE_DELETION_REBALANCE &&
+                            Constants.ENABLE_1TO3 &&
+                            nodePtr.height <= 3
                             && (nodeCount = countNodesSkipRoot(nodePtr)) <= 3)
                         {
                             // Yes, the subtree rooted at this two-child node contains
@@ -909,7 +896,7 @@ public class KdTreeDynamic extends KdTree {
         
         // Call KdTree.createKdTree to rebuild the subtree,
         // which recycles the nodes and hence invalidates
-        // the node argument to this rebuildSubTree function.
+        // the node argument to this rebuildSubTree method.
         KdTree tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
 
         // Increment the histogram element
@@ -1168,7 +1155,7 @@ public class KdTreeDynamic extends KdTree {
 
     /**
      * <p>
-     * The {@code getSortedTree} method counts and appends the pairs
+     * The {@code getSortedPairs} method counts and appends the pairs
      * from a {@code KdTree} to a pre-sized vector. Because the tree
      * is traversed in order, the pairs are sorted by their tuples.
      *
@@ -1335,6 +1322,33 @@ public class KdTreeDynamic extends KdTree {
         }
 
         return super.verifyKdTree();
+    }
+
+    /**
+     * <p>
+     * The {@code getSize} method returns the size of the {@code KdTreeDynamic}.
+     * 
+     * @return the tree size if the tree is not null; otherwise, 0
+     * </p>
+     */
+    protected static int getSize(final KdTreeDynamic tree)
+    {
+        if (tree == null) {
+            return 0;
+        }
+        return tree.nodeCount;
+    }
+
+    /**
+     * <p>
+     * The {@code isEmpty} checks for an empty {@code KdTreeDynamic}.
+     * 
+     * @return {@code true} if the tree is empty; otherwise {@code false}.
+     * </p>
+     */
+    protected boolean isEmpty()
+    {
+        return (nodeCount == 0);
     }
 
 } // class KdTreeDynamic

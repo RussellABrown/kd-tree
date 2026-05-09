@@ -29,17 +29,19 @@
  */
 
 /*
- * Test program for AvlTree.java, Pair.java, Paire.java and Constants.java
+ * Test program for AvlTree.java, Pair.java, and Constants.java
  *
  * Configuration is controlled via the following constant in Constants.java
  * 
  * ENABLE_TUPLE_COPY - If true, specifies that the tuple array is copied in
  *                     the AvlNode constructor.
  *
+ * ENABLE_PREFERRED_AVL_NODE - If true, inspect the balance of a deleted 2-child AVL node
+ *                             to select a preferred replacement node.
  * 
  * Usage:
  *
- * java TestAvlTree [-n N] [-x X] [-d D] [-v] [-f] [-c] [-r] [-i] [-h]
+ * java TestAvlTree [-n N] [-x X] [-d D] [-v] [-f] [-c] [-y] [-z Z] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -55,6 +57,10 @@
  * 
  * -c Search for all remaining tuples after erasure of each tuple (default off)
  * 
+ * -y Create a set of points that lie on the diagonal of the hypercube (default off)
+ * 
+ * -z The number Z of segments into which to break the points for erasure/insertion (default 1)
+ * 
  * -r Reverse the order of coordinates for erasure relative to insertion (default off)
  *
  * -i The number I of iterations of k-d tree insertion, search, and deletion (default 1)
@@ -62,6 +68,8 @@
  * -h Help, i.e., print the above explanation of command-line options.
  */
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -143,9 +151,11 @@ public class TestAvlTree {
         int numPoints = 262144;
         int extraPoints = 100;
         int numDimensions = 3;
+        int fraction = 1;
         boolean verify = false;
         boolean find = false;
         boolean check = false;
+        boolean diagonal = false;
         boolean reverse = false;
 		
         for (int i = 0; i < args.length; i++) {
@@ -177,13 +187,21 @@ public class TestAvlTree {
                 check = !check;
                 continue;
             }
+            if (args[i].equals("-y") || args[i].equals("--diagonal")) {
+                diagonal = !diagonal;
+                continue;
+            }
+            if ( args[i].equals("-z") || args[i].equals("--fraction") ) {
+                fraction= Integer.parseInt(args[++i]);
+                continue;
+            }
             if (args[i].equals("-r") || args[i].equals("--reverse")) {
                 find = !find;
                 continue;
             }
             if (args[i].equals("-h") || args[i].equals("--help")) {
                 System.out.println("\nUsage:\n");
-                System.out.println("java TestKdTreeDynamic [-n N] [-x X] [-d D] [-v] [-f] [-r] [-i] [-h]\n\n" +
+                System.out.println("java TestKdTreeDynamic [-n N] [-x X] [-d D] [-v] [-f] [-c] [-y] [-z Z] [-r] [-i] [-h]\n\n" +
                                    "where the command-line options are interpreted as follows.\n");
                 System.out.println("-n The number N of randomly generated points used to build the k-d tree\n");
                 System.out.println("-x The number X of duplicate points added to to randomly generated points\n");
@@ -191,6 +209,8 @@ public class TestAvlTree {
                 System.out.println("-v Verify the k-d tree ordering and balance after insertion or erasure of each point\n");
                 System.out.println("-f Check for the next point after deleting each point (a cheap alternative to -v)\n");
                 System.out.println("-c Check for all remaining points after deleting each point (an expensive alternative to -v)\n");
+                System.out.println("-y Create a set of points that lie on the diagonal of the hypercube\n");
+                System.out.println("-z The number Z of segments into which to break the points for erasure/insertion\n");
                 System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n");
                 System.out.println("-i The number I of iterations of k-d tree creation\n");
                 System.out.println("-h List the command-line options\n");
@@ -239,6 +259,8 @@ public class TestAvlTree {
         final double[] verifyTime = new double[iterations];
         final double[] searchTime = new double[iterations];
         final double[] eraseTime = new double[iterations];
+        final double[] finsertTime = new double[iterations];
+        final double[] feraseTime = new double[iterations];
 
         // Initialize the random-number generator using Pi as a seed. An alternative to Random might be the Mersenne twister:
         // https://commons.apache.org/proper/commons-math/javadocs/api-3.6.1/org/apache/commons/math3/random/MersenneTwister.html
@@ -266,11 +288,21 @@ public class TestAvlTree {
         // Build and test the AVL tree for the specified number of iterations.
         for (int k = 0; k < iterations; ++k)
         {
-            // Shuffle the coordinates vector independently for each dimension.
-            for (int j = 0; j < numDimensions; ++j) {
+            // Shuffle the coordinates vector independently for each dimension,
+            // unless a diagonal set of coordinates is specified.
+            if (diagonal) {
                 shuffleArray(oneCoordinate, rand);
-                for (int i = 0; i < numPoints; ++i) {
-                    coordinates[i].getKey()[j] = oneCoordinate[i];
+                for (int j = 0; j < numDimensions; ++j) {
+                    for (int i = 0; i < numPoints; ++i) {
+                        coordinates[i].getKey()[j] = oneCoordinate[i];
+                    }
+                }
+            } else {
+                for (int j = 0; j < numDimensions; ++j) {
+                    shuffleArray(oneCoordinate, rand);
+                    for (int i = 0; i < numPoints; ++i) {
+                        coordinates[i].getKey()[j] = oneCoordinate[i];
+                    }
                 }
             }
 
@@ -281,15 +313,16 @@ public class TestAvlTree {
                 }
             }
 
-            // Insert each coordinate into the AVL tree.
+            // Insert each coordinate (key-value pair) into the AVL tree.
             long iTime = System.currentTimeMillis();
             for (int i = 0; i < coordinates.length; ++i) {
                 if (tree.insert(coordinates[i])) {
-                    // Create a KdNode that contains a TreeSet for each AvlNode inserted.
+                    // Create a KdNode that contains a TreeSet for each AvlNode inserted,
+                    // which mimics the behavior of the KdTreeLogarithmic.insert method.
+                    // NOTE that the KdNode constructor adds the value to that TreeSet.
                     if (tree.insertedNode != null) {
-                        final KdNode kdTreeNode = new KdNode(coordinates[i]);
-                        tree.insertedNode.kdTreeNode = kdTreeNode;
-                        kdTreeNode.avlTreeNode = tree.insertedNode;
+                        tree.insertedNode.kdTreeNode = new KdNode(coordinates[i]);
+                        tree.insertedNode.kdTreeNode.avlTreeNode = tree.insertedNode;
                     }
                     // Verify the AVL tree after each insertion if requested.
                     if (verify) {
@@ -340,6 +373,125 @@ public class TestAvlTree {
             }
             sTime = System.currentTimeMillis() - sTime;
             searchTime[k] += (double) sTime / Constants.MILLISECONDS_TO_SECONDS;
+
+            // Erase and re-insert the coordinates in segments.
+            if (fraction > 1) {
+                int size = coordinates.length / fraction;
+
+                // Each segment must contain at least 1 coordinate.
+                if (size >= 1) {
+
+                    // Randomly shuffle the non-extra points.
+                    List<Pair> coordinateList = Arrays.asList(coordinates);
+                    Collections.shuffle(coordinateList);
+                    Pair[] shuffledCoordinates = coordinateList.toArray(new Pair[0]);
+
+                    // Iterate over the segments.
+                    for (int i = 0, start = 0; i < fraction; ++i, start += size) {
+                        // Prevent the end of the segment from exceeding the number of shuffled coordinates.
+                        int end = (start + size > shuffledCoordinates.length) ? shuffledCoordinates.length : start + size;
+                        if (reverse) {
+                            long feraTime = System.currentTimeMillis();
+                            for (int j = end-1; j >= start; --j) {
+                                if (tree.erase(shuffledCoordinates[j])) {
+                                    // Verify correctness of the k-d tree after each erasure.
+                                    if (verify) {
+                                        tree.verifyAvlTree();
+                                    }
+                                    // A search for a (key, value) pair after erasing it should fail.
+                                    if (find && tree.contains(shuffledCoordinates[j])) {
+                                        throw new RuntimeException("\n\nfound fractional pair " + j + " after erasing it\n");
+                                    }
+                                    // A search for the prior (key, value) pair after erasing a (key, value) pair should succeed.
+                                    if (find && j > 0 && !tree.contains(shuffledCoordinates[j-1])) {
+                                        throw new RuntimeException("\n\nfailed to find prior fractional pair " + (j-1) + " after erasing pair " + j + "\n");
+                                    }
+                                    // A search for all prior (key value) pairs after erasing a (key, value) pair should succeed.
+                                    if (check && j > 0) {
+                                        for (int l = j-1; l >= 0; --l) {
+                                            if (!tree.contains(coordinates[l])) {
+                                                throw new RuntimeException("\n\nfailed to find prior fractional pair " + l + " after erasing pair " + j + "\n");
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to erase fractional pair " + j + " from dynamic k-d tree\n");
+                                }
+                            }
+                            feraTime = System.currentTimeMillis() - feraTime;
+                            feraseTime[k] += (double) feraTime / Constants.MILLISECONDS_TO_SECONDS;
+                            long finsTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.insert(shuffledCoordinates[j])) {
+                                    // Create a KdNode that contains a TreeSet for each AvlNode inserted,
+                                    // which mimics the behavior of the KdTreeLogarithmic.insert method.
+                                    // NOTE that the KdNode constructor adds the value to that TreeSet.
+                                    if (tree.insertedNode != null) {
+                                        tree.insertedNode.kdTreeNode = new KdNode(shuffledCoordinates[j]);
+                                        tree.insertedNode.kdTreeNode.avlTreeNode = tree.insertedNode;
+                                    }
+                                    if (verify) {
+                                        tree.verifyAvlTree();
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to insert fractional pair " + j + "\n");
+                                }
+                            }
+                            finsTime = System.currentTimeMillis() - finsTime;
+                            finsertTime[k] += (double) finsTime / Constants.MILLISECONDS_TO_SECONDS;
+                        } else {
+                            long feraTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.erase(shuffledCoordinates[j])) {
+                                    // Verify correctness of the k-d tree after each erasure.
+                                    if (verify) {
+                                        tree.verifyAvlTree();
+                                    }
+                                    // A search for a (key, value) pair after erasing it should fail.
+                                    if (find && tree.contains(shuffledCoordinates[j])) {
+                                        throw new RuntimeException("\n\nfound fractional pair " + j + " after erasing it\n");
+                                    }
+                                    // A search for the next (key, value) pair after erasing a (key, value) pair should succeed.
+                                    if (find && j < coordinates.length-1 && !tree.contains(coordinates[j+1])) {
+                                        throw new RuntimeException("\n\nfailed to find next fractional pair " + (j+1) + " after erasing pair " + j + "\n");
+                                    }
+                                    // A search for all following (key, value) pairs after erasing a (key, value) pair should succeed.
+                                    if (check && j < coordinates.length-1) {
+                                        for (int l = j+1; l < coordinates.length; ++l) {
+                                            if (!tree.contains(coordinates[l])) {
+                                                throw new RuntimeException("\n\nfailed to find following fractional pair " + l + " after erasing pair " + j + "\n");
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to erase fractional pair " + j + " from dynamic k-d tree\n");
+                                }
+                            }
+                            feraTime = System.currentTimeMillis() - feraTime;
+                            feraseTime[k] += (double) feraTime / Constants.MILLISECONDS_TO_SECONDS;
+                            long finsTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.insert(shuffledCoordinates[j])) {
+                                    // Create a KdNode that contains a TreeSet for each AvlNode inserted,
+                                    // which mimics the behavior of the KdTreeLogarithmic.insert method.
+                                    // NOTE that the KdNode constructor adds the value to that TreeSet.
+                                    if (tree.insertedNode != null) {
+                                        tree.insertedNode.kdTreeNode = new KdNode(shuffledCoordinates[j]);
+                                        tree.insertedNode.kdTreeNode.avlTreeNode = tree.insertedNode;
+                                    }
+                                    if (verify) {
+                                        tree.verifyAvlTree();
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to insert fractional pair " + j + "\n");
+                                }
+                            }
+                            finsTime = System.currentTimeMillis() - finsTime;
+                            finsertTime[k] += (double) finsTime / Constants.MILLISECONDS_TO_SECONDS;
+                        }
+                    }
+                }
+            }
 
             // Erase each coordinate from the AVL tree, and reverse
             // the order of the coordinates if reverse is true.
@@ -426,6 +578,12 @@ public class TestAvlTree {
         System.out.printf("search time = %.4f  std dev = %.4f\n", mean[0], std[0]);
         calcMeanStd(eraseTime, mean, std);
         System.out.printf("delete time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+        if (fraction > 1) {
+            calcMeanStd(finsertTime, mean, std);
+            System.out.printf("finser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            calcMeanStd(feraseTime, mean, std);
+            System.out.printf("fdelet time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+        }
 
         // Report the rotation counters.
         System.out.println("\ninsert\tLL = " + (tree.lli/iterations) + "\tLR = " + (tree.lri/iterations) +

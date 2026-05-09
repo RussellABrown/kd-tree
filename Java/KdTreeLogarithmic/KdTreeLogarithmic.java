@@ -156,12 +156,14 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         } else if (getSize(kdTrees[1]) == 0 || getSize(kdTrees[1]) == 1) {
             insertTree = 1;
         } else if (Constants.ENABLE_DEBUG &&
-                    (getSize(kdTrees[0]) < 0 || getSize(kdTrees[0]) > 1)) {
+                   (getSize(kdTrees[0]) < 0 || getSize(kdTrees[0]) > 1))
+        {
             throw new RuntimeException("\n\ntree 0 " + " size = " +
                                         getSize(kdTrees[0]) +
                                         " in KdTreeLogarithmic.insert\n");
         } else if (Constants.ENABLE_DEBUG &&
-                    (getSize(kdTrees[1]) < 0 || getSize(kdTrees[1]) > 2)) {
+                   (getSize(kdTrees[1]) < 0 || getSize(kdTrees[1]) > 2))
+        {
             throw new RuntimeException("\n\ntree 1 " + " size = " +
                                         getSize(kdTrees[1]) +
                                         " in KdTreeLogarithmic.insert\n");
@@ -203,7 +205,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 ((insertTree == 0 &&
                   (getSize(kdTrees[0]) <= 0 || getSize(kdTrees[0]) > 1)) ||
                  (insertTree == 1 &&
-                  (getSize(kdTrees[1]) <= 0 || getSize(kdTrees[1]) > 2)))) {
+                  (getSize(kdTrees[1]) <= 0 || getSize(kdTrees[1]) > 2))))
+            {
                 throw new RuntimeException("\n\ntree " + insertTree +" size = " +
                                             getSize(kdTrees[insertTree]) + " after simple" +
                                             " insert of KdTreeLogarithmic.insert\n");
@@ -226,16 +229,18 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             int powerOf2Upper = 4; // Initialized to 2^i for i loop index below.
             for (int i = 2; i < Constants.MAX_POWER_OF_2; ++i) {
                 if (getSize(kdTrees[i]) > powerOf2Lower &&
-                    getSize(kdTrees[i]) < powerOf2Upper) { // No need to check powerOf2Upper
-                        sparseTree = i;
-                        break;
+                    getSize(kdTrees[i]) < powerOf2Upper) // No need to check powerOf2Upper
+                {
+                    sparseTree = i;
+                    break;
                 } else if (Constants.ENABLE_DEBUG && sparseTree >= 0 &&
-                            (getSize(kdTrees[sparseTree]) <= powerOf2Lower ||
-                             getSize(kdTrees[sparseTree]) > powerOf2Upper)) { 
-                            throw new RuntimeException("\n\ntree " + sparseTree + " size = " +
-                                                        getSize(kdTrees[sparseTree]) +
-                                                        " before sparse" +
-                                                        " insert of KdTreeLogarithmic.insert\n");
+                           (getSize(kdTrees[sparseTree]) <= powerOf2Lower ||
+                            getSize(kdTrees[sparseTree]) > powerOf2Upper))
+                { 
+                    throw new RuntimeException("\n\ntree " + sparseTree + " size = " +
+                                                getSize(kdTrees[sparseTree]) +
+                                                " before sparse" +
+                                                " insert of KdTreeLogarithmic.insert\n");
                 }
                 powerOf2Lower <<= 1;
                 powerOf2Upper <<= 1;
@@ -274,7 +279,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                 // Verify that the size of the tree does not exceed its limits.
                 if (Constants.ENABLE_DEBUG &&
                     (getSize(kdTrees[sparseTree]) <= (1 << (sparseTree-2)) ||
-                     getSize(kdTrees[sparseTree]) > (1 << sparseTree))) {
+                     getSize(kdTrees[sparseTree]) > (1 << sparseTree)))
+                {
                     throw new RuntimeException("\n\ntree " + sparseTree +" size = " +
                                                getSize(kdTrees[sparseTree]) + " after simple" +
                                                " insert of KdTreeLogarithmic.insert\n");
@@ -360,7 +366,9 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         kdTrees[treeIndex].insertedNode = saveInsertedNode;
 
         // Verify that the k-d tree contains the correct number of nodes; 
-        if (Constants.ENABLE_DEBUG && getSize(kdTrees[treeIndex]) != treeSizeSum) {
+        if (Constants.ENABLE_DEBUG &&
+            getSize(kdTrees[treeIndex]) != treeSizeSum)
+        {
             throw new RuntimeException("\n\ntree size = " + getSize(kdTrees[treeIndex]) +
                                        "  !=  list size = " + treeSizeSum +
                                        " in KdTreeLogarithmic.insert\n");
@@ -368,8 +376,9 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
 
         // Verify the correct size of the k-d tree.
         if (Constants.ENABLE_DEBUG &&
-             (getSize(kdTrees[treeIndex]) <= (1 << (treeIndex-2))  ||
-              getSize(kdTrees[treeIndex]) > (1 << treeIndex))) {
+            (getSize(kdTrees[treeIndex]) <= (1 << (treeIndex-2))  ||
+             getSize(kdTrees[treeIndex]) > (1 << treeIndex)))
+        {
             throw new RuntimeException("\n\ntree " + treeIndex + " size = " +
                                        getSize(kdTrees[treeIndex]) + "in elaborate insert" +
                                        " of KdTreeLogarithmic.insert\n");
@@ -426,7 +435,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
         // www.arxiv.org/abs/2509.08148, 1-19, 2026.
         final short kdTreeIndex = avlTree.removedNode.kdTreeIndex;
         if ( Constants.ENABLE_DEBUG &&
-             (kdTreeIndex < 0) || (kdTreeIndex >= Constants.MAX_POWER_OF_2) ) {
+             (kdTreeIndex < 0) || (kdTreeIndex >= Constants.MAX_POWER_OF_2) )
+        {
             throw new RuntimeException("\n\nk-d tree index = " + kdTreeIndex +
                                        " is out of range in KdTreeLogarithmic.erase\n");
         }
@@ -505,7 +515,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             // B_0 should be empty due to erasure of its one allowed node,
             // so no further processing is necessary because |B_0| = 0
             // is allowed by its constraints. Check that B_0 is indeed empty.
-            if (Constants.ENABLE_DEBUG && getSize(kdTrees[0]) != 0) {
+            if (Constants.ENABLE_DEBUG && getSize(kdTrees[0]) != 0)
+            {
                 throw new RuntimeException("\n\ntree 0 size = " +
                                             getSize(kdTrees[0]) +
                                             " after erasure in" +
@@ -520,11 +531,12 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             // its constraints allow 0 <= |B_1| < 2.
             // Check that B_1 contains the correct number of nodes.
             if (Constants.ENABLE_DEBUG &&
-                (getSize(kdTrees[1]) < 0 || getSize(kdTrees[1]) > 1)) {
-                    throw new RuntimeException("\n\ntree 1 size = " +
-                                                getSize(kdTrees[1]) +
-                                                " after erasure in" +
-                                                " KdTreeLogarithmic.erase\n");
+                (getSize(kdTrees[1]) < 0 || getSize(kdTrees[1]) > 1))
+            {
+                throw new RuntimeException("\n\ntree 1 size = " +
+                                            getSize(kdTrees[1]) +
+                                            " after erasure in" +
+                                            " KdTreeLogarithmic.erase\n");
             }
             return true;
 
@@ -630,11 +642,12 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             // Verify the correct size of the k-d tree B_i for i >= 2.
             if (Constants.ENABLE_DEBUG && getSize(kdTrees[treeIndex]) >= 2 &&
                 (getSize(kdTrees[treeIndex]) <= (1 << (treeIndex-2)) ||
-                 getSize(kdTrees[treeIndex]) > (1 << treeIndex))) {
-                    throw new RuntimeException("\n\ntree " + treeIndex +
-                                               " size = " + getSize(tree) +
-                                               " in elaborate rebuild of" +
-                                               " KdTreeLogarithmic.erase\n");
+                 getSize(kdTrees[treeIndex]) > (1 << treeIndex)))
+            {
+                throw new RuntimeException("\n\ntree " + treeIndex +
+                                           " size = " + getSize(tree) +
+                                           " in elaborate rebuild of" +
+                                           " KdTreeLogarithmic.erase\n");
             }
 
             // Walk the list of k-d tree nodes and ensure that each corresponding
@@ -678,7 +691,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
                                 getSize(kdTrees[i]) > 2)) ||
                     (i >= 2 &&
                      ((1 << (i-2)) > getSize(kdTrees[i]) ||
-                      getSize(kdTrees[i]) > (1 << i)))) {
+                      getSize(kdTrees[i]) > (1 << i))))
+                {
                     throw new RuntimeException("\n\ntree " + i + " size = " + 
                                                getSize(kdTrees[i]) +
                                                " in verifyKdTree\n");

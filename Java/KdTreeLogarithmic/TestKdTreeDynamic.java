@@ -34,25 +34,8 @@
  *
  * Configuration is controlled via the following constants in Constants.java
  * 
- * ENABLE_LOGARITHMIC_TREES - If true, creates a dynamic k-d tree as a set of multiple,
- *                            statically-built k-d trees of sizes that differ by powers
- *                            of 2. If false, creates a single, dynamic k-d tree.
- *
- * NLOGN - If true, specifies the O[n log(n)] algorithm instead of the O[kn log(n)] algorithm.
- * 
- * ENABLE_PREFERRED_NODE - If true, compare the heights of a deleted 2-child node's
- *                         child subtrees to select a preferred replacement node.
- * 
- * ENABLE_1TO3 - If true, curtails recursive deletion when a subtree contains <= 3 nodes.
- * 
- * AVL_BALANCE - If true, the KdTreeDynamic.isBalanced method checks AVL balance;
- *               otherwise, this method checks for red-black balance.
- * 
- * HEIGHT_DIFF - An integer that specifies, for red-black balance, the maximum allowed
- *               height difference between the < and > subtrees of a node when one subtree
- *               is empty; or for AVL balance, the maximum allowed height difference
- *               between the < and > subtrees of a node. This balance is used to maintain
- *               the balance of a dynamic k-d tree, not a static k-d tree.
+ * NLOGN - If true, specifies the O[n log(n)] static k-d tree algorithm instead of
+ *         the O[kn log(n)] static k-d tree algorithm.
  * 
  * INSERTION_SORT_CUTOFF - An integer that specifies the number of nodes at which insertion
  *                         sort replaces merge sort in the MergeSort.mergeSort* methods.
@@ -60,14 +43,6 @@
  * MEDIAN_OF_MEDIANS_CUTOFF - An integer that specifies number of nodes at which insertion
  *                            sort replaces the median-of-medians algorithm in the
  *                            KdTreeNlogn.partiiton method.
- * 
- * KD_MAP_DYNAMIC - If true, the height of a node, which is defined as the maximum
- *                  number of nodes from that node to the bottom of the tree, is
- *                  computed. This height is used in the construction of a dynamic
- *                  k-d tree, but not in the construction of a static k-d tree.
- * 
- * MULTI_THREAD_CUTOFF - An integer that specifies the number of nodes above which
- *                       multiple threads are used to construct a static k-d tree.
  * 
  * NLOGN_CUTOFF - An integer the specifies the number of nodes above which multiple
  *                threads are used to construct a static k-d tree via the O[n log(n)]
@@ -83,17 +58,57 @@
  *               threads are used for merge sort, independent of the number of threads
  *               specified by the -t command-line option (see below).
  * 
+ * MULTI_THREAD_CUTOFF - An integer that specifies the number of nodes above which
+ *                       multiple threads are used to construct a static k-d tree.
+ * 
+ * AVL_BALANCE - If true, the KdTreeDynamic.isBalanced method checks for AVL balance;
+ *               otherwise, this method checks for red-black balance. It appears that
+ *               red-black balance confers better performance than AVL balance.
+ * 
+ * HEIGHT_DIFF - An integer that specifies, for red-black balance, the maximum allowed
+ *               height difference between the < and > subtrees of a node when one subtree
+ *               is empty; or for AVL balance, the maximum allowed height difference
+ *               between the < and > subtrees of a node. This balance is used to maintain
+ *               the balance of a dynamic k-d tree, not a static k-d tree.
+ * 
+ * ENABLE_DEBUG - If true, perform additional validity checks.
+ * 
+ * ENABLE_1TO3 - If true, rebalancing of a dynamic k-d tree is performed using simple
+ *               operations, and recursive k-d deletion is curtailed, when a subtree
+ *               contains <= 3 nodes.
+ * 
+ * ENABLE_PREFERRED_KD_NODE - If true, compare the heights of a deleted 2-child k-d node's
+ *                            child subtrees to select a preferred replacement node.
+ * 
  * ENABLE_LINKED_LIST - If true, use the LinkedList version of region search
  *                      instead of the ArrayList version.
  * 
- * ENABLE_TUPLE_COPY - If true, specifies that the tuple array is copied in
- *                     the KdNode constructor and KdTreeDynamic.erase
- *
+ * ENABLE_INSERTION_REBALANCE - If true, a dynamic k-d tree is rebalanced after insertion
+ *                              of a node if necessary.
+ * 
+ * ENABLE_DELETION_REBALANCE - If true, a dynamic k-d tree is rebalanced after deletion
+ *                             of a node if necessary.
+ * 
+ * ENABLE_HISTOGRAMS - If true, histograms are obtained for rebalancing operations.
+ * 
+ * ENABLE_SPARSE_INSERTION - If true, the KdTreeDynamic.insert method inserts a node
+ *                           into the smallest non-full dynamic k-d tree of the set
+ *                           of k-d trees managed by a logarithmic k-d tree.
+ * 
+ * ENABLE_TUPLE_COPY - If true, specifies that the tuple array is copied in the
+ *                     KdTreeDynamic.erase method and the KdNode and AvlNode constructors.
+ * 
+ * ENABLE_LIST_PREPEND - If true, a new k-d node is prepended to the doubly linked list
+ *                       by the KdTree.add mthod; otherwise, the new k-d node is appended.
+ * 
+ * ENABLE_LIST_PREPEND_ALL - If true, a doubly linked list of k-d nodes is prepended to
+ *                           another doubly linked list by KdTree.addList method; otherwise,
+ *                           the list is appended.
  * 
  * Usage:
  *
- * java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] \
- *                         [-s S] [-p P] [-v] [-f] [-c] [-w] [-r] [-i] [-h]
+ * java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] [-s S] \
+ *                        [-p P] [-v] [-f] [-c] [-w] [-y] [-z Z] [-r] [-i] [-h]
  *
  * where the command-line options are interpreted as follows.
  * 
@@ -124,9 +139,13 @@
  * 
  * -c Search for all remaining pairs after erasure of each pair (default off)
  * 
- * -w Create a worst-case set of coordinates by walking a k-d tree in order (default off)
+ * -w Create a worst-case set of points by walking a k-d tree in order (default off)
  * 
- * -r Reverse the order of coordinates for erasure relative to insertion (default off)
+ * -y Create a set of points that lie on the diagonal of the hypercube (default off)
+ * 
+ * -z The number Z of segments into which to break the points for erasure/insertion (default 1)
+ * 
+ * -r Reverse the order of points for erasure relative to insertion (default off)
  *
  * -i The number I of iterations of k-d tree insertion, search, and deletion (default 1)
  *
@@ -135,6 +154,8 @@
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -220,6 +241,7 @@ public class TestKdTreeDynamic {
         long searchDivisor = 10;
         int maximumNumberOfNodesToPrint = 5;
         int numNearestNeighbors = 5;
+        int fraction = 1;
         boolean neighbors = false;
         boolean region = false;
         boolean balanced = false;
@@ -227,6 +249,7 @@ public class TestKdTreeDynamic {
         boolean find = false;
         boolean check = false;
         boolean worst = false;
+        boolean diagonal = false;
         boolean reverse = false;
 		
         for (int i = 0; i < args.length; i++) {
@@ -290,14 +313,22 @@ public class TestKdTreeDynamic {
                 worst = !worst;
                 continue;
             }
+            if (args[i].equals("-y") || args[i].equals("--diagonal")) {
+                diagonal = !diagonal;
+                continue;
+            }
+            if ( args[i].equals("-z") || args[i].equals("--fraction") ) {
+                fraction= Integer.parseInt(args[++i]);
+                continue;
+            }
             if (args[i].equals("-r") || args[i].equals("--reverse")) {
                 reverse = !reverse;
                 continue;
             }
             if (args[i].equals("-h") || args[i].equals("--help")) {
                 System.out.println("\nUsage:\n");
-                System.out.println("java TestKdTreeDynamic [-n N] [-x X] [-d D] [-t T] " +
-                                   "[-b] [-g] [-m M] [-j] [-s S] [-p P] [-v] [-f] [-c] [-c] [-r] [-i] [-h]\n\n" +
+                System.out.println("java TestKdTreeDynamicmic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] " +
+                                   "[-s S] [-p P] [-v] [-f] [-c] [-w] [-y] [-z Z] [-r] [-i] [-h]\n\n" +
                                    "where the command-line options are interpreted as follows.\n");
                 System.out.println("-n The number N of randomly generated points used to build the k-d tree\n");
                 System.out.println("-x The number X of duplicate points added to to randomly generated points\n");
@@ -312,8 +343,10 @@ public class TestKdTreeDynamic {
                 System.out.println("-v Verify the k-d tree ordering and balance after insertion or erasure of each pair\n");
                 System.out.println("-f Check for the next point after deleting each point (a cheap alternative to -v)\n");
                 System.out.println("-c Check for all remaining points after deleting each point (an expensive alternative to -v)\n");
-                System.out.println("-w Create a worst-case set of coordinates by walking a k-d tree in order\n");
-                System.out.println("-r Reverse the order of coordinates for erasure relative to insertion\n");
+                System.out.println("-w Create a worst-case set of point by walking a k-d tree in order\n");
+                System.out.println("-y Create a set of points that lie on the diagonal of the hypercube\n");
+                System.out.println("-z The number Z of segments into which to break the points for erasure/insertion\n");
+                System.out.println("-r Reverse the order of points for erasure relative to insertion\n");
                 System.out.println("-i The number I of iterations of k-d tree creation\n");
                 System.out.println("-h List the command-line options\n");
                 System.exit(0);
@@ -396,6 +429,8 @@ public class TestKdTreeDynamic {
         final double[] verifyTime = new double[iterations];
         final double[] searchTime = new double[iterations];
         final double[] eraseTime = new double[iterations];
+        final double[] finsertTime = new double[iterations];
+        final double[] feraseTime = new double[iterations];
         final double[] containsTime = new double[iterations];
         final double[] neighborsSearchTime = new double[iterations];
         final double[] neighborsBruteTime = new double[iterations];
@@ -459,11 +494,21 @@ public class TestKdTreeDynamic {
         // Build and test the k-d tree for the specified number of iterations.
         for (int k = 0; k < iterations; ++k)
         {
-            // Shuffle the coordinates vector independently for each dimension.
-            for (int j = 0; j < numDimensions; ++j) {
+            // Shuffle the coordinates vector independently for each dimension,
+            // unless a diagonal set of coordinates is specified.
+            if (diagonal) {
                 shuffleArray(oneCoordinate, rand);
-                for (int i = 0; i < numPoints; ++i) {
-                    coordinates[i].getKey()[j] = oneCoordinate[i];
+                for (int j = 0; j < numDimensions; ++j) {
+                    for (int i = 0; i < numPoints; ++i) {
+                        coordinates[i].getKey()[j] = oneCoordinate[i];
+                    }
+                }
+            } else {
+                for (int j = 0; j < numDimensions; ++j) {
+                    shuffleArray(oneCoordinate, rand);
+                    for (int i = 0; i < numPoints; ++i) {
+                        coordinates[i].getKey()[j] = oneCoordinate[i];
+                    }
                 }
             }
 
@@ -628,6 +673,111 @@ public class TestKdTreeDynamic {
                 }
             }
 
+            // Erase and re-insert the coordinates in segments.
+            if (fraction > 1) {
+                int size = coordinates.length / fraction;
+
+                // Each segment must contain at least 1 coordinate.
+                if (size >= 1) {
+
+                    // Randomly shuffle the coordinates.
+                    List<Pair> coordinateList = Arrays.asList(coordinates);
+                    Collections.shuffle(coordinateList);
+                    Pair[] shuffledCoordinates = coordinateList.toArray(new Pair[0]);
+
+                    // Iterate over the segments.
+                    for (int i = 0, start = 0; i < fraction; ++i, start += size) {
+                        // Prevent the end of the segment from exceeding the number of shuffled coordinates.
+                        int end = (start + size > shuffledCoordinates.length) ? shuffledCoordinates.length : start + size;
+                        if (reverse) {
+                            long feraTime = System.currentTimeMillis();
+                            for (int j = end-1; j >= start; --j) {
+                                if (tree.erase(shuffledCoordinates[j])) {
+                                    // Verify correctness of the k-d tree after each erasure.
+                                    if (verify) {
+                                        tree.verifyKdTree();
+                                    }
+                                    // A search for a (key, value) pair after erasing it should fail.
+                                    if (find && tree.contains(shuffledCoordinates[j])) {
+                                        throw new RuntimeException("\n\nfound fractional pair " + j + " after erasing it\n");
+                                    }
+                                    // A search for the prior (key, value) pair after erasing a (key, value) pair should succeed.
+                                    if (find && j > 0 && !tree.contains(shuffledCoordinates[j-1])) {
+                                        throw new RuntimeException("\n\nfailed to find prior fractional pair " + (j-1) + " after erasing pair " + j + "\n");
+                                    }
+                                    // A search for all prior (key value) pairs after erasing a (key, value) pair should succeed.
+                                    if (check && j > 0) {
+                                        for (int l = j-1; l >= 0; --l) {
+                                            if (!tree.contains(coordinates[l])) {
+                                                throw new RuntimeException("\n\nfailed to find prior fractional pair " + l + " after erasing pair " + j + "\n");
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to erase fractional pair " + j + " from dynamic k-d tree\n");
+                                }
+                            }
+                            feraTime = System.currentTimeMillis() - feraTime;
+                            feraseTime[k] += (double) feraTime / Constants.MILLISECONDS_TO_SECONDS;
+                            long finsTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.insert(shuffledCoordinates[j])) {
+                                    if (verify) {
+                                        tree.verifyKdTree();
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to insert fractional pair " + j + "\n");
+                                }
+                            }
+                            finsTime = System.currentTimeMillis() - finsTime;
+                            finsertTime[k] += (double) finsTime / Constants.MILLISECONDS_TO_SECONDS;
+                        } else {
+                            long feraTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.erase(shuffledCoordinates[j])) {
+                                    // Verify correctness of the k-d tree after each erasure.
+                                    if (verify) {
+                                        tree.verifyKdTree();
+                                    }
+                                    // A search for a (key, value) pair after erasing it should fail.
+                                    if (find && tree.contains(shuffledCoordinates[j])) {
+                                        throw new RuntimeException("\n\nfound fractional pair " + j + " after erasing it\n");
+                                    }
+                                    // A search for the next (key, value) pair after erasing a (key, value) pair should succeed.
+                                    if (find && j < coordinates.length-1 && !tree.contains(coordinates[j+1])) {
+                                        throw new RuntimeException("\n\nfailed to find next fractional pair " + (j+1) + " after erasing pair " + j + "\n");
+                                    }
+                                    // A search for all following (key, value) pairs after erasing a (key, value) pair should succeed.
+                                    if (check && j < coordinates.length-1) {
+                                        for (int l = j+1; l < coordinates.length; ++l) {
+                                            if (!tree.contains(coordinates[l])) {
+                                                throw new RuntimeException("\n\nfailed to find following fractional pair " + l + " after erasing pair " + j + "\n");
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to erase fractional pair " + j + " from dynamic k-d tree\n");
+                                }
+                            }
+                            feraTime = System.currentTimeMillis() - feraTime;
+                            feraseTime[k] += (double) feraTime / Constants.MILLISECONDS_TO_SECONDS;
+                            long finsTime = System.currentTimeMillis();
+                            for (int j = start; j < end; ++j) {
+                                if (tree.insert(shuffledCoordinates[j])) {
+                                    if (verify) {
+                                        tree.verifyKdTree();
+                                    }
+                                } else {
+                                    throw new RuntimeException("\n\nfailed to insert fractional pair " + j + "\n");
+                                }
+                            }
+                            finsTime = System.currentTimeMillis() - finsTime;
+                            finsertTime[k] += (double) finsTime / Constants.MILLISECONDS_TO_SECONDS;
+                        }
+                    }
+                }
+            }
+
             // Erase each coordinate from the dynamic k-d tree, and reverse
             // the order of the coordinates if reverse is true.
             long eTime = System.currentTimeMillis();
@@ -768,6 +918,12 @@ public class TestKdTreeDynamic {
         System.out.printf("search time = %.4f  std dev = %.4f\n", mean[0], std[0]);
         calcMeanStd(eraseTime, mean, std);
         System.out.printf("delete time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+        if (fraction > 1) {
+            calcMeanStd(finsertTime, mean, std);
+            System.out.printf("finser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            calcMeanStd(feraseTime, mean, std);
+            System.out.printf("fdelet time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+        }
 
         if (balanced) {
             System.out.println("\nstatic tree:\n");

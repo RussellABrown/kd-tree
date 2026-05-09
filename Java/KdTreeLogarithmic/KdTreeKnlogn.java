@@ -70,9 +70,12 @@ public class KdTreeKnlogn
 
         // If Constants.ENABLE_1TO3 is true, check whether the subtree
         // contains 3 KdNodes or fewer, and if so call buildKdTree1to3.
-        if (Constants.ENABLE_1TO3 && numPoints <= 3) {
-            tree.root = KdTreeNlogn.buildKdTree1to3(kdNodes, 0, numPoints-1, p);
-            return tree;
+        if ((Constants.ENABLE_INSERTION_REBALANCE ||
+             Constants.ENABLE_DELETION_REBALANCE) &&
+            Constants.ENABLE_1TO3 &&
+            numPoints <= 3) {
+                tree.root = KdTreeNlogn.buildKdTree1to3(kdNodes, 0, numPoints-1, p);
+                return tree;
         }
 
         // Don't allocate KdNodes instances for the pth references array
@@ -201,21 +204,24 @@ public class KdTreeKnlogn
 
         // If Constants.ENABLE_1TO3 is true, check whether the subtree
         // contains 3 KdNodes or fewer, and if so call buildKdTree1to3.
-        if (Constants.ENABLE_1TO3 && numPoints <= 3) {
-            long kdTime = System.currentTimeMillis();
-            tree.root = KdTreeNlogn.buildKdTree1to3(references[0], 0, numPoints-1, 0);
-            kdTime = System.currentTimeMillis() - kdTime;
+        if ((Constants.ENABLE_INSERTION_REBALANCE ||
+             Constants.ENABLE_DELETION_REBALANCE) &&
+            Constants.ENABLE_1TO3 &&
+            numPoints <= 3) {
+                long kdTime = System.currentTimeMillis();
+                tree.root = KdTreeNlogn.buildKdTree1to3(references[0], 0, numPoints-1, 0);
+                kdTime = System.currentTimeMillis() - kdTime;
 
-            // Return the number of nodes and the execution times by reference via arrays.
-            nN[0] = numPoints;
-            iT[0] = (double) initTime / Constants.MILLISECONDS_TO_SECONDS;
-            sT[0] = 0;
-            rT[0] = 0;
-            kT[0] = (double) kdTime / Constants.MILLISECONDS_TO_SECONDS;
-            vT[0] = 0;
-                
-            // Return the tree.
-            return tree;
+                // Return the number of nodes and the execution times by reference via arrays.
+                nN[0] = numPoints;
+                iT[0] = (double) initTime / Constants.MILLISECONDS_TO_SECONDS;
+                sT[0] = 0;
+                rT[0] = 0;
+                kT[0] = (double) kdTime / Constants.MILLISECONDS_TO_SECONDS;
+                vT[0] = 0;
+                    
+                // Return the tree.
+                return tree;
         }
 
         // Sort the first reference array using the first dimension (0) as the most significant

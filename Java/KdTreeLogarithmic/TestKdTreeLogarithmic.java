@@ -109,9 +109,6 @@
  *                           another doubly linked list by KdTree.addList method; otherwise,
  *                           the list is appended.
  * 
- * 
- *
- * 
  * Usage:
  *
  * java TestKdTreeLogarithmic [-n N] [-x X] [-d D] [-t T] [-b] [-g] [-m M] [-j] [-s S] \
@@ -680,11 +677,11 @@ public class TestKdTreeLogarithmic {
                 }
             }
 
-            // Erase and re-insert the coordinates in pieces.
+            // Erase and re-insert the coordinates in segments.
             if (fraction > 1) {
                 int size = coordinates.length / fraction;
 
-                // Each piece must contain at least 1 coordinate.
+                // Each segment must contain at least 1 coordinate.
                 if (size >= 1) {
 
                     // Randomly shuffle the coordinates.
@@ -692,9 +689,9 @@ public class TestKdTreeLogarithmic {
                     Collections.shuffle(coordinateList);
                     Pair[] shuffledCoordinates = coordinateList.toArray(new Pair[0]);
 
-                    // Iterate over the pieces.
+                    // Iterate over the segments.
                     for (int i = 0, start = 0; i < fraction; ++i, start += size) {
-                        // Prevent the end of the piece from exceeding the number of shuffled coordinates.
+                        // Prevent the end of the segment from exceeding the number of shuffled coordinates.
                         int end = (start + size > shuffledCoordinates.length) ? shuffledCoordinates.length : start + size;
                         if (reverse) {
                             long feraTime = System.currentTimeMillis();
