@@ -39,9 +39,9 @@ The second of the two arXiv articles is a review that contrasts the O[knlog(n)] 
 
 Both of the above-listed arXiv articles include C++ implementations of the improvements that followed the publication of those algorithms in the JCGT article and are described as follows. Those same improvements are available at this Github web page.
 
-The test_kdtree.cpp file and associated .h files (kdTree.h, kdTreeNode.h, kdTreeNlogn.h, kdTreeKnlogn.h, kdTreeYuCao.h, kdTreeHeapSort.h and kdTreeMergeSort.h) build and test a static k-d tree, which implements a set, via the O[knlog(n)], O[nlog(n)], or O[knlog(n)] + O[nlog(n)] algorithm.
+The C++/kd-tree/test_kdtree.cpp file and associated .h files (kdTree.h, kdTreeNode.h, kdTreeNlogn.h, kdTreeKnlogn.h, kdTreeYuCao.h, kdTreeHeapSort.h and kdTreeMergeSort.h) build and test a static k-d tree, which implements a set, via the O[knlog(n)], O[nlog(n)], or O[knlog(n)] + O[nlog(n)] algorithm.
 
-The test_kdmap.cpp file and associated .h files (kdMap.h, kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a static k-d tree-based key-to-multiple-value map via either the O[knlog(n)] or the O[nlog(n)] algorithm.
+The C++/kd-map/.../test_kdmap.cpp file and associated .h files (kdMap.h, kdMapNode.h, kdMapNlogn.h, kdMapKnlogn.h, kdMapHeapSort.h and kdMapMergeSort.h) build and test a static k-d tree-based key-to-multiple-value map via either the O[knlog(n)] or the O[nlog(n)] algorithm.
 
 See the test_kdtree.cpp and test_kdmap.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
 
