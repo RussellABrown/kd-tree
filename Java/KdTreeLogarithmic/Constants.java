@@ -57,7 +57,7 @@ public class Constants {
 
     protected static final int HEIGHT_DIFF = 1;
     
-    public static final boolean ENABLE_DEBUG = true;
+    public static final boolean ENABLE_DEBUG = false;
 
     public static final boolean ENABLE_1TO3 = true;
 
