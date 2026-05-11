@@ -38,18 +38,18 @@ import java.util.TreeSet;
 
 /**
  * <p>
- * The {@code KdTreeDynamic}  class extends the (@code KdTree} class and
- * accessess KdTree.root so that an instance of KdTreeDynamic
- * may use KdTree member functions that require access to root.
+ * The {@code KdTreeDynamic}  class extends the (@code KdTreeStatic} class and
+ * accessess KdTreeStatic.root so that an instance of KdTreeDynamic
+ * may use KdTreeStatic member functions that require access to root.
  * </p>
  */
-public class KdTreeDynamic extends KdTree {
+public class KdTreeDynamic extends KdTreeStatic {
 
     protected int nodeCount;
     private boolean inserted, erased, changed;
     protected long[] insertionHistogram, deletionHistogram;
 
-    // This constructor does not set KdTree.root
+    // This constructor does not set KdTreeStatic.root
     KdTreeDynamic(final int numDimensions,
                   final ExecutorService executor,
                   final int maxSubmitDepth)
@@ -65,11 +65,11 @@ public class KdTreeDynamic extends KdTree {
         deletionHistogram = new long[Constants.MAX_POWER_OF_2];
    }
 
-    // This constructor sets KdTree.root
+    // This constructor sets KdTreeStatic.root
     KdTreeDynamic(final int numDimensions,
                   final ExecutorService executor,
                   final int maxSubmitDepth,
-                  final KdTree tree)
+                  final KdTreeStatic tree)
     {
         super(numDimensions, executor, maxSubmitDepth);
         root = tree.root;
@@ -770,7 +770,10 @@ public class KdTreeDynamic extends KdTree {
         // Call KdTree.createKdTree to rebuild the subtree,
         // which recycles the nodes and hence invalidates
         // the node argument to this rebuildSubTree method.
-        KdTree tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
+        KdTreeStatic tree = KdTreeStatic.createKdTree(kdNodes,
+                                                      executor,
+                                                      maxSubmitDepth,
+                                                      p);
 
         // Increment the histogram element
         if (Constants.ENABLE_HISTOGRAMS) {
@@ -1029,7 +1032,7 @@ public class KdTreeDynamic extends KdTree {
     /**
      * <p>
      * The {@code getSortedPairs} method counts and appends the pairs
-     * from a {@code KdTree} to a pre-sized vector. Because the tree
+     * from a {@code kdTreeStatic} to a pre-sized vector. Because the tree
      * is traversed in order, the pairs are sorted by their tuples.
      *
      * Calling parameters:

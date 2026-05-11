@@ -46,7 +46,7 @@ public class KdTreeKnlogn
 {
     /**
      * <p>
-     * The {@code createKdTreeKnlogn} method builds a k-d tree from a KdNode[]
+     * The {@code createKdTreeKnlogn} method builds a static k-d tree from a KdNode[]
      * where the coordinates of each point are stored in KdNode.tuple
      * </p>
      *  
@@ -54,19 +54,21 @@ public class KdTreeKnlogn
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
      * @param p - the leading dimension that permutes cyclically
-     * @returns a {@code KdTree} instance
+     * @returns a {@code KdTreeStatic} instance
      */
-    protected static KdTree createKdTreeKnlogn(final KdNode[] kdNodes,
-                                               final ExecutorService executor,
-                                               final int maximumSubmitDepth,
-                                               final int p)
+    protected static KdTreeStatic createKdTreeKnlogn(final KdNode[] kdNodes,
+                                                     final ExecutorService executor,
+                                                     final int maximumSubmitDepth,
+                                                     final int p)
     {
         // Allocate the references arrays including one additional array.
         final int numPoints = kdNodes.length;
         final int numDimensions = kdNodes[0].tuple.length;
 
-        // Create the k-d tree.
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+        // Create a KdTreeStatic instance.
+        final KdTreeStatic tree = new KdTreeStatic(numDimensions,
+                                                   executor,
+                                                   maximumSubmitDepth);
 
         // If Constants.ENABLE_1TO3 is true, check whether the subtree
         // contains 3 KdNodes or fewer, and if so call buildKdTree1to3.
@@ -172,24 +174,26 @@ public class KdTreeKnlogn
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
      * @param nN, iT, sT, rT, kT, vT - single element arrays for returning values by reference
-     * @returns a {@code KdTree} instance
+     * @returns a {@code KdTreeStatic} instance
      */
-    protected static KdTree createKdTreeKnlogn(final Pair[] coordinates,
-                                               final ExecutorService executor,
-                                               final int maximumSubmitDepth,
-                                               long[] nN,
-                                               double[] iT,
-                                               double[] sT,
-                                               double[] rT,
-                                               double[] kT,
-                                               double[] vT)
+    protected static KdTreeStatic createKdTreeKnlogn(final Pair[] coordinates,
+                                                     final ExecutorService executor,
+                                                     final int maximumSubmitDepth,
+                                                     long[] nN,
+                                                     double[] iT,
+                                                     double[] sT,
+                                                     double[] rT,
+                                                     double[] kT,
+                                                    double[] vT)
     {
         long initTime = System.currentTimeMillis();
         final int numPoints = coordinates.length;
         final int numDimensions = coordinates[0].getKey().length;
 
-        // Create the k-d tree.
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+        // Create a KdTreeStatic instance.
+        final KdTreeStatic tree = new KdTreeStatic(numDimensions,
+                                                   executor,
+                                                   maximumSubmitDepth);
 
         // Create the references arrays including one additional array.
         final KdNode[][] references = new KdNode[numDimensions + 1][numPoints];
