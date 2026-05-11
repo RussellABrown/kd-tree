@@ -45,7 +45,7 @@ public class KdTreeNlogn
 {
     /**
      * <p>
-     * The {@code createKdTreeNlogn} method builds a k-d tree from a KdNode[]
+     * The {@code createKdTreeNlogn} method builds a static k-d tree from a KdNode[]
      * where the coordinates of each point are stored in KdNode.tuple
      * </p>
      *  
@@ -55,16 +55,18 @@ public class KdTreeNlogn
      * @param p - the leading dimension that permutes cyclically
      * @returns a {@code KdTree} instance
      */
-    protected static KdTree createKdTreeNlogn(final KdNode[] kdNodes,
-                                              final ExecutorService executor,
-                                              final int maximumSubmitDepth,
-                                              final int p)
+    protected static KdTreeStatic createKdTreeNlogn(final KdNode[] kdNodes,
+                                                    final ExecutorService executor,
+                                                    final int maximumSubmitDepth,
+                                                    final int p)
     {        
         final int numPoints = kdNodes.length;
         final int numDimensions = kdNodes[0].tuple.length;
 
-        // Create the k-d tree.
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+        // Create a KdTreeStatic instance.
+        final KdTreeStatic tree = new KdTreeStatic(numDimensions,
+                                                   executor,
+                                                   maximumSubmitDepth);
 
         // If Constants.ENABLE_1TO3 is true, check whether the subtree
         // contains 3 KdNodes or fewer, and if so call buildKdTree1to3.
@@ -121,7 +123,7 @@ public class KdTreeNlogn
     
     /**
      * <p>
-     * The {@code createKdTreeNlogn} method builds a k-d tree from a Pair<Long[], String>[]
+     * The {@code createKdTreeNlogn} method builds a static k-d tree from a Pair<Long[], String>[]
      * where the coordinates of each point are stored in Pair.key (a Long[]).
      * </p>
      *  
@@ -131,22 +133,22 @@ public class KdTreeNlogn
      * @param nN, iT, sT, rT, kT, vT - single element arrays for returning values by reference
      * @returns a {@code KdTree} instance
      */
-    protected static KdTree createKdTreeNlogn(final Pair[] coordinates,
-                                              final ExecutorService executor,
-                                              final int maximumSubmitDepth,
-                                              long[] nN,
-                                              double[] iT,
-                                              double[] sT,
-                                              double[] rT,
-                                              double[] kT,
-                                              double[] vT)
+    protected static KdTreeStatic createKdTreeNlogn(final Pair[] coordinates,
+                                                    final ExecutorService executor,
+                                                    final int maximumSubmitDepth,
+                                                    long[] nN,
+                                                    double[] iT,
+                                                    double[] sT,
+                                                    double[] rT,
+                                                    double[] kT,
+                                                    double[] vT)
     {        
         long initTime = System.currentTimeMillis();
         final int numPoints = coordinates.length;
         final int numDimensions = coordinates[0].getKey().length;
 
-        // Create a KdTree instance.
-        final KdTree tree = new KdTree(numDimensions, executor, maximumSubmitDepth);
+        // Create a KdTreeStatic instance.
+        final KdTreeStatic tree = new KdTreeStatic(numDimensions, executor, maximumSubmitDepth);
 
         // Create the reference array.
         final KdNode[] reference = new KdNode[numPoints];
@@ -240,7 +242,7 @@ public class KdTreeNlogn
     
     /**
      * <p>
-     * The {@code buildKdTreeNlogn} method builds a k-d tree by recursively partitioning the reference
+     * The {@code buildKdTreeNlogn} method builds a static k-d tree by recursively partitioning the reference
      * array and adding nodes to the tree.  The super key to be used for partitioning is permuted
      * cyclically for successive levels of the tree in order that sorting use x, y, z, etc. as the
      * most significant portion of the super key.
@@ -340,7 +342,7 @@ public class KdTreeNlogn
 
     /**
      * <p>
-     * The {@code buildKdTree1to3} method builds a k-d tree
+     * The {@code buildKdTree1to3} method builds a static k-d tree
      * that contains 3 nodes or fewer.
      * 
      * @param kdNodes - an array of {@code KdNode} instances
@@ -481,7 +483,7 @@ public class KdTreeNlogn
 
     /**
      * <p>
-     * The {@code buildKdTreePresorted} method builds a k-d tree by using the median of the
+     * The {@code buildKdTreePresorted} method builds a static k-d tree by using the median of the
      * pre-sorted reference array to partition that array, then calls the {@link buildKdTree}
      * method to recursively partition the reference array.
      * </p>

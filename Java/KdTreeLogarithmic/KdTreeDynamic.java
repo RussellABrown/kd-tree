@@ -38,12 +38,12 @@ import java.util.TreeSet;
 
 /**
  * <p>
- * The {@code KdTreeDynamic} class extends the (@code KdTree} class and
- * accessess KdTree.root so that an instance of KdTreeDynamic
- * may use KdTree member functions that require access to root.
+ * The {@code KdTreeDynamic} class extends the (@code KdTreeStatic} class and
+ * accessess KdTreeStatic.root so that an instance of KdTreeDynamic
+ * may use KdTreeStatic member functions that require access to root.
  * </p>
  */
-public class KdTreeDynamic extends KdTree {
+public class KdTreeDynamic extends KdTreeStatic {
 
     protected int nodeCount;
     private boolean inserted, erased, changed;
@@ -67,11 +67,11 @@ public class KdTreeDynamic extends KdTree {
         deletionHistogramDyn = new long[Constants.MAX_POWER_OF_2];
    }
 
-    // This constructor sets KdTree.root
+    // This constructor sets KdTreeStatic.root
     KdTreeDynamic(final int numDimensions,
                   final ExecutorService executor,
                   final int maxSubmitDepth,
-                  final KdTree tree)
+                  final KdTreeStatic tree)
     {
         super(numDimensions, executor, maxSubmitDepth);
         root = tree.root;
@@ -101,12 +101,12 @@ public class KdTreeDynamic extends KdTree {
 
     /**
      * <p>
-     * The {@code createKdTree} method builds a k-d tree from a list
-     * of {@code KdNode}s where the list is provided by a {@code KdTree}
+     * The {@code createKdTree} method builds a dynamic k-d tree from a list
+     * of {@code KdNode}s where the list is provided by a {@code KdTreeStatic}
      * and where the coordinates of each point are stored in KdNode.tuple
      * </p>
      *  
-     * @param kdTree - a KdTree that holds a list of KdNodes
+     * @param kdTree - a KdTreeDynamic that holds a list of KdNodes
      * @param numDimensions - the number of dimensions k for the k-d tree
      * @param executor - a {@link java.util.concurrent.ExecutorService ExecutorService}
      * @param maximumSubmitDepth - the maximum tree depth at which a thread may be launched
@@ -894,10 +894,13 @@ public class KdTreeDynamic extends KdTree {
         final KdNode[] kdNodes = new KdNode[count];
         getSubTree(node, kdNodes);
         
-        // Call KdTree.createKdTree to rebuild the subtree,
+        // Call KdTreeStatic.createKdTree to rebuild the subtree,
         // which recycles the nodes and hence invalidates
         // the node argument to this rebuildSubTree method.
-        KdTree tree = KdTree.createKdTree(kdNodes, executor, maxSubmitDepth, p);
+        KdTreeStatic tree = KdTreeStatic.createKdTree(kdNodes,
+                                                      executor,
+                                                      maxSubmitDepth,
+                                                      p);
 
         // Increment the histogram element
         if (Constants.ENABLE_HISTOGRAMS) {

@@ -29,7 +29,7 @@
  */
 
 /*
- * Test program for KdTreeDynamic.java, KdTree.java, KdTreeNlogn.java, KdTreeKnlogn.java
+ * Test program for KdTreeDynamic.java, KdTreeStatic.java, KdTreeNlogn.java, KdTreeKnlogn.java
  * KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java and Constants.java
  *
  * Configuration is controlled via the following constants in Constants.java
@@ -91,18 +91,14 @@
  * 
  * ENABLE_HISTOGRAMS - If true, histograms are obtained for rebalancing operations.
  * 
- * ENABLE_SPARSE_INSERTION - If true, the KdTreeDynamic.insert method inserts a node
- *                           into the smallest non-full dynamic k-d tree of the set
- *                           of k-d trees managed by a logarithmic k-d tree.
- * 
  * ENABLE_TUPLE_COPY - If true, specifies that the tuple array is copied in the
  *                     KdTreeDynamic.erase method and the KdNode and AvlNode constructors.
  * 
  * ENABLE_LIST_PREPEND - If true, a new k-d node is prepended to the doubly linked list
- *                       by the KdTree.add mthod; otherwise, the new k-d node is appended.
+ *                       by the KdTreeStatic.add mthod; otherwise, the new k-d node is appended.
  * 
  * ENABLE_LIST_PREPEND_ALL - If true, a doubly linked list of k-d nodes is prepended to
- *                           another doubly linked list by KdTree.addList method; otherwise,
+ *                           another doubly linked list by KdTreeStatic.addList method; otherwise,
  *                           the list is appended.
  * 
  * Usage:
@@ -532,17 +528,19 @@ public class TestKdTreeDynamic {
                 final double[] kT = new double[1]; // k-d tree-build time
                 final double[] vT = new double[1]; // verify time
 
-                final KdTree arbre = new KdTreeDynamic(numDimensions, executor,
-                                                       maximumSubmitDepth,
-                                                       KdTree.createKdTree(coordinates,
-                                                                           executor,
-                                                                           maximumSubmitDepth,
-                                                                           nN,
-                                                                           iT,
-                                                                           sT,
-                                                                           rT,
-                                                                           kT,
-                                                                           vT));
+                final KdTreeDynamic arbre =
+                    new KdTreeDynamic(numDimensions,
+                                      executor,
+                                      maximumSubmitDepth,
+                                      KdTreeStatic.createKdTree(coordinates,
+                                                                executor,
+                                                                maximumSubmitDepth,
+                                                                nN,
+                                                                iT,
+                                                                sT,
+                                                                rT,
+                                                                kT,
+                                                                vT));
 
                 // Check that the static tree contains the correct number of nodes.
                 long worstNumberOfNodes = arbre.verifyKdTree();
@@ -861,17 +859,19 @@ public class TestKdTreeDynamic {
                 final double[] kT = new double[1]; // k-d tree-build time
                 final double[] vT = new double[1]; // verify time
 
-                final KdTree arbre = new KdTreeDynamic(numDimensions, executor,
-                                                       maximumSubmitDepth,
-                                                       KdTree.createKdTree(coordinates,
-                                                                           executor,
-                                                                           maximumSubmitDepth,
-                                                                           nN,
-                                                                           iT,
-                                                                           sT,
-                                                                           rT,
-                                                                           kT,
-                                                                           vT));
+                final KdTreeDynamic arbre =
+                    new KdTreeDynamic(numDimensions,
+                                      executor,
+                                      maximumSubmitDepth,
+                                      KdTreeStatic.createKdTree(coordinates,
+                                                                executor,
+                                                                maximumSubmitDepth,
+                                                                nN,
+                                                                iT,
+                                                                sT,
+                                                                rT,
+                                                                kT,
+                                                                vT));
 
                 staticTreeHeight = arbre.getTreeHeight();
                 createTime[k] = iT[0] + sT[0] + rT[0] + kT[0];
