@@ -18,9 +18,9 @@ The C++/kd-map/raw-pointers/test_kdmapdynamic.cpp and C++/kd-map/smart-pointers/
 
 See the test_kdtreedynamic.cpp, test_kdtreedynamic.stats.cpp, and test_kdmapdynamic.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
 
-The Java/KdTreeDynamic/TestKdTreeDynamic.java file and associated .java files (KdTreeDynamic.java, KdTree.java, KdTreeNlogn.java, KdTreeKnlogn.java, KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java and Constants.java) build and test a dynamic k-d tree-based key-to-multiple-value map. See the comments in TestKdTreeDynamic.java for an explanation of the configuration constants in Constants.java.
+The Java/KdTreeDynamic/TestKdTreeDynamic.java file and associated .java files (KdTreeDynamic.java, KdTreeStatic.java, KdTreeNlogn.java, KdTreeKnlogn.java, KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java and Constants.java) build and test a dynamic k-d tree-based key-to-multiple-value map. See the comments in TestKdTreeDynamic.java for an explanation of the configuration constants in Constants.java.
 
-The KdTreeDynamic class extends the KdTree class.
+The KdTreeDynamic class extends the KdTreeStatic class.
 
 
 STATIC K-D TREE:
@@ -45,14 +45,14 @@ The C++/kd-map/raw-pointers/test_kdmap.cpp and C++/kd-map/smart-pointers/test_kd
 
 See the test_kdtree.cpp and test_kdmap.cpp files for compilation instructions, explanation of -D compilation defines, and explanation of command-line options.
 
-The TestKdTree.java file and associated .java files (KdTree.java, KdTreeNlogn.java, KdTreeKnlogn.java, KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java and Constants.java) build and test a static k-d tree-based key-to-multiple-value map. See the comments in TestKdTree.java for an explanation of the configuration constants in Constants.java.
+The TestKdTreeStatic.java file and associated .java files (KdTreeStatic.java, KdTreeNlogn.java, KdTreeKnlogn.java, KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java and Constants.java) build and test a static k-d tree-based key-to-multiple-value map. See the comments in TestKdTree.java for an explanation of the configuration constants in Constants.java.
 
 
 LOGARITHMIC K-D TREE:
 
 A set of static k-d trees of sizes that increase by successive powers of 2 form a dynamic k-d tree (aka a logarithmic k-d tree), as described by Overmars and van Leeuwen in "Two General Methods for Dynamizing Decomposable Searching Problems," Computing 26:155-166, 1981.
 
-The Java/KdTreeLogarithmic/TestKdTreeLogarithmic.java file and associated .java files (KdTreeDynamic.java, KdTree.java, KdTreeNlogn.java, KdTreeKnlogn.java, KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java, AvlTree.java, AvlNode.java and Constants.java) build and test a logarithmic k-d tree-based key-to-multiple-value map. See the comments in TestKdTreeLogarithmic.java for an explanation of the configuration constants in Constants.java.
+The Java/KdTreeLogarithmic/TestKdTreeLogarithmic.java file and associated .java files (KdTreeDynamic.java, KdTreeStatic.java, KdTreeNlogn.java, KdTreeKnlogn.java, KdNode.java, MergeSort.java, NearestNeighborHeap.java, Pair.java, Paire.java, AvlTree.java, AvlNode.java and Constants.java) build and test a logarithmic k-d tree-based key-to-multiple-value map. See the comments in TestKdTreeLogarithmic.java for an explanation of the configuration constants in Constants.java.
 
 The KdTreeLogarithmic class extends the KdTreeDynamic class.
 
