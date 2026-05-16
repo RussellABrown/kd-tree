@@ -335,44 +335,11 @@ public class TestAvlTree {
             iTime = System.currentTimeMillis() - iTime;
             insertTime[k] += (double) iTime / Constants.MILLISECONDS_TO_SECONDS;
 
-            // Verify that the correct number of AvlNodes were inserted.
+            // Verify that the correct number of AVL nodes were inserted.
             if (tree.size() + extraPoints != coordinates.length) {
                 throw new RuntimeException("\n\nnumber of coordinates = " + coordinates.length + "  !=  " +
                                            "number of inserted nodes + extra points = " + (tree.size() + extraPoints) + "\n");
             }
-
-            // Verify correct order of each node in the k-d tree and count the nodes.
-            long vTime = System.currentTimeMillis();
-            numberOfNodes = tree.verifyAvlTree();
-            vTime = System.currentTimeMillis() - vTime;
-            verifyTime[k] += (double) vTime / Constants.MILLISECONDS_TO_SECONDS;
-
-            // Verify that the correct number of tuples were inserted.
-            if (numberOfNodes + extraPoints != coordinates.length) {
-                throw new RuntimeException("\n\nnumber of coordinates = " + coordinates.length + "  !=  " +
-                                           "number of counted nodes + extra points = " + (numberOfNodes + extraPoints) + "\n");
-            }
-
-            // Record the maximum tree height
-            treeHeight = tree.getHeight();
-
-            // Search for each coordinate in the AVL tree. 
-            long sTime = System.currentTimeMillis();
-            if (reverse) {
-                for (int i = coordinates.length - 1; i >= 0; --i) {
-                    if (!tree.contains(coordinates[i])) {
-                        throw new RuntimeException("\n\nfailed to find tuple " + i + "\n");
-                    }
-                }
-            } else {
-                for (int i = 0; i < coordinates.length; ++i) {
-                    if (!tree.contains(coordinates[i])) {
-                        throw new RuntimeException("\n\nfailed to find tuple " + i + "\n");
-                    }
-                }
-            }
-            sTime = System.currentTimeMillis() - sTime;
-            searchTime[k] += (double) sTime / Constants.MILLISECONDS_TO_SECONDS;
 
             // Erase and re-insert the coordinates in segments.
             if (fraction > 1) {
@@ -483,6 +450,39 @@ public class TestAvlTree {
                 }
             }
 
+            // Verify correct order of each node in the AVL tree and count the nodes.
+            long vTime = System.currentTimeMillis();
+            numberOfNodes = tree.verifyAvlTree();
+            vTime = System.currentTimeMillis() - vTime;
+            verifyTime[k] += (double) vTime / Constants.MILLISECONDS_TO_SECONDS;
+
+            // Verify that the correct number of AVL nodes were inserted.
+            if (numberOfNodes + extraPoints != coordinates.length) {
+                throw new RuntimeException("\n\nnumber of coordinates = " + coordinates.length + "  !=  " +
+                                           "number of counted nodes + extra points = " + (numberOfNodes + extraPoints) + "\n");
+            }
+
+            // Record the maximum tree height
+            treeHeight = tree.getHeight();
+
+            // Search for each coordinate in the AVL tree. 
+            long sTime = System.currentTimeMillis();
+            if (reverse) {
+                for (int i = coordinates.length - 1; i >= 0; --i) {
+                    if (!tree.contains(coordinates[i])) {
+                        throw new RuntimeException("\n\nfailed to find tuple " + i + "\n");
+                    }
+                }
+            } else {
+                for (int i = 0; i < coordinates.length; ++i) {
+                    if (!tree.contains(coordinates[i])) {
+                        throw new RuntimeException("\n\nfailed to find tuple " + i + "\n");
+                    }
+                }
+            }
+            sTime = System.currentTimeMillis() - sTime;
+            searchTime[k] += (double) sTime / Constants.MILLISECONDS_TO_SECONDS;
+
             // Erase each coordinate from the AVL tree.
             // Shuffle the coordinates. Reverse the order
             // of the shuffled coordinates if reverse is true.
@@ -574,9 +574,19 @@ public class TestAvlTree {
         System.out.printf("delete time = %.4f  std dev = %.4f\n", mean[0], std[0]);
         if (fraction > 1) {
             calcMeanStd(finsertTime, mean, std);
-            System.out.printf("finser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            System.out.printf("\nfinser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
             calcMeanStd(feraseTime, mean, std);
             System.out.printf("fdelet time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            final double[] tinsertTime = new double[iterations];
+            final double[] teraseTime = new double[iterations];
+            for (int i = 0; i < iterations; ++i) {
+                tinsertTime[i] = insertTime[i] + finsertTime[i];
+                teraseTime[i] = eraseTime[i] + feraseTime[i];
+            }
+            calcMeanStd(tinsertTime, mean, std);
+            System.out.printf("\ntinser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            calcMeanStd(teraseTime, mean, std);
+            System.out.printf("tdelet time = %.4f  std dev = %.4f\n", mean[0], std[0]);
         }
 
         // Report the rotation counters.

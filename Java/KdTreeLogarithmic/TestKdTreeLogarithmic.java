@@ -592,92 +592,8 @@ public class TestKdTreeLogarithmic {
                     throw new RuntimeException("\n\nfailed to insert pair " + i + "\n");
                 }
             }
-
             iTime = System.currentTimeMillis() - iTime;
             insertTime[k] += (double) iTime / Constants.MILLISECONDS_TO_SECONDS;
-
-            // Verify correct order of each node in the k-d tree and count the nodes.
-            long vTime = System.currentTimeMillis();
-            numberOfNodes = tree.verifyKdTree();
-            vTime = System.currentTimeMillis() - vTime;
-            verifyTime[k] += (double) vTime / Constants.MILLISECONDS_TO_SECONDS;
-
-            if (numberOfNodes + extraPoints != coordinates.length) {
-                throw new RuntimeException("\n\nnumber of coordinates = " + coordinates.length + "  !=  " +
-                                           "number of nodes + extra points = " + (numberOfNodes + extraPoints) + "\n");
-            }
-
-            // Record the maximum tree height and the tree size.
-            treeHeight = tree.getTreeHeight();
-            treeSize = KdTreeLogarithmic.getSize(tree);
-
-            // Search for each coordinate in the k-d tree. 
-            long sTime = System.currentTimeMillis();
-            for (int i = 0; i < coordinates.length; ++i) {
-                if (!tree.contains(coordinates[i])) {
-                    throw new RuntimeException("\n\nfailed to find pair " + i + "\n");
-                }
-            }
-            sTime = System.currentTimeMillis() - sTime;
-            searchTime[k] += (double) sTime / Constants.MILLISECONDS_TO_SECONDS;
-
-            // Region search the k-d tree to find the nodes within a hypercube search region centered near the origin.
-            if (region) {
-                // Search the tree to get the list of KdNodes
-                long rsTime = System.currentTimeMillis();
-                List<KdNode> regionNodes = tree.searchKdTree(queryLower, queryUpper, executor, maximumSubmitDepth, 0, 0, true);
-                rsTime = System.currentTimeMillis() - rsTime;
-                regionSearchTime[k] += (double) rsTime / Constants.MILLISECONDS_TO_SECONDS;
-                numRegionNodes = regionNodes.size();
-
-                // Search the tree again to get the list of KdNodes.
-                long bsTime = System.currentTimeMillis();
-                List<KdNode> bruteNodes = tree.searchKdTree(queryLower, queryUpper, executor, maximumSubmitDepth, 0, 0, false);
-                bsTime = System.currentTimeMillis() - bsTime;
-                regionBruteTime[k] += (double) bsTime / Constants.MILLISECONDS_TO_SECONDS;
-
-                // Compare the results of region search and brute-force search.
-                if (regionNodes.size() != bruteNodes.size()) {
-                    throw new RuntimeException("\n\nnumber of nodes found by region-search and brute-force do not match\n");
-                } else {
-                    for (int i = 0; i < regionNodes.size(); ++i) {
-                        if (MergeSort.superKeyCompare(regionNodes.get(i).tuple, bruteNodes.get(i).tuple, 0) != 0L) {
-                            throw new RuntimeException("\n\nregion-search and brute-force values at " + i + " do not match\n");
-                        }
-                    }
-                }
-            }
-
-            // Search the k-d tree to find the numNearestNeighbors nearest neighbors to the first point.
-            if (neighbors)
-            {
-                // Search the tree to get the list of KdNodes.
-                long nnTime = System.currentTimeMillis();
-                List<Paire> nnList = tree.findNearestNeighbors(query, numNearestNeighbors);
-                nnTime = System.currentTimeMillis() - nnTime;
-                neighborsSearchTime[k] += (double) nnTime / Constants.MILLISECONDS_TO_SECONDS;
-                numNeighborsNodes = nnList.size();
-
-                // Search the tree again to get the list of KdNodes.
-                long bfTime = System.currentTimeMillis();
-                List<Paire> bfList = tree.findBruteNeighbors(query, numNearestNeighbors);
-                bfTime = System.currentTimeMillis() - bfTime;
-                neighborsBruteTime[k] += (double) bfTime / Constants.MILLISECONDS_TO_SECONDS;
-                int numBruteNodes = bfList.size();
-
-                // Compare the results of nearest-neighbor search and brute-force search.
-                if (numNeighborsNodes != numBruteNodes) {
-                    System.out.println("nearest-neighbor size = " + numNeighborsNodes +
-                                       "  !=  brute-force size = " + numBruteNodes);
-                }
-                for (int i = 0; i < numNeighborsNodes; ++i) {
-                    if (MergeSort.superKeyCompare(bfList.get(i).getValue().tuple, nnList.get(i).getValue().tuple, 0) != 0L) {
-                        System.out.println("nearest-neighbor and brute-force values at " + i + " do not match");
-                        System.out.println("nn dist = " + nnList.get(i).getKey() +
-                                           "  bf dist = " + bfList.get(i).getKey()+ "\n");
-                    }
-                }
-            }
 
             // Erase and re-insert the coordinates in segments.
             if (fraction > 1) {
@@ -781,6 +697,89 @@ public class TestKdTreeLogarithmic {
                         }
                         finsTime = System.currentTimeMillis() - finsTime;
                         finsertTime[k] += (double) finsTime / Constants.MILLISECONDS_TO_SECONDS;
+                    }
+                }
+            }
+
+            // Record the maximum tree height and the tree size.
+            treeHeight = tree.getTreeHeight();
+            treeSize = KdTreeLogarithmic.getSize(tree);
+
+            // Verify correct order of each node in the k-d tree and count the nodes.
+            long vTime = System.currentTimeMillis();
+            numberOfNodes = tree.verifyKdTree();
+            vTime = System.currentTimeMillis() - vTime;
+            verifyTime[k] += (double) vTime / Constants.MILLISECONDS_TO_SECONDS;
+
+            if (numberOfNodes + extraPoints != coordinates.length) {
+                throw new RuntimeException("\n\nnumber of coordinates = " + coordinates.length + "  !=  " +
+                                           "number of nodes + extra points = " + (numberOfNodes + extraPoints) + "\n");
+            }
+
+            // Search for each coordinate in the k-d tree. 
+            long sTime = System.currentTimeMillis();
+            for (int i = 0; i < coordinates.length; ++i) {
+                if (!tree.contains(coordinates[i])) {
+                    throw new RuntimeException("\n\nfailed to find pair " + i + "\n");
+                }
+            }
+            sTime = System.currentTimeMillis() - sTime;
+            searchTime[k] += (double) sTime / Constants.MILLISECONDS_TO_SECONDS;
+
+            // Region search the k-d tree to find the nodes within a hypercube search region centered near the origin.
+            if (region) {
+                // Search the tree to get the list of KdNodes
+                long rsTime = System.currentTimeMillis();
+                List<KdNode> regionNodes = tree.searchKdTree(queryLower, queryUpper, executor, maximumSubmitDepth, 0, 0, true);
+                rsTime = System.currentTimeMillis() - rsTime;
+                regionSearchTime[k] += (double) rsTime / Constants.MILLISECONDS_TO_SECONDS;
+                numRegionNodes = regionNodes.size();
+
+                // Search the tree again to get the list of KdNodes.
+                long bsTime = System.currentTimeMillis();
+                List<KdNode> bruteNodes = tree.searchKdTree(queryLower, queryUpper, executor, maximumSubmitDepth, 0, 0, false);
+                bsTime = System.currentTimeMillis() - bsTime;
+                regionBruteTime[k] += (double) bsTime / Constants.MILLISECONDS_TO_SECONDS;
+
+                // Compare the results of region search and brute-force search.
+                if (regionNodes.size() != bruteNodes.size()) {
+                    throw new RuntimeException("\n\nnumber of nodes found by region-search and brute-force do not match\n");
+                } else {
+                    for (int i = 0; i < regionNodes.size(); ++i) {
+                        if (MergeSort.superKeyCompare(regionNodes.get(i).tuple, bruteNodes.get(i).tuple, 0) != 0L) {
+                            throw new RuntimeException("\n\nregion-search and brute-force values at " + i + " do not match\n");
+                        }
+                    }
+                }
+            }
+
+            // Search the k-d tree to find the numNearestNeighbors nearest neighbors to the first point.
+            if (neighbors)
+            {
+                // Search the tree to get the list of KdNodes.
+                long nnTime = System.currentTimeMillis();
+                List<Paire> nnList = tree.findNearestNeighbors(query, numNearestNeighbors);
+                nnTime = System.currentTimeMillis() - nnTime;
+                neighborsSearchTime[k] += (double) nnTime / Constants.MILLISECONDS_TO_SECONDS;
+                numNeighborsNodes = nnList.size();
+
+                // Search the tree again to get the list of KdNodes.
+                long bfTime = System.currentTimeMillis();
+                List<Paire> bfList = tree.findBruteNeighbors(query, numNearestNeighbors);
+                bfTime = System.currentTimeMillis() - bfTime;
+                neighborsBruteTime[k] += (double) bfTime / Constants.MILLISECONDS_TO_SECONDS;
+                int numBruteNodes = bfList.size();
+
+                // Compare the results of nearest-neighbor search and brute-force search.
+                if (numNeighborsNodes != numBruteNodes) {
+                    System.out.println("nearest-neighbor size = " + numNeighborsNodes +
+                                       "  !=  brute-force size = " + numBruteNodes);
+                }
+                for (int i = 0; i < numNeighborsNodes; ++i) {
+                    if (MergeSort.superKeyCompare(bfList.get(i).getValue().tuple, nnList.get(i).getValue().tuple, 0) != 0L) {
+                        System.out.println("nearest-neighbor and brute-force values at " + i + " do not match");
+                        System.out.println("nn dist = " + nnList.get(i).getKey() +
+                                           "  bf dist = " + bfList.get(i).getKey()+ "\n");
                     }
                 }
             }
@@ -935,9 +934,19 @@ public class TestKdTreeLogarithmic {
         System.out.printf("delete time = %.4f  std dev = %.4f\n", mean[0], std[0]);
         if (fraction > 1) {
             calcMeanStd(finsertTime, mean, std);
-            System.out.printf("finser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            System.out.printf("\nfinser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
             calcMeanStd(feraseTime, mean, std);
             System.out.printf("fdelet time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            final double[] tinsertTime = new double[iterations];
+            final double[] teraseTime = new double[iterations];
+            for (int i = 0; i < iterations; ++i) {
+                tinsertTime[i] = insertTime[i] + finsertTime[i];
+                teraseTime[i] = eraseTime[i] + feraseTime[i];
+            }
+            calcMeanStd(tinsertTime, mean, std);
+            System.out.printf("\ntinser time = %.4f  std dev = %.4f\n", mean[0], std[0]);
+            calcMeanStd(teraseTime, mean, std);
+            System.out.printf("tdelet time = %.4f  std dev = %.4f\n", mean[0], std[0]);
         }
 
         if (balanced) {
@@ -971,6 +980,7 @@ public class TestKdTreeLogarithmic {
             System.out.printf("brute search time  = %.4f  std dev = %.4f\n", mean[0], std[0]);
         }
 
+        // Report the execution times.
         if (Constants.ENABLE_HISTOGRAMS) {
             tree.sumHistograms();
             System.out.println("\nHistograms of built tree sizes follow.");
