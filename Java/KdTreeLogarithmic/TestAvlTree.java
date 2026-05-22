@@ -359,7 +359,7 @@ public class TestAvlTree {
                         }
                         // Shuffle the coordinates within each segment.
                         List<Pair> coordinateList = Arrays.asList(Arrays.copyOfRange(coordinates, start, end));
-                        Collections.shuffle(coordinateList);
+                        Collections.shuffle(coordinateList, rand);
                         Pair[] shuffledCoordinates = coordinateList.toArray(new Pair[0]);
                         long feraTime = System.currentTimeMillis();
                         if (reverse) {
@@ -424,7 +424,7 @@ public class TestAvlTree {
 
                         // Re-shuffle the coordinates within each segment.
                         coordinateList = Arrays.asList(shuffledCoordinates);
-                        Collections.shuffle(coordinateList);
+                        Collections.shuffle(coordinateList, rand);
                         shuffledCoordinates = coordinateList.toArray(new Pair[0]);
                         long finsTime = System.currentTimeMillis();
                         // Re-insert each coordinate.
@@ -487,7 +487,7 @@ public class TestAvlTree {
             // Shuffle the coordinates. Reverse the order
             // of the shuffled coordinates if reverse is true.
             List<Pair> coordinateList = Arrays.asList(coordinates);
-            Collections.shuffle(coordinateList);
+            Collections.shuffle(coordinateList, rand);
             Pair[] shuffledCoordinates = coordinateList.toArray(new Pair[0]);
             long eTime = System.currentTimeMillis();
             if (reverse) {

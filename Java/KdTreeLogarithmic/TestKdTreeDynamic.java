@@ -606,7 +606,7 @@ public class TestKdTreeDynamic {
                         // Shuffle the coordinates within each segment unless worst is true.
                         List<Pair> coordinateList = Arrays.asList(Arrays.copyOfRange(coordinates, start, end));
                         if (!worst) {
-                            Collections.shuffle(coordinateList);
+                            Collections.shuffle(coordinateList, rand);
                         }
                         Pair[] shuffledCoordinates = coordinateList.toArray(new Pair[0]);
                         long feraTime = System.currentTimeMillis();
@@ -673,7 +673,7 @@ public class TestKdTreeDynamic {
                         // Re-shuffle the coordinates within each segment unless worst is true.
                         coordinateList = Arrays.asList(shuffledCoordinates);
                         if (!worst) {
-                            Collections.shuffle(coordinateList);
+                            Collections.shuffle(coordinateList, rand);
                         }
                         shuffledCoordinates = coordinateList.toArray(new Pair[0]);
                         long finsTime = System.currentTimeMillis();
@@ -781,7 +781,7 @@ public class TestKdTreeDynamic {
             // order of the shuffled coordinates if reverse is true.
             List<Pair> coordinateList = Arrays.asList(coordinates);
             if (!worst) {
-                Collections.shuffle(coordinateList);
+                Collections.shuffle(coordinateList, rand);
             }
             Pair[] shuffledCoordinates = coordinateList.toArray(new Pair[0]);
             long eTime = System.currentTimeMillis();
