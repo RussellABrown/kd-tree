@@ -87,17 +87,22 @@
  * ENABLE_LINKED_LIST - If true, use the LinkedList version of region search
  *                      instead of the ArrayList version.
  * 
+ * ENABLE_SPARSE_INSERTION - If true, the KdTreeDynamic.insert method inserts a node
+ *                           into the smallest non-full dynamic k-d tree of the set
+ *                           of k-d trees managed by a logarithmic k-d tree.
+ * 
  * ENABLE_INSERTION_REBALANCE - If true, a dynamic k-d tree is rebalanced after insertion
  *                              of a node if necessary.
  * 
  * ENABLE_DELETION_REBALANCE - If true, a dynamic k-d tree is rebalanced after deletion
  *                             of a node if necessary.
  * 
- * ENABLE_HISTOGRAMS - If true, histograms are obtained for rebalancing operations.
+ * ENABLE_CONDITIONAL_DELETION_REBALANCE - If true and ENABLE_DELETION_REBALANCE is true,
+ *                                         rebalance the k-d tree following erasure in
+ *                                         the KdTreeLogaritmic.erase method unless the
+ *                                         k-d tree will be rebuilt or discarded.
  * 
- * ENABLE_SPARSE_INSERTION - If true, the KdTreeDynamic.insert method inserts a node
- *                           into the smallest non-full dynamic k-d tree of the set
- *                           of k-d trees managed by a logarithmic k-d tree.
+ * ENABLE_HISTOGRAMS - If true, histograms are obtained for rebalancing operations.
  * 
  * ENABLE_TUPLE_COPY - If true, specifies that the tuple array is copied in the
  *                     KdTreeDynamic.erase method and the KdNode and AvlNode constructors.

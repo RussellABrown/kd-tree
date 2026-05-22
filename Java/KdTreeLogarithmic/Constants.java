@@ -67,13 +67,15 @@ public class Constants {
 
     public static final boolean ENABLE_LINKED_LIST = true;
 
+    public static final boolean ENABLE_SPARSE_INSERTION = false;
+
     public static final boolean ENABLE_INSERTION_REBALANCE = false;
 
     public static final boolean ENABLE_DELETION_REBALANCE = false;
 
-    public static final boolean ENABLE_HISTOGRAMS = true;
+    public static final boolean ENABLE_CONDITIONAL_DELETION_REBALANCE = false;
 
-    public static final boolean ENABLE_SPARSE_INSERTION = false;
+    public static final boolean ENABLE_HISTOGRAMS = true;
 
     public static final boolean ENABLE_TUPLE_COPY = false;
 

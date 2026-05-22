@@ -427,12 +427,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             return true;
         }
 
-        // Erasure removed an AVL node, so verify the the k-d tree index
-        // and erase the corresponding k-d node from its k-d tree.
-        //
-        // Erasure from the k-d tree, and rebalancing that tree, are performed
-        // as described by Brown in "A dynamic, self-balancing k-d tree,"
-        // www.arxiv.org/abs/2509.08148, 1-19, 2026.
+        // Erasure removed an AVL node, so verify the the k-d tree index.
         final short kdTreeIndex = avlTree.removedNode.kdTreeIndex;
         if ( Constants.ENABLE_DEBUG &&
              (kdTreeIndex < 0) || (kdTreeIndex >= Constants.MAX_POWER_OF_2) )
@@ -440,11 +435,33 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             throw new RuntimeException("\n\nk-d tree index = " + kdTreeIndex +
                                        " is out of range in KdTreeLogarithmic.erase\n");
         }
-        if (kdTrees[kdTreeIndex].erase(coordinate) == false) {
+
+        // Erase the corresponding k-d node from the specified k-d tree.
+        //
+        // Rebalance the k-d tree if the tree will not be subsequently
+        // rebuilt or discarded according to the criteria implemented below.
+        //
+        // Erasure from the k-d tree, and rebalancing that tree, are performed
+        // as described by Brown in "A dynamic, self-balancing k-d tree,"
+        // www.arxiv.org/abs/2509.08148, 1-19, 2026.
+        boolean rebalance = Constants.ENABLE_DELETION_REBALANCE;
+        if (Constants.ENABLE_CONDITIONAL_DELETION_REBALANCE)
+        {
+            rebalance = rebalance &&
+                        kdTreeIndex >= 2 &&
+                        (getSize(kdTrees[kdTreeIndex]) > (1 << (kdTreeIndex-2)) + 1 ||
+                         (getSize(kdTrees[kdTreeIndex-1]) == 0 &&
+                          getSize(kdTrees[kdTreeIndex-2]) == 0));
+        }
+
+        if (kdTrees[kdTreeIndex].erase(coordinate, rebalance) == false)
+        {
             throw new RuntimeException("\n\nfailed to erase coordinate from" +
                                        " k-d tree in KdTreeLogarithmic.erase\n");
         }
-        if (kdTrees[kdTreeIndex].deletedNode == null) {
+
+        if (kdTrees[kdTreeIndex].deletedNode == null)
+        {
             throw new RuntimeException("\n\nnull deleted node" +
                                        " in KdTreeLogarithmic.erase\n");
         }
@@ -540,7 +557,7 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             }
             return true;
 
-        } else if (getSize(kdTrees[kdTreeIndex]) > (1 << (kdTreeIndex - 2))) {
+        } else if (getSize(kdTrees[kdTreeIndex]) > (1 << (kdTreeIndex-2))) {
             // B_i for i >= 2 satisfies the constraint |B_i| > 2^(i-2)
             // so no further processing is necessary.
             return true;
