@@ -94,12 +94,6 @@
  * ENABLE_TUPLE_COPY - If true, specifies that the tuple array is copied in the
  *                     KdTreeDynamic.erase method and the KdNode and AvlNode constructors.
  * 
- * ENABLE_LIST_PREPEND - If true, a new k-d node is prepended to the doubly linked list
- *                       by the KdTree.add mthod; otherwise, the new k-d node is appended.
- * 
- * ENABLE_LIST_PREPEND_ALL - If true, a doubly linked list of k-d nodes is prepended to
- *                           another doubly linked list by KdTree.addList method; otherwise,
- *                           the list is appended.
  * 
  * Usage:
  *
