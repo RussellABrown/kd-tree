@@ -51,7 +51,7 @@ public class KdNode {
     
     protected long[] tuple;
     protected TreeSet<String> values = null;
-    protected int height = 0;
+    protected int height = 0; // a pathological tree may be 2^31-1 deep
     protected KdNode ltChild = null;
     protected KdNode gtChild = null;
 
