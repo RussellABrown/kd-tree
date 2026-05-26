@@ -1,5 +1,5 @@
 #! /bin/bash
-# Edit Constants.java so that NLOGN = true, ENABLE_DEBUG = false, ENABLE_PREFERRED_KD_NODE = true, ENABLE_PREFERRED_AVL_NODE = true, ENABLE_1TO3 = true, ENABLE_INSERTION_REBALANCE = false, ENABLE_DELETION_REBALANCE = false, ENABLE_TUPLE_COPY = false, ENABLE_SPARSE_INSERTION = false, MULTI_THREAD_CUTOFF = 16384
+# Edit Constants.java so that NLOGN = true, ENABLE_DEBUG = false, ENABLE_PREFERRED_KD_NODE = true, ENABLE_PREFERRED_AVL_NODE = true, ENABLE_1TO3 = true, ENABLE_INSERTION_REBALANCE = true, ENABLE_DELETION_REBALANCE = true, ENABLE_TUPLE_COPY = false, ENABLE_SPARSE_INSERTION = false, MULTI_THREAD_CUTOFF = 16384
 read -s -p "Enter Password for sudo: " sudoPW
 echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dyn/526k/i7.14.526k.3d.nlogn.preferred.1to3.c16k.1t.100i.cache.txt taskset -c 0 java TestKdTreeDynamic -d 3 -n 526172 -i 100 > ./test/dyn/526k/i7.14.526k.3d.nlogn.preferred.1to3.c16k.1t.100i.txt
 echo $sudoPW | sudo -S time perf stat -e LLC-load-misses,cache-misses,cache-references -o ./test/dyn/1003k/i7.14.1003k.3d.nlogn.preferred.1to3.c16k.1t.100i.cache.txt taskset -c 0 java TestKdTreeDynamic -d 3 -n 1003201 -i 100 > ./test/dyn/1003k/i7.14.1003k.3d.nlogn.preferred.1to3.c16k.1t.100i.txt
