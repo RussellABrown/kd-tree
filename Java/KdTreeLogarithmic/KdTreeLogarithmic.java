@@ -668,7 +668,8 @@ public class KdTreeLogarithmic extends KdTreeDynamic {
             }
 
             // Walk the list of k-d tree nodes and ensure that each corresponding
-            // AVL tree node indexes the newly created k-d tree in the kdTrees array.
+            // AVL tree node indexes the newly created k-d tree, or the swapped
+            // k-d tree, in the kdTrees array.
             KdNode node = tree.head;
             while (node != null) {
                 node.avlTreeNode.kdTreeIndex = (short) treeIndex;
